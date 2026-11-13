@@ -12,6 +12,7 @@ local van = require("lib.van")
 local story = { busy = false, menu = nil, tasks = {}, shake = 0, van = van }
 
 world.inside = function() return van.inside end
+world.anchor = function() return van.exterior end
 world.fixed = van.fixed
 
 -- Runs fn after `seconds` of game time.
@@ -59,15 +60,16 @@ end
 -- Spawns the van exterior at (x, z) facing `yaw` (front = local +X) with a
 -- rear door that leads inside, and points the interior windows at it.
 function story.place_van(w, x, z, yaw)
-  local model = w:prop({ voxel = "van", x = x, z = z, yaw = yaw, box = { 5.0, 2.3 } })
+  local y = w:height(x, z)
+  local model = w:prop({ voxel = "van", x = x, y = y, z = z, yaw = yaw, box = { 5.0, 2.3 } })
   local c, s = math.cos(yaw), math.sin(yaw)
   local dx, dz = x + c * -2.9, z - s * -2.9
-  w:prop({ model = "cube", x = x + c * 1.6, y = 2.45, z = z - s * 1.6, scale = { 0.25, 0.15, 0.25 },
+  w:prop({ model = "cube", x = x + c * 1.6, y = y + 2.45, z = z - s * 1.6, scale = { 0.25, 0.15, 0.25 },
            color = { 1, 0.7, 0.2, 1 }, unlit = true })
-  w:light(7, x + c * 1.6, 3.0, z - s * 1.6, 1.0, 0.6, 0.2, 7)
+  w:light(7, x + c * 1.6, y + 3.0, z - s * 1.6, 1.0, 0.6, 0.2, 7)
   w:interactable({ x = dx, z = dz, range = 2.0, prompt = "Enter the van", use = function() story.enter_van() end })
   story.van_door = { x = x + c * -3.6, z = z - s * -3.6, yaw = math.atan(c, -s) }
-  van.set_exterior(x, z, yaw)
+  van.set_exterior(x, z, yaw, y)
   return model
 end
 

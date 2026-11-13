@@ -65,3 +65,10 @@ Entities outside the view frustum of a pass SHALL NOT be drawn in that pass.
 #### Scenario: Looking away
 - **WHEN** the camera looks away from most of the scene
 - **THEN** the number of draw calls drops accordingly
+
+### Requirement: Terrain rendering
+Terrain chunks SHALL be drawn with per-vertex colours from the land's palette combined with the ground texture, without visible cracks along chunk borders.
+
+#### Scenario: Chunk seams
+- **WHEN** two neighbouring terrain chunks are drawn
+- **THEN** no gaps or sky pixels appear along their shared border

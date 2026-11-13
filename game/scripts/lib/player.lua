@@ -5,10 +5,18 @@ local audio = require("lib.audio")
 local player = {
   x = 0, z = 0, yaw = 0, pitch = 0,
   base_y = 0,                       -- floor height (the van pocket lies far below the world)
+  ground = nil,                     -- function(x, z) -> terrain height of a streamed land
+  indoors = false,                  -- inside the van: the floor is base_y
   eye = 1.6, radius = 0.3,
   walk_speed = 3.0, run_speed = 5.0, turn_speed = 2.4,
   bob = 0, step_dist = 0, enabled = true, moved = 0,
 }
+
+-- Height of the floor under the player.
+function player.floor()
+  if player.ground and not player.indoors then return player.ground(player.x, player.z) end
+  return player.base_y
+end
 
 function player.place(x, z, yaw)
   player.x, player.z, player.yaw, player.pitch = x, z, yaw or 0, 0
@@ -44,7 +52,7 @@ function player.update(dt)
     local dz = (fz * my + rz * mx) * speed * dt
     if dx ~= 0 or dz ~= 0 then
       local ox, oz = player.x, player.z
-      local nx, _, nz = mvl.move(player.x, player.base_y, player.z, dx, dz, player.radius)
+      local nx, _, nz = mvl.move(player.x, player.floor(), player.z, dx, dz, player.radius)
       player.x, player.z = nx, nz
       local d = util.dist2(ox, oz, nx, nz)
       player.moved = player.moved + d
@@ -57,7 +65,7 @@ function player.update(dt)
     end
   end
   local bob = math.sin(player.bob * 3.1) * 0.03
-  mvl.camera(player.x, player.base_y + player.eye + bob, player.z, player.yaw, player.pitch)
+  mvl.camera(player.x, player.floor() + player.eye + bob, player.z, player.yaw, player.pitch)
 end
 
 return player

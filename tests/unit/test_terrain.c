@@ -22,8 +22,27 @@ void test_terrain_height(void) {
         CHECK_NEAR(mvl_terrain_height(&t, 40, 40), mvl_terrain_height(&plain, 40, 40), 0);
         CHECK(fabsf(mvl_terrain_height(&t, 17, 10) - 2.5f) <= fabsf(mvl_terrain_height(&plain, 17, 10) - 2.5f) + 1e-5f);
     }
+    /* segment flats (roads): flat across, graded along */
+    mvl_terrain_init(&t, 7);
+    CHECK(mvl_terrain_add_segment(&t, 0, 0, 100, 0, 3, 4, 1.0f, 5.0f));
+    CHECK_NEAR(mvl_terrain_height(&t, 0, 0), 1.0f, 1e-5);
+    CHECK_NEAR(mvl_terrain_height(&t, 50, 2), 3.0f, 1e-5);
+    CHECK_NEAR(mvl_terrain_height(&t, 100, -2.5f), 5.0f, 1e-5);
+    CHECK_NEAR(mvl_terrain_height(&t, 120, 0), mvl_terrain_height(&t, 120, 0), 0);
+    CHECK(mvl_terrain_add_segment(&t, 5, 5, 5, 5, 1, 1, 2.0f, 9.0f)); /* zero length: a disc */
+    CHECK_NEAR(mvl_terrain_height(&t, 5.5f, 5), 2.0f, 1e-5);
+    /* the noise origin shifts the field, not the flats */
+    {
+        mvl_terrain a, b;
+        mvl_terrain_init(&a, 9);
+        mvl_terrain_init(&b, 9);
+        b.origin_x = 2048;
+        b.origin_z = -64;
+        CHECK_NEAR(mvl_terrain_height(&b, 10, 20), mvl_terrain_height(&a, 2058, -44), 0);
+    }
     for (int i = 0; i < MVL_TERRAIN_MAX_FLATS; ++i) mvl_terrain_add_flat(&t, 0, 0, -1, 0, 0);
     CHECK(!mvl_terrain_add_flat(&t, 0, 0, 1, 1, 0));
+    CHECK(!mvl_terrain_add_segment(&t, 0, 0, 1, 1, 1, 1, 0, 0));
     /* coarse map: a ramp along x is followed */
     mvl_terrain_init(&t, 7);
     t.amp = 0;

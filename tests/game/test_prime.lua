@@ -37,11 +37,12 @@ test.eq(#gen.check.run(G), 0, "Prime passes the checks")
 
 -- nothing else exists in Prime
 for _, addr in ipairs({ "u0.g1", "u0.g0.c1", "u0.g0.c0.s1", "u0.g0.c0.s0.p8", "u0.g0.c0.s0.p2.k1",
-                        "u0.g0.c0.s0.p2.k0.n1", "u0.g0.c0.s0.p3.k0", "u0.g0.c0.s0.p2.k0.n0.l1" }) do
+                        "u0.g0.c0.s0.p2.k0.n1", "u0.g0.c0.s0.p3.k0", "u0.g0.c0.s0.p2.k0.n0.l300" }) do
   local ok, err = pcall(G.generate, G, addr)
   test.expect(not ok and tostring(err):find("there is no place", 1, true), "not generated in Prime: " .. addr)
 end
 test.expect(G:generate(prime.FARM), "the way to the farm exists")
+test.expect(G:generate("u0.g0.c0.s0.p2.k0.n0.l1"), "the countryside around the farm exists")
 
 -- Earth's history, factions and religions are never generated
 for _, kind in ipairs({ "history", "faction", "religion", "era", "species", "culture" }) do

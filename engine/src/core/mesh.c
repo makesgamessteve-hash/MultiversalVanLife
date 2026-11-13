@@ -1,6 +1,7 @@
 /* Multiversal Van Life - mesh container, OBJ loader and builders. MIT License. */
 #include "core/assets.h"
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 static const uint8_t WHITE[4] = {255, 255, 255, 255};
@@ -216,6 +217,49 @@ void mvl_mesh_build_plane_grid(mvl_mesh *m, float sx, float sz, float tx, float 
             mvl_mesh_add_quad(m, p, n, u0, v0, u1, v1, NULL);
         }
     mvl_mesh_compute_bounds(m);
+}
+
+int mvl_mesh_build_ribbon(mvl_mesh *m, const float *pts, int count, float width, float v_scale) {
+    float v = 0.0f, prev_l[3], prev_r[3], prev_v = 0.0f;
+    if (!pts || count < 2) return 0;
+    if (v_scale <= 0.0f) v_scale = 1.0f;
+    for (int i = 0; i < count; ++i) {
+        const float *p = pts + 3 * i;
+        const float *a = pts + 3 * (i > 0 ? i - 1 : i), *b = pts + 3 * (i < count - 1 ? i + 1 : i);
+        float dx = b[0] - a[0], dz = b[2] - a[2], len = sqrtf(dx * dx + dz * dz);
+        float rx = len > 0.0f ? -dz / len * width * 0.5f : 0.0f, rz = len > 0.0f ? dx / len * width * 0.5f : 0.0f;
+        float l[3] = {p[0] - rx, p[1], p[2] - rz}, r[3] = {p[0] + rx, p[1], p[2] + rz};
+        if (i > 0) {
+            const float *q = pts + 3 * (i - 1);
+            float sx = p[0] - q[0], sy = p[1] - q[1], sz = p[2] - q[2];
+            /* normal = right x along */
+            float ax = r[0] - l[0], az = r[2] - l[2];
+            float n[3] = {-sy * az, az * sx - ax * sz, ax * sy}, nl;
+            float quad[4][3];
+            v += sqrtf(sx * sx + sy * sy + sz * sz) / v_scale;
+            nl = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (nl > 0.0f) {
+                n[0] /= nl;
+                n[1] /= nl;
+                n[2] /= nl;
+            }
+            if (n[1] < 0.0f) {
+                n[0] = -n[0];
+                n[1] = -n[1];
+                n[2] = -n[2];
+            }
+            memcpy(quad[0], prev_l, sizeof quad[0]);
+            memcpy(quad[1], prev_r, sizeof quad[1]);
+            memcpy(quad[2], r, sizeof quad[2]);
+            memcpy(quad[3], l, sizeof quad[3]);
+            mvl_mesh_add_quad(m, quad, n, 0.0f, v, 1.0f, prev_v, NULL);
+        }
+        memcpy(prev_l, l, sizeof prev_l);
+        memcpy(prev_r, r, sizeof prev_r);
+        prev_v = v;
+    }
+    mvl_mesh_compute_bounds(m);
+    return m->count > 0;
 }
 
 void mvl_mesh_build_box(mvl_mesh *m, float sx, float sy, float sz) {

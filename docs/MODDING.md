@@ -100,6 +100,8 @@ seamless (`tools/audiogen` crossfades their ends).
 | `w:light(i, x, y, z, r, g, b, range)` | Point light (slots 0..7, the van beacon uses 7) |
 | `w:env{...}` | Sky, fog, ambient and sun (see `mvl.environment`) |
 | `w:bounds(x0, z0, x1, z1)` | Walkable area |
+| `w:land(node, provider)` | Streams a generated land around the player (see [WORLDGEN.md](WORLDGEN.md#lands-and-chunks)) |
+| `w:height(x, z)` | Ground height (terrain of a streamed land, else 0) |
 
 `w.state` is a table for your world's own data and is reset on every load.
 Progress that must survive should use `progress.set_flag` / `progress.helped`.
@@ -108,7 +110,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 
 | Group | Functions |
 |---|---|
-| Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
+| Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `ribbon_mesh({x, y, z, ...}, width [, v_scale])`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}` |
 | Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
@@ -144,7 +146,9 @@ assert(roll >= 1 and roll <= 6 and hills >= -1 and hills <= 1 and caves >= -1)
 
 `mvl.terrain{...}` configures the height field (all fields optional):
 `seed`, `base`, `amp`, `freq`, `octaves`, `lacunarity`, `gain`,
-`flats = {{x, z, radius, falloff, height}, ...}` (up to 16 flattened areas),
+`origin_x`, `origin_z` (added to positions before sampling the noise),
+`flats = {{x, z, radius, falloff, height}, ...}` (up to 128 flattened areas;
+with `x2, z2` and `height2` a flat is a graded segment, e.g. under a road),
 `map = {w, h, x0, z0, cell, data}` (a coarse elevation map that is added,
 bicubic), and colouring: `palette = {{r, g, b}, ...}` (up to 4, low to high),
 `color_low`, `color_high`, `slope_color`, `slope_start`, `color_noise`,

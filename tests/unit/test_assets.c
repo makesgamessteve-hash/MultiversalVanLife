@@ -193,6 +193,22 @@ void test_obj(void) {
 void test_mesh_builders(void) {
     mvl_mesh m;
     mvl_mesh_init(&m);
+    {
+        /* ribbon: a 4 m wide road climbing along +x with a bend */
+        const float pts[9] = {0, 0, 0, 10, 1, 0, 20, 2, 5};
+        CHECK(mvl_mesh_build_ribbon(&m, pts, 3, 4, 5));
+        CHECK_EQ_INT(m.count, 12);
+        CHECK_NEAR(m.min[2], -2, 1e-5);
+        CHECK_NEAR(m.max[1], 2, 1e-5);
+        for (int i = 0; i < m.count; ++i) CHECK(m.v[i].normal[1] > 0.5f);
+        CHECK_NEAR(m.v[0].uv[0], 0, 1e-6);
+        CHECK(m.v[2].uv[1] > 1.9f); /* about 10 m along / 5 m per repeat */
+        mvl_mesh_free(&m);
+        CHECK(!mvl_mesh_build_ribbon(&m, pts, 1, 4, 5));
+        CHECK(!mvl_mesh_build_ribbon(&m, NULL, 3, 4, 5));
+        CHECK(mvl_mesh_build_ribbon(&m, pts, 2, 4, 0)); /* bad scale falls back */
+        mvl_mesh_free(&m);
+    }
     mvl_mesh_build_plane(&m, 4, 2, 2, 1);
     CHECK_EQ_INT(m.count, 6);
     CHECK_NEAR(m.min[0], -2, 1e-6);

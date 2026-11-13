@@ -6,7 +6,7 @@ local player = require("lib.player")
 local audio = require("lib.audio")
 
 local world = { current = nil, interactables = {}, updaters = {}, focus = nil, registry = {}, order = {},
-                fixed = {}, inside = function() return false end }
+                fixed = {}, inside = function() return false end, anchor = function() return nil end }
 
 -- ---------------------------------------------------------- registry
 function world.register(def)
@@ -60,6 +60,21 @@ function W:sprite(t)
     scale = { t.w or 1, t.h or 1, 1 }, solid = t.radius ~= nil, radius = t.radius,
     unlit = t.unlit, nofog = t.nofog, color = t.color,
   })
+end
+
+-- Ground height at (x, z): the streamed terrain of a land, else flat 0.
+function W:height(x, z) return self.streamer and mvl.height(x, z) or 0 end
+
+-- Turns this world into a generated land streamed in chunks around the
+-- player (see gen/chunks.lua). `provider(gx, gz)` returns neighbouring land
+-- nodes of the same country. Coordinates are metres around the land's centre.
+function W:land(node, provider)
+  local chunks = require("gen.chunks")
+  self.land_node = node
+  self.streamer = chunks.new(node, provider or function() return nil end)
+  self:bounds(self.streamer:bounds())
+  player.ground = function(x, z) return mvl.height(x, z) end
+  return self.streamer
 end
 
 -- Large surfaces are tessellated (4 m cells): retro vertex snapping would
@@ -131,6 +146,8 @@ end
 function world.load(id, spawn)
   local def = world.registry[id]
   assert(def, "unknown world " .. tostring(id))
+  if world.current and world.current.streamer then world.current.streamer:clear() end
+  player.ground = nil
   mvl.clear_scene()
   world.interactables, world.updaters, world.focus = {}, {}, nil
   mvl.environment({ reset = true })
@@ -141,6 +158,11 @@ function world.load(id, spawn)
   local sx, sz, syaw = def.build(w, spawn)
   if spawn and spawn.x then sx, sz, syaw = spawn.x, spawn.z, spawn.yaw end
   w.spawn = { x = sx or 0, z = sz or 0, yaw = syaw or 0 }
+  if w.streamer then
+    -- build the surroundings at once: around the player, or the parked van
+    local a = world.inside() and world.anchor() or nil
+    w.streamer:fill(a and a.x or w.spawn.x, a and a.z or w.spawn.z)
+  end
   if not world.inside() then
     player.place(w.spawn.x, w.spawn.z, w.spawn.yaw)
     audio.set_ambient(def.ambient, def.ambient_volume)
@@ -183,6 +205,11 @@ end
 function world.update(dt, allow_interact)
   local w = world.current
   if not w then return end
+  if w.streamer then
+    -- stream around the player, or around the parked van while inside it
+    local a = world.inside() and world.anchor() or nil
+    w.streamer:update(a and a.x or player.x, a and a.z or player.z)
+  end
   if w.def.update then w.def.update(w, dt) end
   for _, fn in ipairs(world.updaters) do fn(dt) end
   world.focus = allow_interact and world.find_focus() or nil

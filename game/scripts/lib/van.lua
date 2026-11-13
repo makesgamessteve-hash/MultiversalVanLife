@@ -77,9 +77,10 @@ end
 function van.on_console() end
 function van.on_door() end
 
--- Moves the van exterior (called when a world places the van).
-function van.set_exterior(x, z, yaw)
-  van.exterior = { x = x, z = z, yaw = yaw }
+-- Moves the van exterior (called when a world places the van at ground
+-- height y).
+function van.set_exterior(x, z, yaw, y)
+  van.exterior = { x = x, z = z, yaw = yaw, y = y or 0 }
   van.update_windows()
 end
 
@@ -95,7 +96,7 @@ function van.update_windows()
       local e = van.exterior
       local c, s = math.cos(e.yaw), math.sin(e.yaw)
       local lx, ly, lz = win.ext[1], win.ext[2], win.ext[3]
-      def.target = { e.x + c * lx + s * lz, ly, e.z - s * lx + c * lz }
+      def.target = { e.x + c * lx + s * lz, e.y + ly, e.z - s * lx + c * lz }
       def.target_yaw = e.yaw + win.ext_yaw
     end
     if def.target then mvl.portal(i - 1, def) else mvl.portal(i - 1) end
@@ -114,7 +115,7 @@ function van.window_target(i)
   if not van.exterior then return nil end
   local e = van.exterior
   local c, s = math.cos(e.yaw), math.sin(e.yaw)
-  return e.x + c * win.ext[1] + s * win.ext[3], win.ext[2], e.z - s * win.ext[1] + c * win.ext[3]
+  return e.x + c * win.ext[1] + s * win.ext[3], e.y + win.ext[2], e.z - s * win.ext[1] + c * win.ext[3]
 end
 
 -- Puts the player inside. `player` and `world` are passed in to avoid
@@ -122,6 +123,7 @@ end
 function van.enter(player, world)
   van.build()
   van.inside = true
+  player.indoors = true
   player.base_y = van.P[2]
   player.place(van.P[1] + van.ENTRY[1], van.P[3] + van.ENTRY[2], van.ENTRY[3])
   mvl.bounds(van.P[1] - van.BOUNDS, van.P[3] - van.BOUNDS, van.P[1] + van.BOUNDS, van.P[3] + van.BOUNDS)
@@ -131,6 +133,7 @@ end
 -- Puts the player outside at (x, z, yaw).
 function van.exit(player, world, x, z, yaw)
   van.inside = false
+  player.indoors = false
   player.base_y = 0
   player.place(x, z, yaw)
   world.apply_bounds()

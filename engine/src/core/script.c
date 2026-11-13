@@ -155,6 +155,29 @@ static int l_plane_mesh(lua_State *L) {
     return 1;
 }
 
+/* ribbon_mesh({x, y, z, x, y, z, ...}, width [, v_scale]) */
+static int l_ribbon_mesh(lua_State *L) {
+    mvl_mesh m;
+    float *pts;
+    int n;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    n = (int)lua_rawlen(L, 1) / 3;
+    if (n < 2 || n > 4096) return luaL_error(L, "a ribbon needs 2 to 4096 points");
+    pts = (float *)malloc(sizeof(float) * 3 * (size_t)n);
+    if (!pts) return luaL_error(L, "out of memory");
+    for (int i = 0; i < 3 * n; ++i) {
+        lua_rawgeti(L, 1, i + 1);
+        pts[i] = (float)lua_tonumber(L, -1);
+        lua_pop(L, 1);
+    }
+    mvl_mesh_init(&m);
+    mvl_mesh_build_ribbon(&m, pts, n, (float)luaL_checknumber(L, 2), (float)luaL_optnumber(L, 3, 4.0));
+    free(pts);
+    lua_pushinteger(L, mvl_res_mesh_from_data(&eng(L)->res, "<ribbon>", &m));
+    mvl_mesh_free(&m);
+    return 1;
+}
+
 static int l_box_mesh(lua_State *L) {
     mvl_mesh m;
     char name[96];
@@ -741,7 +764,7 @@ static int l_testing(lua_State *L) {
 }
 
 static const luaL_Reg mvl_funcs[] = {
-    {"texture", l_texture}, {"mesh", l_mesh}, {"plane_mesh", l_plane_mesh}, {"box_mesh", l_box_mesh},
+    {"texture", l_texture}, {"mesh", l_mesh}, {"plane_mesh", l_plane_mesh}, {"box_mesh", l_box_mesh}, {"ribbon_mesh", l_ribbon_mesh},
     {"mesh_bounds", l_mesh_bounds}, {"sound", l_sound},
     {"spawn", l_spawn}, {"set", l_set}, {"set_pos", l_set_pos}, {"get_pos", l_get_pos},
     {"set_yaw", l_set_yaw}, {"get_yaw", l_get_yaw}, {"set_visible", l_set_visible}, {"set_color", l_set_color},

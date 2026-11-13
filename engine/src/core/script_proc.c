@@ -135,6 +135,8 @@ static int l_terrain(lua_State *L) {
     t->octaves = field_int(L, 1, "octaves", t->octaves);
     t->lacunarity = field_num(L, 1, "lacunarity", t->lacunarity);
     t->gain = field_num(L, 1, "gain", t->gain);
+    t->origin_x = field_num(L, 1, "origin_x", 0);
+    t->origin_z = field_num(L, 1, "origin_z", 0);
     t->color_low = field_num(L, 1, "color_low", t->color_low);
     t->color_high = field_num(L, 1, "color_high", t->color_high);
     t->slope_start = field_num(L, 1, "slope_start", t->slope_start);
@@ -162,10 +164,19 @@ static int l_terrain(lua_State *L) {
         for (int i = 1; i <= n; ++i) {
             lua_rawgeti(L, -1, i);
             if (lua_istable(L, -1)) {
-                int top = lua_gettop(L);
-                if (!mvl_terrain_add_flat(t, field_num(L, top, "x", 0), field_num(L, top, "z", 0),
-                                          field_num(L, top, "radius", 4), field_num(L, top, "falloff", 6),
-                                          field_num(L, top, "height", 0)))
+                int top = lua_gettop(L), ok;
+                float h = field_num(L, top, "height", 0);
+                lua_getfield(L, top, "x2");
+                if (lua_isnumber(L, -1))
+                    ok = mvl_terrain_add_segment(t, field_num(L, top, "x", 0), field_num(L, top, "z", 0),
+                                                 field_num(L, top, "x2", 0), field_num(L, top, "z2", 0),
+                                                 field_num(L, top, "radius", 2), field_num(L, top, "falloff", 4), h,
+                                                 field_num(L, top, "height2", h));
+                else
+                    ok = mvl_terrain_add_flat(t, field_num(L, top, "x", 0), field_num(L, top, "z", 0),
+                                              field_num(L, top, "radius", 4), field_num(L, top, "falloff", 6), h);
+                lua_pop(L, 1);
+                if (!ok)
                     luaL_error(L, "too many flat areas (max %d)", MVL_TERRAIN_MAX_FLATS);
             }
             lua_pop(L, 1);

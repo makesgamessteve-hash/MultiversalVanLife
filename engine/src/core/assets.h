@@ -102,5 +102,9 @@ void mvl_mesh_build_plane(mvl_mesh *m, float size_x, float size_z, float tiles_x
 void mvl_mesh_build_plane_grid(mvl_mesh *m, float size_x, float size_z, float tiles_x, float tiles_z, int segments);
 /* Axis aligned box centred on origin (x,z) with base at y=0. */
 void mvl_mesh_build_box(mvl_mesh *m, float sx, float sy, float sz);
+/* A continuous strip `width` wide along a polyline of `count` points (x, y, z
+ * triples), e.g. a road draped over terrain. u runs 0..1 across, v along the
+ * length (one repeat every `v_scale` metres). Returns 0 for < 2 points. */
+int mvl_mesh_build_ribbon(mvl_mesh *m, const float *pts, int count, float width, float v_scale);
 
 #endif

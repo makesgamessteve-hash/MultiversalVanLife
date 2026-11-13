@@ -59,6 +59,19 @@ int mvl_terrain_add_flat(mvl_terrain *t, float x, float z, float radius, float f
     f->radius = radius < 0 ? 0 : radius;
     f->falloff = falloff < 0.001f ? 0.001f : falloff;
     f->height = height;
+    f->segment = 0;
+    return 1;
+}
+
+int mvl_terrain_add_segment(mvl_terrain *t, float x, float z, float x2, float z2, float radius, float falloff,
+                            float height, float height2) {
+    mvl_terrain_flat *f;
+    if (!mvl_terrain_add_flat(t, x, z, radius, falloff, height)) return 0;
+    f = &t->flats[t->flat_count - 1];
+    f->x2 = x2;
+    f->z2 = z2;
+    f->height2 = height2;
+    f->segment = 1;
     return 1;
 }
 
@@ -86,18 +99,30 @@ static float sample_map(const mvl_terrain *t, float x, float z) {
 }
 
 float mvl_terrain_height(const mvl_terrain *t, float x, float z) {
-    float h = t->base + t->amp * mvl_fbm2(x * t->freq, z * t->freq, t->seed, t->octaves, t->lacunarity, t->gain);
-    if (t->map) h += sample_map(t, x, z);
+    float nx = x + t->origin_x, nz = z + t->origin_z;
+    float h = t->base + t->amp * mvl_fbm2(nx * t->freq, nz * t->freq, t->seed, t->octaves, t->lacunarity, t->gain);
+    if (t->map) h += sample_map(t, nx, nz);
     for (int i = 0; i < t->flat_count; ++i) {
         const mvl_terrain_flat *f = &t->flats[i];
-        float dx = x - f->x, dz = z - f->z, d = sqrtf(dx * dx + dz * dz), w;
+        float dx = x - f->x, dz = z - f->z, d, w, target = f->height;
+        if (f->segment) {
+            /* distance to the segment and the height along it */
+            float sx = f->x2 - f->x, sz = f->z2 - f->z, len2 = sx * sx + sz * sz;
+            float s = len2 > 0.0f ? (dx * sx + dz * sz) / len2 : 0.0f;
+            if (s < 0.0f) s = 0.0f;
+            if (s > 1.0f) s = 1.0f;
+            dx -= sx * s;
+            dz -= sz * s;
+            target = f->height + (f->height2 - f->height) * s;
+        }
+        d = sqrtf(dx * dx + dz * dz);
         if (d <= f->radius) w = 1.0f;
         else if (d >= f->radius + f->falloff) continue;
         else {
             float s = 1.0f - (d - f->radius) / f->falloff;
             w = s * s * (3.0f - 2.0f * s);
         }
-        h = h + (f->height - h) * w;
+        h = h + (target - h) * w;
     }
     return h;
 }

@@ -6,11 +6,11 @@ A rural person finds an old sentient van, Juniper, that travels between worlds. 
 ## Requirements
 
 ### Requirement: Night one introduction
-A new game SHALL start on the farm at night with the van parked at the gate; shortly after, the van SHALL call the player, and entering it the first time SHALL play Juniper's introduction and remember that the van was met.
+A new game SHALL start on the generated farm at night with the van parked at the gate; shortly after, the van SHALL call the player, and entering it the first time SHALL play Juniper's introduction and remember that the van was met.
 
 #### Scenario: First visit
 - **WHEN** the player uses the van door for the first time
-- **THEN** the interior loads and the lines `van_intro_1` to `van_intro_6` play
+- **THEN** the player is inside the van and the lines `van_intro_1` to `van_intro_6` are shown
 
 ### Requirement: Van interior and console
 The van interior SHALL be much larger than the exterior and contain a console that lists every registered destination (the current location disabled), a way home when away, and a cancel entry.

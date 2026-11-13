@@ -12,8 +12,10 @@ prime.GALAXY = "u0.g0"
 prime.NEIGHBOURHOOD = "u0.g0.c0"
 prime.SOLAR_SYSTEM = "u0.g0.c0.s0"
 prime.EARTH = "u0.g0.c0.s0.p2"
--- the only place generated below Earth: the farm and its surroundings
+-- the only places generated below Earth: the farm (land 0) and the other
+-- lands of its countryside
 prime.FARM = "u0.g0.c0.s0.p2.k0.n0.l0"
+prime.COUNTRYSIDE = "u0.g0.c0.s0.p2.k0.n0"
 
 prime.universe = {
   name = "Prime",
@@ -60,10 +62,11 @@ prime.belts = {
 -- True for the Prime universe and everything in it.
 function prime.inside(addr) return addr == prime.UNIVERSE or addr:sub(1, 3) == "u0." end
 
--- May this place inside Prime exist? Only Prime's fixed places and the path
--- to the farm do.
+-- May this place inside Prime exist? Only Prime's fixed places, the path to
+-- the farm and the lands of its countryside do.
 function prime.allowed(addr)
-  return addr == prime.FARM or prime.FARM:sub(1, #addr + 1) == addr .. "."
+  return addr == prime.COUNTRYSIDE or prime.COUNTRYSIDE:sub(1, #addr + 1) == addr .. "." or
+         addr:sub(1, #prime.COUNTRYSIDE + 2) == prime.COUNTRYSIDE .. ".l"
 end
 
 -- Prime has no generated lore: no eras, history, factions, religions,

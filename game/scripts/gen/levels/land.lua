@@ -1,0 +1,230 @@
+-- Multiversal Van Life - countries and lands (MIT).
+--
+-- A country holds what its lands share: one continuous terrain and its road
+-- network. Its lands lie on a 16 x 16 grid of 2048 m squares; land index
+-- i sits at grid (i % 16, i // 16), centred on (gx * 2048, gz * 2048) in
+-- country coordinates. A land's description (features, fields, roads, flat
+-- areas, flora, spots) uses land-local metres around its centre; gen/chunks
+-- turns it into the walkable world.
+local dm = require("gen.dmath")
+local prime = require("gen.prime")
+local util = require("gen.util")
+
+local land = { SIZE = 2048, GRID = 16, ROAD_STEP = 128 }
+
+function land.grid(index) return index % land.GRID, index // land.GRID end
+
+function land.index(gx, gz)
+  if gx < 0 or gz < 0 or gx >= land.GRID or gz >= land.GRID then return nil end
+  return gz * land.GRID + gx
+end
+
+-- Terrain height before any flattening, in country coordinates.
+function land.raw_height(t, x, z)
+  return t.base + t.amp * mvl.noise(x * t.freq, z * t.freq, t.seed, t.octaves, t.lacunarity, t.gain)
+end
+
+local NEIGHBOURS = { "Mabel", "Agnes", "Walter", "Edith", "Arthur", "Hazel", "Ruth", "Albert", "Ivy", "Frank",
+                     "Doris", "Harold", "Elsie", "Stanley", "Winnie", "Cecil" }
+local TINTS = { { 1, 1, 1, 1 }, { 1, 0.85, 0.75, 1 }, { 0.8, 0.9, 1, 1 }, { 0.95, 1, 0.8, 1 }, { 1, 0.8, 0.9, 1 } }
+local CROPS = {
+  { name = "ploughed", texture = "dirt", tint = { 0.85, 0.75, 0.65, 1 } },
+  { name = "wheat", texture = "grass", tint = { 1.6, 1.35, 0.55, 1 } },
+  { name = "barley", texture = "grass", tint = { 1.3, 1.25, 0.7, 1 } },
+  { name = "cabbages", texture = "grass", tint = { 0.7, 1.15, 0.8, 1 } },
+}
+
+land.STYLES = {
+  countryside = { trees = { "tree_oak", "tree_pine" }, tree_count = 4, bush_count = 3, flower_count = 1, texture = "grass" },
+  farm = { trees = { "tree_oak", "tree_pine" }, tree_count = 3, bush_count = 3, flower_count = 2, texture = "grass" },
+}
+
+-- ---------------------------------------------------------------- country
+local function country_terrain(ctx)
+  local rng = ctx:rng()
+  local d = ctx.data
+  d.style = "countryside"
+  d.terrain = {
+    seed = rng:int(0, 1000000), base = 0, amp = dm.round(5 + rng:next() * 4, 3),
+    freq = dm.round(0.005 + rng:next() * 0.003, 5), octaves = 4, lacunarity = 2, gain = 0.5,
+    palette = { { 46, 70, 36 }, { 68, 96, 48 }, { 100, 116, 70 }, { 128, 126, 98 } },
+    color_low = -7, color_high = 9, slope_color = { 96, 86, 70 }, slope_start = 0.22, color_noise = 0.1, uv_scale = 4,
+  }
+  -- the old road: west to east along the first row of lands, wandering
+  local pts, wander = {}, rng:int(0, 100000)
+  local x = -land.SIZE / 2
+  while x <= (land.GRID - 0.5) * land.SIZE do
+    local z = 60 + 30 * mvl.noise(x * 0.0021, 0.5, wander, 2)
+    pts[#pts + 1] = { dm.round(x, 2), dm.round(z, 2) }
+    x = x + land.ROAD_STEP
+  end
+  d.roads = { { name = "the old road", width = 4, points = pts } }
+end
+
+-- ------------------------------------------------------------------ lands
+local function add_flat(d, x, z, radius, falloff, h)
+  d.flats[#d.flats + 1] = { x = dm.round(x, 3), z = dm.round(z, 3), radius = radius, falloff = falloff, height = dm.round(h, 3) }
+end
+
+-- Country roads crossing this land, with graded heights and segment flats.
+local function clip_roads(ctx, d, country)
+  local cx, cz, half = d.center[1], d.center[2], land.SIZE / 2
+  for _, road in ipairs(country.roads) do
+    local local_pts = {}
+    for i, p in ipairs(road.points) do
+      local next_p, prev_p = road.points[i + 1], road.points[i - 1]
+      local inside = math.abs(p[1] - cx) <= half and math.abs(p[2] - cz) <= half
+      local near = (next_p and math.abs(next_p[1] - cx) <= half and math.abs(next_p[2] - cz) <= half) or
+                   (prev_p and math.abs(prev_p[1] - cx) <= half and math.abs(prev_p[2] - cz) <= half)
+      if inside or near then
+        local_pts[#local_pts + 1] = { dm.round(p[1] - cx, 2), dm.round(p[2] - cz, 2), dm.round(land.raw_height(country.terrain, p[1], p[2]), 3) }
+      end
+    end
+    if #local_pts >= 2 then
+      d.roads[#d.roads + 1] = { name = road.name, width = road.width, texture = "dirt", points = local_pts }
+      for i = 1, #local_pts - 1 do
+        local a, b = local_pts[i], local_pts[i + 1]
+        d.flats[#d.flats + 1] = { x = a[1], z = a[2], x2 = b[1], z2 = b[2], radius = road.width / 2 + 0.6, falloff = 4,
+                                  height = a[3], height2 = b[3] }
+      end
+    end
+  end
+end
+
+-- Where the road crosses local x (for lanes joining it).
+local function road_z_at(d, x)
+  local road = d.roads[1]
+  if not road then return nil end
+  for i = 1, #road.points - 1 do
+    local a, b = road.points[i], road.points[i + 1]
+    if x >= a[1] and x <= b[1] then
+      local t = (x - a[1]) / (b[1] - a[1])
+      return a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t
+    end
+  end
+end
+
+local function farm(ctx, d, country)
+  local rng = ctx:rng()
+  local T = country.terrain
+  local cx, cz = d.center[1], d.center[2]
+  local function h(x, z) return land.raw_height(T, x + cx, z + cz) end
+  -- the farmhouse anchors everything recognisable: gate, van spot, door
+  local hx, hz = dm.round(rng:float(-8, 8), 3), dm.round(rng:float(-14, -4), 3)
+  local yaw = dm.round(rng:float(-0.45, 0.45), 4)
+  local c, s = dm.cos(yaw), dm.sin(yaw)
+  local function at(lx, lz) return dm.round(hx + c * lx + s * lz, 3), dm.round(hz - s * lx + c * lz, 3) end
+  local yard = h(hx, hz)
+  add_flat(d, hx, hz, 17, 10, yard)
+  local f = d.features
+  f[#f + 1] = { id = "farmhouse", role = "farmhouse", voxel = "house", x = hx, z = hz, yaw = yaw, box = { 6.0, 5.0 } }
+  local lx, lz = at(4.2, 3.5)
+  f[#f + 1] = { id = "lamp", role = "lamp", model = "lamp", x = lx, z = lz, radius = 0.2 }
+  -- barn somewhere behind the house, well in the yard
+  local bx, bz = at(rng:float(-17, -11), rng:float(-11, -4))
+  add_flat(d, bx, bz, 6, 6, yard)
+  f[#f + 1] = { id = "barn", role = "barn", voxel = "barn", x = bx, z = bz, yaw = dm.round(yaw + rng:float(-0.5, 0.5), 4),
+                box = { 5.0, 4.0 } }
+  local wx, wz = at(rng:float(-7, -3), rng:float(5, 9))
+  f[#f + 1] = { id = "well", role = "well", voxel = "well", x = wx, z = wz, radius = 0.9 }
+  -- fence along the front of the yard with a gap for the gate
+  for i = 0, 8 do
+    if i ~= 6 then
+      local fx, fz = at(9.5, i * 2.0)
+      f[#f + 1] = { id = "fence" .. i, role = "fence", voxel = "fence", x = fx, z = fz, yaw = dm.round(yaw + dm.pi / 2, 4),
+                    box = { 2.0, 0.3 } }
+    end
+  end
+  local gx, gz = at(9.5, 12)
+  local vx, vz = at(11.8, 9)
+  add_flat(d, vx, vz, 4, 7, yard)
+  local sx, sz = at(3.6, 1.5)
+  local nx, nz = at(rng:float(-4, -1), rng:float(10, 13))
+  d.spots = {
+    gate = { x = gx, z = gz }, van = { x = vx, z = vz, yaw = dm.round(yaw + dm.pi / 2, 4) },
+    spawn = { x = sx, z = sz, yaw = dm.round(yaw - 0.9, 4) },
+  }
+  d.neighbour = { name = NEIGHBOURS[rng:int(1, #NEIGHBOURS)], texture = "npc_farmer", tint = TINTS[rng:int(1, #TINTS)],
+                  x = nx, z = nz }
+  -- a lane from the van spot to the old road
+  local rz, rh = road_z_at(d, vx)
+  if rz then
+    local pts, steps = {}, 4
+    local ez = rz - 2
+    for i = 0, steps do
+      local t = i / steps
+      local px, pz = dm.round(vx + (rng:next() - 0.5) * (i > 0 and i < steps and 3 or 0), 2), dm.round(vz + (ez - vz) * t, 2)
+      pts[#pts + 1] = { px, pz, dm.round(i == 0 and yard or (i == steps and rh or h(px, pz)), 3) }
+    end
+    d.roads[#d.roads + 1] = { name = "the farm lane", width = 3, texture = "dirt", points = pts }
+    for i = 1, #pts - 1 do
+      local a, b = pts[i], pts[i + 1]
+      d.flats[#d.flats + 1] = { x = a[1], z = a[2], x2 = b[1], z2 = b[2], radius = 2.1, falloff = 4, height = a[3],
+                                height2 = b[3] }
+    end
+  end
+  -- fields around the farm
+  d.clear = { { x = hx, z = hz, r = 24 }, { x = vx, z = vz, r = 7 } }
+  for _ = 1, rng:int(2, 4) do
+    for _ = 1, 12 do
+      local a, dist = rng:next() * 2 * dm.pi, rng:float(32, 75)
+      local fx, fz = dm.round(hx + dm.cos(a) * dist, 2), dm.round(hz + dm.sin(a) * dist, 2)
+      local w, dd = dm.round(rng:float(14, 26), 2), dm.round(rng:float(12, 22), 2)
+      local r = math.sqrt(w * w + dd * dd) / 2
+      local ok = math.abs(fz - (road_z_at(d, fx) or 1e9)) > r + 6
+      for _, c2 in ipairs(d.clear) do
+        local dx, dz, rr = fx - c2.x, fz - c2.z, r + c2.r
+        if dx * dx + dz * dz < rr * rr then ok = false end
+      end
+      if ok then
+        local crop = CROPS[rng:int(1, #CROPS)]
+        add_flat(d, fx, fz, r, 6, h(fx, fz))
+        d.fields[#d.fields + 1] = { x = fx, z = fz, w = w, d = dd, yaw = dm.round(rng:next() * dm.pi, 4), crop = crop.name,
+                                    texture = crop.texture, tint = crop.tint }
+        d.clear[#d.clear + 1] = { x = fx, z = fz, r = r + 1 }
+        break
+      end
+    end
+  end
+end
+
+local function countryside(ctx, d)
+  local rng = ctx:rng()
+  d.clear = {}
+  -- the odd haystack
+  for i = 1, rng:int(0, 3) do
+    local x, z = dm.round(rng:float(-900, 900), 2), dm.round(rng:float(-900, 900), 2)
+    d.features[#d.features + 1] = { id = "haystack" .. i, role = "haystack", model = "cube", x = x, z = z,
+                                    scale = { 1.6, 1.4, 1.6 }, color = { 0.85, 0.72, 0.35, 1 }, box = { 1.6, 1.6 } }
+  end
+end
+
+function land.register(R)
+  R:pass("country", "terrain", { run = country_terrain })
+
+  R:pass("land", "layout", { run = function(ctx)
+    local country = ctx.parent.data
+    local d = ctx.data
+    local gx, gz = land.grid(ctx.node.index)
+    d.size, d.grid, d.center = land.SIZE, { gx, gz }, { gx * land.SIZE, gz * land.SIZE }
+    d.terrain = util.copy(country.terrain)
+    d.features, d.flats, d.roads, d.fields = {}, {}, {}, {}
+    d.style = ctx.node.address == prime.FARM and "farm" or (country.style or "countryside")
+    clip_roads(ctx, d, country)
+    if d.style == "farm" then farm(ctx, d, country) else countryside(ctx, d) end
+    d.flora = util.copy(land.STYLES[d.style] or land.STYLES.countryside)
+    d.texture = d.flora.texture
+    d.spots = d.spots or { spawn = { x = 0, z = (road_z_at(d, 0) or 0) + 6, yaw = 0 } }
+  end })
+
+  R:describe("land", function(node)
+    local d = node.data
+    if d.style == "farm" then
+      return string.format("The farm: a farmhouse, a barn, a well and %d fields; %s lives next door.", #d.fields,
+                           d.neighbour.name)
+    end
+    return string.format("Rolling %s, crossed by %s.", d.style, #d.roads > 0 and d.roads[1].name or "no road")
+  end)
+end
+
+return land

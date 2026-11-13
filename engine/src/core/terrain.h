@@ -1,9 +1,10 @@
 /* Multiversal Van Life - deterministic terrain height field and chunk meshes.
  * MIT License.
  *
- * height(x, z) = base + amp * fbm(x * freq, z * freq)
+ * height(x, z) = base + amp * fbm((x + origin_x) * freq, (z + origin_z) * freq)
  *              + coarse elevation map (bicubic, optional)
- * then blended towards up to MVL_TERRAIN_MAX_FLATS flat areas.
+ * then blended towards up to MVL_TERRAIN_MAX_FLATS flat areas: discs at one
+ * height, or segments (roads) whose height runs from one end to the other.
  * Chunk vertices are computed from integer grid coordinates, so the shared
  * border of two neighbouring chunks is bit-identical (no cracks). */
 #ifndef MVL_TERRAIN_H
@@ -12,16 +13,19 @@
 #include "core/assets.h"
 #include <stdint.h>
 
-#define MVL_TERRAIN_MAX_FLATS 16
+#define MVL_TERRAIN_MAX_FLATS 128
 #define MVL_TERRAIN_PALETTE 4
 
 typedef struct {
     float x, z, radius, falloff, height;
+    float x2, z2, height2; /* segment end (segment flats only) */
+    int segment;
 } mvl_terrain_flat;
 
 typedef struct {
     uint32_t seed;
     float base, amp, freq, lacunarity, gain;
+    float origin_x, origin_z; /* added to x, z before sampling the noise */
     int octaves;
     /* optional coarse elevation map (row-major, w x h samples) */
     float *map;
@@ -45,6 +49,10 @@ void mvl_terrain_init(mvl_terrain *t, uint32_t seed);
 int mvl_terrain_set_map(mvl_terrain *t, const float *data, int w, int h, float x0, float z0, float cell);
 void mvl_terrain_free(mvl_terrain *t);
 int mvl_terrain_add_flat(mvl_terrain *t, float x, float z, float radius, float falloff, float height);
+/* A flattened band of half width `radius` along the segment (x, z)-(x2, z2),
+ * its height running linearly from `height` to `height2`. */
+int mvl_terrain_add_segment(mvl_terrain *t, float x, float z, float x2, float z2, float radius, float falloff,
+                            float height, float height2);
 
 float mvl_terrain_height(const mvl_terrain *t, float x, float z);
 /* Builds chunk (cx, cz) of `size` metres with `cells` x `cells` quads. Vertex

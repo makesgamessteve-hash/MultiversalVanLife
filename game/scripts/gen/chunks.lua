@@ -1,0 +1,245 @@
+-- Multiversal Van Life - streaming lands in chunks around the player (MIT).
+--
+-- World coordinates are metres around the centre of the land the world was
+-- loaded for (the anchor); neighbouring lands of the same country lie at
+-- multiples of 2048 m. Chunks are 32 m squares: those within LOAD chunks of
+-- the player are built (nearest first, PER_TICK per update), those beyond
+-- UNLOAD are destroyed and their meshes released. A chunk's content (terrain,
+-- the land's features, fields and road pieces inside it, flora) depends only
+-- on the land and the chunk, so a discarded chunk comes back identical.
+local landgen = require("gen.levels.land")
+
+local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
+local S = {}
+S.__index = S
+
+local function key(a, b) return a .. "," .. b end
+
+-- anchor: a land node. provider(gx, gz): the land node at a grid position
+-- of the same country (generating it lazily), or nil where there is none.
+function chunks.new(anchor, provider)
+  local self = setmetatable({
+    anchor = anchor, provider = provider, lands = {}, land_list = {}, loaded = {}, count = 0,
+    stats = { built = 0, unloaded = 0, max_loaded = 0, lands = 0 },
+    agx = anchor.data.grid[1], agz = anchor.data.grid[2],
+  }, S)
+  self:activate(anchor, anchor.data.grid[1], anchor.data.grid[2])
+  return self
+end
+
+-- World offset of a land at grid (gx, gz).
+function S:offset(gx, gz) return (gx - self.agx) * landgen.SIZE, (gz - self.agz) * landgen.SIZE end
+
+function S:activate(node, gx, gz)
+  local ox, oz = self:offset(gx, gz)
+  local rec = { node = node, gx = gx, gz = gz, ox = ox, oz = oz }
+  self.lands[key(gx, gz)] = rec
+  self.land_list[#self.land_list + 1] = rec
+  self.stats.lands = self.stats.lands + 1
+  self:apply_terrain()
+  return rec
+end
+
+-- One continuous height field for the country, plus every active land's
+-- flat areas in world coordinates.
+function S:apply_terrain()
+  local cfg = {}
+  for k, v in pairs(self.anchor.data.terrain) do cfg[k] = v end
+  cfg.origin_x, cfg.origin_z = self.anchor.data.center[1], self.anchor.data.center[2]
+  cfg.flats = {}
+  for _, rec in ipairs(self.land_list) do
+    for _, f in ipairs(rec.node.data.flats) do
+      local g = { radius = f.radius, falloff = f.falloff, height = f.height, height2 = f.height2,
+                  x = f.x + rec.ox, z = f.z + rec.oz }
+      if f.x2 then g.x2, g.z2 = f.x2 + rec.ox, f.z2 + rec.oz end
+      cfg.flats[#cfg.flats + 1] = g
+    end
+  end
+  mvl.terrain(cfg)
+end
+
+-- The land containing a world position (activating it), or nil.
+function S:land_at(wx, wz)
+  local half = landgen.SIZE / 2
+  local gx = self.agx + math.floor((wx + half) / landgen.SIZE)
+  local gz = self.agz + math.floor((wz + half) / landgen.SIZE)
+  local k = key(gx, gz)
+  local rec = self.lands[k]
+  if rec ~= nil then return rec or nil end
+  local node = self.provider(gx, gz)
+  if not node then
+    self.lands[k] = false
+    return nil
+  end
+  return self:activate(node, gx, gz)
+end
+
+-- The walkable rectangle: every land of the country.
+function S:bounds()
+  local half = landgen.SIZE / 2
+  local x0, z0 = self:offset(0, 0)
+  local x1, z1 = self:offset(landgen.GRID - 1, landgen.GRID - 1)
+  return x0 - half + 2, z0 - half + 2, x1 + half - 2, z1 + half - 2
+end
+
+-- ------------------------------------------------------------- content
+local function resolve_mesh(f)
+  if f.voxel then return mvl.mesh("voxels/" .. f.voxel .. ".vox", f.voxel_size or 0.125) end
+  if f.model then return mvl.mesh("models/" .. f.model .. ".obj") end
+  return 0
+end
+
+local function inside(x, z, x0, z0) return x >= x0 and x < x0 + chunks.SIZE and z >= z0 and z < z0 + chunks.SIZE end
+
+local function cleared(d, lx, lz)
+  for _, c in ipairs(d.clear or {}) do
+    local dx, dz = lx - c.x, lz - c.z
+    if dx * dx + dz * dz < c.r * c.r then return false end
+  end
+  for _, road in ipairs(d.roads) do
+    local r = road.width / 2 + 2
+    for i = 1, #road.points - 1 do
+      local a, b = road.points[i], road.points[i + 1]
+      local sx, sz = b[1] - a[1], b[2] - a[2]
+      local len2 = sx * sx + sz * sz
+      local t = len2 > 0 and math.max(0, math.min(1, ((lx - a[1]) * sx + (lz - a[2]) * sz) / len2)) or 0
+      local dx, dz = lx - (a[1] + sx * t), lz - (a[2] + sz * t)
+      if dx * dx + dz * dz < r * r then return false end
+    end
+  end
+  return true
+end
+
+function S:build(cx, cz, rec)
+  local size, d = chunks.SIZE, rec.node.data
+  local x0, z0 = cx * size, cz * size
+  local c = { cx = cx, cz = cz, entities = {}, meshes = {}, land = rec }
+  local mesh = mvl.terrain_chunk(cx, cz, size, chunks.CELLS)
+  c.meshes[#c.meshes + 1] = mesh
+  c.entities[#c.entities + 1] = mvl.spawn({ mesh = mesh, texture = mvl.texture("textures/" .. (d.texture or "grass") .. ".tga"),
+                                            pos = { x0, 0, z0 } })
+  -- the land's features standing in this chunk
+  for _, f in ipairs(d.features) do
+    local wx, wz = f.x + rec.ox, f.z + rec.oz
+    if inside(wx, wz, x0, z0) then
+      local s = f.scale or 1
+      c.entities[#c.entities + 1] = mvl.spawn({
+        mesh = resolve_mesh(f), texture = f.texture and mvl.texture("textures/" .. f.texture .. ".tga") or 0,
+        pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
+        scale = type(s) == "number" and { s, s, s } or s, color = f.color,
+        solid = f.box ~= nil or f.radius ~= nil, box = f.box, radius = f.radius,
+      })
+    end
+  end
+  -- fields: decals on their flattened ground
+  for _, fl in ipairs(d.fields) do
+    local wx, wz = fl.x + rec.ox, fl.z + rec.oz
+    if inside(wx, wz, x0, z0) then
+      local m = mvl.plane_mesh(fl.w, fl.d, fl.w / 4, fl.d / 4, math.max(1, math.floor(math.max(fl.w, fl.d) / 4)))
+      c.meshes[#c.meshes + 1] = m
+      c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/" .. fl.texture .. ".tga"),
+                                                pos = { wx, mvl.height(wx, wz) + 0.02, wz }, yaw = fl.yaw, color = fl.tint,
+                                                decal = true })
+    end
+  end
+  -- road pieces whose middle lies in this chunk, draped every 4 m
+  for _, road in ipairs(d.roads) do
+    for i = 1, #road.points - 1 do
+      local a, b = road.points[i], road.points[i + 1]
+      local mx, mz = (a[1] + b[1]) / 2 + rec.ox, (a[2] + b[2]) / 2 + rec.oz
+      if inside(mx, mz, x0, z0) then
+        local ax, az, bx, bz = a[1] + rec.ox, a[2] + rec.oz, b[1] + rec.ox, b[2] + rec.oz
+        local len = math.sqrt((bx - ax) * (bx - ax) + (bz - az) * (bz - az))
+        local n = math.max(1, math.floor(len / 4))
+        local pts = {}
+        for k = 0, n do
+          local t = k / n
+          local x, z = ax + (bx - ax) * t, az + (bz - az) * t
+          pts[#pts + 1] = x - mx
+          pts[#pts + 1] = mvl.height(x, z) + 0.04
+          pts[#pts + 1] = z - mz
+        end
+        local m = mvl.ribbon_mesh(pts, road.width, 4)
+        c.meshes[#c.meshes + 1] = m
+        c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/" .. road.texture .. ".tga"),
+                                                  pos = { mx, 0, mz }, decal = true })
+      end
+    end
+  end
+  -- flora, seeded by the land and the chunk's place in it
+  local flora = d.flora
+  local lcx, lcz = cx - math.floor(rec.ox / size), cz - math.floor(rec.oz / size)
+  local rng = mvl.rng(mvl.hash(rec.node.seed, lcx, lcz))
+  local function plant(texture, w, h, radius)
+    local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
+    local sc = 0.8 + rng:next() * 0.5
+    if not cleared(d, lx, lz) then return end
+    local wx, wz = lx + rec.ox, lz + rec.oz
+    c.entities[#c.entities + 1] = mvl.spawn({
+      kind = "sprite", texture = mvl.texture("textures/" .. texture .. ".tga"),
+      pos = { wx, mvl.height(wx, wz), wz }, scale = { w * sc, h * sc, 1 }, solid = radius ~= nil, radius = radius,
+    })
+  end
+  for _ = 1, rng:int(0, flora.tree_count * 2) do
+    local tree = flora.trees[rng:int(1, #flora.trees)]
+    plant(tree, tree == "tree_pine" and 3 or 3.5, tree == "tree_pine" and 6 or 5, 0.4)
+  end
+  for _ = 1, rng:int(0, flora.bush_count * 2) do plant("bush", 1, 1) end
+  for _ = 1, rng:int(0, flora.flower_count * 2) do plant("flowers", 0.6, 0.6) end
+  self.loaded[key(cx, cz)] = c
+  self.count = self.count + 1
+  self.stats.built = self.stats.built + 1
+  self.stats.max_loaded = math.max(self.stats.max_loaded, self.count)
+  return c
+end
+
+function S:unload(k)
+  local c = self.loaded[k]
+  for _, e in ipairs(c.entities) do mvl.destroy(e) end
+  for _, m in ipairs(c.meshes) do mvl.release_mesh(m) end
+  self.loaded[k] = nil
+  self.count = self.count - 1
+  self.stats.unloaded = self.stats.unloaded + 1
+end
+
+-- Streams around (px, pz): drops far chunks and builds the nearest missing
+-- ones (at most `budget`, default PER_TICK). Returns the number built.
+function S:update(px, pz, budget)
+  local size = chunks.SIZE
+  local pcx, pcz = math.floor(px / size), math.floor(pz / size)
+  for k, c in pairs(self.loaded) do
+    if math.max(math.abs(c.cx - pcx), math.abs(c.cz - pcz)) > chunks.UNLOAD then self:unload(k) end
+  end
+  local built, limit = 0, budget or chunks.PER_TICK
+  for r = 0, chunks.LOAD do
+    for dz = -r, r do
+      for dx = -r, r do
+        if math.max(math.abs(dx), math.abs(dz)) == r then
+          local cx, cz = pcx + dx, pcz + dz
+          if not self.loaded[key(cx, cz)] then
+            local rec = self:land_at((cx + 0.5) * size, (cz + 0.5) * size)
+            if rec then
+              self:build(cx, cz, rec)
+              built = built + 1
+              if built >= limit then return built end
+            end
+          end
+        end
+      end
+    end
+  end
+  return built
+end
+
+-- Builds everything within LOAD at once (on arrival).
+function S:fill(px, pz) return self:update(px, pz, math.huge) end
+
+-- Destroys every chunk.
+function S:clear()
+  for k in pairs(self.loaded) do self:unload(k) end
+end
+
+-- Chunk record at a world position (nil if not built).
+function S:chunk_at(x, z) return self.loaded[key(math.floor(x / chunks.SIZE), math.floor(z / chunks.SIZE))] end
+
+return chunks

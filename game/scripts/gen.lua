@@ -43,9 +43,11 @@ require("gen.levels.universe")(gen.cosmos)
 require("gen.levels.galaxy").register(gen.cosmos)
 require("gen.levels.cluster").register(gen.cosmos)
 require("gen.levels.system").register(gen.cosmos)
+gen.land = require("gen.levels.land")
+gen.land.register(gen.cosmos)
 
--- Inside Prime nothing is generated below the planets except the path to
--- the farm; elsewhere places exist up to their parent's cap.
+-- Inside Prime nothing is generated below the planets except the farm and
+-- the countryside around it; elsewhere places exist up to their parent's cap.
 gen.prime = require("gen.prime")
 for _, level in ipairs({ "continent", "country", "land" }) do
   gen.cosmos:skeleton(level, function(parent, index)
@@ -86,6 +88,16 @@ end
 -- Called every tick: generates within the frame budget.
 function gen.update()
   if gen.world then gen.world:update() end
+end
+
+-- The land at grid (gx, gz) of the country containing land `addr`, or nil
+-- where there is none (outside the country, or not allowed in Prime).
+function gen.neighbour_land(G, addr, gx, gz)
+  local index = gen.land.index(gx, gz)
+  if not index then return nil end
+  local target = gen.address.parent(addr) .. ".l" .. index
+  local ok, node = pcall(G.generate, G, target)
+  return ok and node or nil
 end
 
 return gen

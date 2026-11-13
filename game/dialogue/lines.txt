@@ -19,7 +19,7 @@ van_welcome_back | juniper | Welcome back! Ready for another night?
 van_all_done | juniper  | Three worlds, three good deeds. You know, I think you're the best co-pilot I've ever had.
 van_not_done | juniper  | Someone here still needs us. Shall we stay a little longer?
 mabel_1      | mabel    | Evening, dear. Strange old van at your gate, isn't it? Wasn't there an hour ago.
-mabel_2      | mabel    | My late husband always said the night sky was full of doors. I never knew what he meant.
+mabel_2      | mabel    | My grandmother always said the night sky was full of doors. I never knew what she meant.
 mabel_3      | mabel    | You look like someone who's been somewhere far away. Good for you.
 wick_1       | wick     | Travellers! In Lanternfen we light the lanterns so the marsh-folk can find their way home.
 wick_2       | wick     | But the wisps blew out every flame tonight. Without light, little ones get lost in the reeds.

@@ -1,10 +1,20 @@
--- Multiversal Van Life - home: a farm at night where the van appears (MIT).
+-- Multiversal Van Life - home: the farm in the Prime universe, generated
+-- from the save's seed (MIT). The farmhouse, gate and van spot are always
+-- there; the barn, fields, trees and the neighbour vary between journeys.
 local world = require("lib.world")
 local story = require("lib.story")
 local dialogue = require("lib.dialogue")
+local lines = require("lib.lines")
 local progress = require("lib.progress")
+local gen = require("gen")
 
-local mabel_lines = { "mabel_1", "mabel_2", "mabel_3" }
+local neighbour_lines = { "mabel_1", "mabel_2", "mabel_3" }
+
+-- The neighbour's lines, spoken under the generated neighbour's name.
+local function neighbour_line(id, who)
+  local l = lines.get(id)
+  return { id = id, speaker = "neighbour", name = who.name, text = l.text, color = { 0.75, 0.9, 0.6 } }
+end
 
 world.register({
   id = "home",
@@ -14,39 +24,38 @@ world.register({
   build = function(w)
     w:env({
       sky_top = { 0.02, 0.03, 0.09 }, sky_horizon = { 0.10, 0.12, 0.24 }, fog_color = { 0.08, 0.1, 0.2 },
-      fog_near = 12, fog_far = 70, ambient = { 0.22, 0.24, 0.34 }, sun_dir = { -0.4, -1, -0.3 },
+      fog_near = 14, fog_far = 75, ambient = { 0.22, 0.24, 0.34 }, sun_dir = { -0.4, -1, -0.3 },
       sun_color = { 0.35, 0.4, 0.55 }, stars = 1,
     })
-    w:bounds(-30, -30, 30, 30)
-    w:ground("grass", 140, 70)
-    w:prop({ mesh = mvl.plane_mesh(4, 40, 2, 20, 10), texture = "dirt", x = 7, y = 0, z = 4, decal = true })
-    -- farmhouse (door on +X) and barn
-    w:prop({ voxel = "house", x = 0, z = -8, box = { 6.0, 5.0 } })
-    w:prop({ voxel = "barn", x = -13, z = -15, yaw = 0.3, box = { 5.0, 4.0 } })
-    w:prop({ voxel = "well", x = -5, z = 1, radius = 0.9 })
-    w:prop({ model = "lamp", x = 4.2, z = -4.5, radius = 0.2 })
-    w:light(0, 4.2, 2.8, -4.5, 1.0, 0.8, 0.5, 9)
-    w:light(1, 3.4, 1.6, -8, 1.0, 0.75, 0.4, 5) -- porch window glow
-    for i = -4, 4 do
-      if i ~= 2 then -- the gate gap leads to the van
-        w:prop({ voxel = "fence", x = 9.5, z = i * 2.0, yaw = math.pi / 2, box = { 2.0, 0.3 } })
+    local G = gen.world or gen.start(1)
+    local farm = G:generate(gen.prime.FARM)
+    local d = farm.data
+    w:land(farm, function(gx, gz) return gen.neighbour_land(G, farm.address, gx, gz) end)
+    -- lights of the farmhouse
+    for _, f in ipairs(d.features) do
+      if f.role == "lamp" then w:light(0, f.x, w:height(f.x, f.z) + 2.8, f.z, 1.0, 0.8, 0.5, 9) end
+      if f.role == "farmhouse" then
+        local c, s = math.cos(f.yaw), math.sin(f.yaw)
+        local lx, lz = f.x + c * 3.4, f.z - s * 3.4
+        w:light(1, lx, w:height(lx, lz) + 1.6, lz, 1.0, 0.75, 0.4, 5) -- porch window glow
       end
     end
-    w:scatter({ texture = "tree_pine", count = 22, min_r = 18, max_r = 28, w = 3, h = 6, radius = 0.4, seed = 7 })
-    w:scatter({ texture = "tree_oak", count = 8, min_r = 11, max_r = 17, cx = -6, cz = -4, w = 3.5, h = 5, radius = 0.4, seed = 3 })
-    w:scatter({ texture = "bush", count = 18, min_r = 5, max_r = 16, w = 1, h = 1, seed = 11 })
-    w:scatter({ texture = "flowers", count = 14, min_r = 2, max_r = 8, cx = 2, cz = -3, w = 0.6, h = 0.6, seed = 5 })
-    w:sprite({ texture = "moon", x = -50, y = 28, z = -70, w = 9, h = 9, unlit = true, nofog = true })
-    -- neighbour
-    w:npc({ texture = "npc_farmer", name = "Mabel", x = -3.5, z = 3.5, talk = function()
-      local n = (w.state.mabel or 0) % #mabel_lines + 1
-      w.state.mabel = n
-      dialogue.say(mabel_lines[n])
+    w:sprite({ texture = "moon", x = -50, y = 40, z = -70, w = 9, h = 9, unlit = true, nofog = true })
+    -- the neighbour
+    local n = d.neighbour
+    local e, it = w:npc({ texture = n.texture, name = n.name, x = n.x, z = n.z, talk = function()
+      local i = (w.state.neighbour or 0) % #neighbour_lines + 1
+      w.state.neighbour = i
+      dialogue.say(neighbour_line(neighbour_lines[i], n))
     end })
+    mvl.set_pos(e, n.x, w:height(n.x, n.z), n.z)
+    mvl.set_color(e, n.tint[1], n.tint[2], n.tint[3], n.tint[4])
+    w.state.neighbour_npc = it
     -- the van at the gate
-    story.place_van(w, 11.5, 1.0, math.pi / 2)
+    local v = d.spots.van
+    story.place_van(w, v.x, v.z, v.yaw)
     w.state.call_timer = progress.flag("van_met") and nil or 2.0
-    return 3.6, -6.5, -0.9
+    return d.spots.spawn.x, d.spots.spawn.z, d.spots.spawn.yaw
   end,
   update = function(w, dt)
     if w.state.call_timer then

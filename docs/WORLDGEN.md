@@ -173,6 +173,9 @@ the last bit between platforms). Generators use `gen.dmath` instead:
 | star cluster | Kind (open, globular, nursery) from position and age; stars from a mass function cut off by age, with classes, luminosities and companions; travel lanes as a relative neighbourhood graph, only with faster-than-light travel (jump lanes within the jump range). |
 | star system | The star, its habitable zone and frost line; planets on spaced orbits with Kepler periods (rocky and dwarf inside the frost line, giants outside, more planets and rocky worlds around metal-rich stars), their moons, belts. |
 
+| country | One continuous terrain (seed, height, palette) shared by its lands, and its road network. Lands lie on a 16 × 16 grid of 2048 m squares. |
+| land | A description, not geometry: style, terrain, features (buildings, props) with positions, fields, roads clipped from the country with graded heights, flat areas under them, flora, spots (spawn, van, gate) and people. |
+
 Checks registered by these levels: consistent laws, arm clusters richer in
 heavy elements than the core, lanes only with faster-than-light travel,
 distinct spaced orbits, Kepler periods and rocky worlds inside the frost line.
@@ -185,6 +188,41 @@ major moons and the belts. Prime has no magic, psionics or faster-than-light
 travel and no generated lore: `gen.lore(G, address)` returns nothing for any
 place in Prime, and nothing exists below its planets except the way to the
 farm (`gen.prime.FARM`), where the story begins.
+
+## Lands and chunks
+
+`gen/chunks.lua` turns land descriptions into the walkable world. A world
+calls `w:land(node, provider)`; world coordinates are then metres around
+that land's centre, and neighbouring lands of the same country lie at
+multiples of 2048 m (`provider(gx, gz)` generates them on approach).
+
+- **Chunks** are 32 m squares of 16 × 16 terrain cells. Those within 3
+  chunks of the player are built, nearest first, one per tick; those beyond
+  5 chunks are destroyed and their meshes released. On arrival every chunk
+  within reach is built at once (about 16 ms for 49 chunks).
+- **Content** of a chunk is the land's features, fields and road pieces
+  whose centre lies in it, plus flora seeded by `hash(land seed, chunk)`, so
+  a discarded chunk comes back identical.
+- **Terrain** is one height field per country (`mvl.terrain` with
+  `origin_x/origin_z` set to the anchor land's centre) plus the flat areas
+  of every active land: discs under buildings, fields and the van, and
+  graded segments under roads (`{x, z, x2, z2, height, height2}`). Chunk
+  borders share their vertices exactly, so there are no cracks
+  (`tests/gl/test_gl_chunk_seams.lua`).
+- **Roads** are draped ribbons (`mvl.ribbon_mesh`) drawn as decals on their
+  graded flats.
+- The player and every object stand on `mvl.height(x, z)`; while the player
+  is inside the van, the land streams around the parked van so its windows
+  look out at a complete world.
+
+### The farm
+
+Prime's farm (`gen.prime.FARM`, land 0 of the countryside) is generated from
+the save's seed: the farmhouse's position and angle, the barn, the well, the
+fields and their crops, the trees and the neighbour (name and look) vary
+between journeys, while the gate, the van's parking spot and the porch stay
+in the same place relative to the farmhouse. The other lands of the farm's
+country are open countryside along the old road.
 
 ## Fingerprints
 
