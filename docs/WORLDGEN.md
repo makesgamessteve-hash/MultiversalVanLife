@@ -211,6 +211,61 @@ travel and no generated lore: `gen.lore(G, address)` returns nothing for any
 place in Prime, and nothing exists below its planets except the way to the
 farm (`gen.prime.FARM`), where the story begins.
 
+## Life
+
+`gen/life/*.lua` gives every solid world its tree of life (Prime has none:
+its farm keeps its hand-made plants).
+
+- **Biochemistry** (`biochemistry` pass, before biomes): carbon life in
+  liquid water (90 % of such worlds), carbon life in ammonia on cold worlds
+  with air, slow silicon life in molten sulphur on very hot ones, or arcane
+  life wherever the universe's magic is life itself and strong. The star's
+  age decides how far it came: microbes, plants, or plants and animals.
+  Forests, grasslands and other vegetated biomes are bare on worlds without
+  plants.
+- **Lineages**: 2 or 3 plant lineages (leaf type and the forms it allows:
+  trees, shrubs, herbs, fungi) and 2 to 5 animal body plans (symmetry,
+  segments, limbs, covering, ways of moving, senses, eyes, size, birth).
+- **Species** (`species` pass): each land biome gets producers (more and
+  more trees in richer and forested biomes), grazers, predators, scavengers,
+  pollinators and decomposers in roughly 10 : 3 : 1 proportions. A species
+  keeps its lineage's limbs and covering and adapts: land animals are
+  shorter (height ∝ g^-0.3) and stockier (∝ √g) under strong gravity, winged
+  lineages fly only where air pressure / gravity ≥ 0.25 (glide or walk in
+  thinner air), coats thicken in the cold, plants take their star's foliage
+  palette, rich biomes grow larger species, and strong magic fields or
+  psionic universes give gifts. Every predator has prey in its biome, every
+  grazer plants to eat. Each species has a common name, a scientific name
+  (genus from its lineage, epithet from its biome or habits) and a bestiary
+  line.
+- **Intelligent species** (`sapients` pass): 0 to 2 on worlds with animals,
+  descended from a lineage (wings if it flew, its limbs and covering) with
+  physiology for later culture passes: anatomy (height, build, hands),
+  senses, lifespan, reproduction, diet, social instinct, temperament and
+  psionic potential. Each is a `species` fact.
+- **Spacefarers**: in universes with faster-than-light travel a cluster may
+  hold a spacefaring species, a fact shared by the systems it reached. The
+  cluster commits its homeworld and up to 3 colonies along the lanes; each
+  system makes sure it has a rocky world (a dwarf grows into one, or one
+  forms in the habitable zone) and passes the promise on to it. The
+  homeworld's tree of life gains the species' ancestral lineage and its
+  life includes the species with the same anatomy; colony worlds list the
+  colonists (with their homeworld anatomy and origin) alongside their
+  native life.
+
+Checks: every predator has prey in its biome, every species descends from
+a lineage with the same body plan, intelligent species match their
+ancestors, and every promise of a homeworld or colony is kept.
+
+**In the lands** (`gen/life/habitats.lua`): a land's habitats are its
+cell's biome and the commonest other land biome around the cell (weights
+0.65 and 0.35), each with a copy of its species and how to draw them. A slow
+noise field lays patches of the habitats across the land; each chunk shows
+plants (up to 16, more in rich biomes) and animals (at most 3; grazers in
+small herds, flyers above the ground) of its patch. Until phase 15 they are
+sprites (trees, bushes, flowers, fungi, crystal shards and four creature
+body plans) repainted in each species' colours.
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

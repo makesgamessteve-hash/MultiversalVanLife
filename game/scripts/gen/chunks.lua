@@ -10,6 +10,7 @@
 local landgen = require("gen.levels.land")
 local changes = require("memory.changes")
 local PAL = require("gen.visuals.palette")
+local habitats = require("gen.life.habitats")
 
 local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
 local S = {}
@@ -264,7 +265,7 @@ function S:build(cx, cz, rec)
   local lcx, lcz = cx - math.floor(rec.ox / size), cz - math.floor(rec.oz / size)
   local rng = mvl.rng(mvl.hash(rec.node.seed, lcx, lcz))
   local planted = 0
-  local function plant(texture, w, h, radius)
+  local function plant(texture, w, h, radius, sp)
     local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
     local sc = 0.8 + rng:next() * 0.5
     planted = planted + 1
@@ -274,16 +275,43 @@ function S:build(cx, cz, rec)
     if mvl.height(lx + rec.ox, lz + rec.oz) < 0.3 then return end -- nothing grows under water
     local wx, wz = lx + rec.ox, lz + rec.oz
     c.entities[#c.entities + 1] = mvl.spawn({
-      kind = "sprite", texture = PAL.texture(d.materials, texture),
+      kind = "sprite", texture = sp and mvl.texture_recolor("textures/" .. texture .. ".tga", sp.colors, sp.mode) or
+                                PAL.texture(d.materials, texture),
       pos = { wx, mvl.height(wx, wz), wz }, scale = { w * sc, h * sc, 1 }, solid = radius ~= nil, radius = radius,
     })
   end
-  for _ = 1, rng:int(0, flora.tree_count * 2) do
-    local tree = flora.trees[rng:int(1, #flora.trees)]
-    plant(tree, tree == "tree_pine" and 3 or 3.5, tree == "tree_pine" and 6 or 5, 0.4)
+  if d.habitats then
+    -- the plants and animals of this chunk's patch of habitat
+    local hab = habitats.habitat_at(d.habitats, rec.node.seed, (lcx + 0.5) * size, (lcz + 0.5) * size)
+    c.habitat, c.species, c.animals = hab.biome, {}, 0
+    local plants, animals = habitats.sample(hab, rng)
+    for _, sp in ipairs(plants) do
+      local n0 = #c.entities
+      plant(sp.sprite, sp.w, sp.h, sp.solid and 0.3 or nil, sp)
+      if #c.entities > n0 then c.species[sp.id] = true end
+    end
+    for _, sp in ipairs(animals) do
+      local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
+      local wx, wz = lx + rec.ox, lz + rec.oz
+      local sc = 0.85 + rng:next() * 0.3
+      if cleared(d, lx, lz) and mvl.height(wx, wz) > 0.3 then
+        c.species[sp.id] = true
+        c.animals = c.animals + 1
+        c.entities[#c.entities + 1] = mvl.spawn({
+          kind = "sprite", texture = mvl.texture_recolor("textures/" .. sp.sprite .. ".tga", sp.colors, sp.mode),
+          pos = { wx, mvl.height(wx, wz) + (sp.flies and 1.5 + rng:next() * 3 or 0), wz },
+          scale = { sp.w * sc, sp.h * sc, 1 },
+        })
+      end
+    end
+  else
+    for _ = 1, rng:int(0, flora.tree_count * 2) do
+      local tree = flora.trees[rng:int(1, #flora.trees)]
+      plant(tree, tree == "tree_pine" and 3 or 3.5, tree == "tree_pine" and 6 or 5, 0.4)
+    end
+    for _ = 1, rng:int(0, flora.bush_count * 2) do plant("bush", 1, 1) end
+    for _ = 1, rng:int(0, flora.flower_count * 2) do plant("flowers", 0.6, 0.6) end
   end
-  for _ = 1, rng:int(0, flora.bush_count * 2) do plant("bush", 1, 1) end
-  for _ = 1, rng:int(0, flora.flower_count * 2) do plant("flowers", 0.6, 0.6) end
   -- boulders of the land's bedrock
   if d.materials then
     self.boulders = self.boulders or {}

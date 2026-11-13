@@ -103,9 +103,16 @@ endif()
 # Coverage report for the engine core (requires MVL_COVERAGE=ON and gcovr).
 find_program(GCOVR gcovr)
 if(MVL_COVERAGE AND GCOVR)
+  # Hashing and noise legitimately run billions of times in the generator
+  # tests; newer gcovr versions take that for a gcov bug unless told not to.
+  execute_process(COMMAND ${GCOVR} --help OUTPUT_VARIABLE MVL_GCOVR_HELP ERROR_QUIET)
+  set(MVL_GCOVR_EXTRA "")
+  if(MVL_GCOVR_HELP MATCHES "suspicious-hits-threshold")
+    set(MVL_GCOVR_EXTRA --gcov-suspicious-hits-threshold 0)
+  endif()
   add_custom_target(coverage
     COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR} --filter ${CMAKE_SOURCE_DIR}/engine/src/core/
-            --print-summary --fail-under-line 95
+            ${MVL_GCOVR_EXTRA} --print-summary --fail-under-line 95
             --html-details ${CMAKE_BINARY_DIR}/coverage/index.html
             --xml ${CMAKE_BINARY_DIR}/coverage/coverage.xml
             ${CMAKE_BINARY_DIR}

@@ -825,6 +825,110 @@ def spr_flowers(path):
     save_tga(img, path)
 
 
+
+# -----------------------------------------------------------------------------
+# Fallback creatures and plants (greyscale: the game repaints them along each
+# species' colours with mvl.texture_recolor until voxel models arrive)
+# -----------------------------------------------------------------------------
+GREYS = [(36, 36, 36), (70, 70, 70), (110, 110, 110), (150, 150, 150), (190, 190, 190), (226, 226, 226)]
+
+
+def shaded(img, rng, cx, cy, rx, ry, light=0.62):
+    def col(x, y):
+        nx, ny = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
+        return pick(GREYS, light - nx * 0.2 - ny * 0.35 + rng.uniform(-0.08, 0.08), x, y, 0.7)
+    img.ellipse(cx, cy, rx, ry, col)
+
+
+def spr_critter_walker(path):
+    """A four-legged walker in side view, facing right."""
+    rng = random.Random(2101)
+    img = Image(32, 32)
+    for lx in (9, 13, 20, 24):  # legs (far pair darker)
+        c = GREYS[1] if lx in (13, 24) else GREYS[2]
+        img.rect(lx, 21, lx + 1, 30, c)
+        img.set(lx + 2, 30, c)
+    shaded(img, rng, 16, 17, 11, 6)
+    shaded(img, rng, 26, 12, 4.5, 4)  # head
+    img.line(5, 16, 2, 12, GREYS[2])  # tail
+    img.set(27, 11, (250, 250, 250))
+    img.set(28, 11, (20, 20, 20))
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
+
+def spr_critter_hopper(path):
+    """An upright two-legged hopper, facing right."""
+    rng = random.Random(2102)
+    img = Image(32, 32)
+    img.rect(12, 22, 13, 30, GREYS[2])
+    img.rect(18, 22, 19, 30, GREYS[1])
+    img.rect(14, 30, 15, 30, GREYS[2])
+    img.rect(20, 30, 21, 30, GREYS[1])
+    shaded(img, rng, 16, 16, 7, 8.5)
+    shaded(img, rng, 19, 6, 5, 4.5)
+    img.line(9, 20, 4, 26, GREYS[2])  # tail
+    img.line(21, 15, 24, 18, GREYS[3])  # little arm
+    img.set(21, 5, (250, 250, 250))
+    img.set(22, 5, (20, 20, 20))
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
+
+def spr_critter_flyer(path):
+    """A winged flyer, wings raised."""
+    rng = random.Random(2103)
+    img = Image(32, 32)
+    img.poly([(15, 14), (2, 4), (6, 13), (3, 17)], lambda x, y: pick(GREYS, 0.75 + rng.uniform(-0.1, 0.1), x, y, 0.6))
+    img.poly([(18, 14), (30, 3), (27, 12), (30, 17)], lambda x, y: pick(GREYS, 0.55 + rng.uniform(-0.1, 0.1), x, y, 0.6))
+    shaded(img, rng, 16, 17, 5, 4)
+    shaded(img, rng, 21, 14, 3, 2.5)
+    img.line(11, 18, 8, 22, GREYS[2])
+    img.set(22, 13, (20, 20, 20))
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
+
+def spr_critter_crawler(path):
+    """A segmented crawler, low to the ground."""
+    rng = random.Random(2104)
+    img = Image(32, 32)
+    for i, x in enumerate(range(5, 28, 4)):
+        shaded(img, rng, x, 26 - (1 if i % 2 else 0), 3.2, 3.2, 0.5 + i * 0.03)
+        img.set(x, 30, GREYS[1])
+    shaded(img, rng, 28, 24, 3, 3)
+    img.line(29, 21, 31, 17, GREYS[2])  # feelers
+    img.line(27, 21, 27, 17, GREYS[2])
+    img.set(29, 23, (20, 20, 20))
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
+
+def spr_plant_fungus(path):
+    """A cluster of capped fungi."""
+    rng = random.Random(2105)
+    img = Image(32, 32)
+    for (cx, top, r, stem) in ((10, 14, 7, 2), (22, 9, 8, 2), (17, 21, 5, 1)):
+        img.rect(cx - stem, top + 2, cx + stem, 31, GREYS[4])
+        img.ellipse(cx, top + 1, r, r * 0.55, lambda x, y: pick(GREYS, 0.45 - (y - top) * 0.06 + rng.uniform(-0.1, 0.1), x, y, 0.6))
+        for _ in range(3):
+            img.set(cx + rng.randint(-r + 2, r - 2), top + rng.randint(-1, 1), GREYS[5])
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
+
+def spr_plant_shard(path):
+    """Crystal shards growing like a shrub."""
+    rng = random.Random(2106)
+    img = Image(32, 32)
+    for (x0, x1, top, v) in ((6, 12, 8, 0.7), (12, 19, 2, 0.9), (18, 26, 10, 0.55), (9, 15, 15, 0.8), (20, 27, 17, 0.65)):
+        mid = (x0 + x1) / 2
+        img.poly([(x0, 31), (mid, top), (x1, 31)], lambda x, y, m=mid, v=v: pick(GREYS, v - (0.25 if x < m else 0) +
+                                                                                   rng.uniform(-0.05, 0.05), x, y, 0.4))
+        img.line(mid, top + 2, mid, 30, GREYS[5])
+    img.outline(GREYS[0])
+    save_tga(img, path)
+
 def spr_moon(path):
     rng = random.Random(2006)
     img = Image(64, 64)
@@ -2129,6 +2233,12 @@ ASSETS = [
     ("textures/tree_oak.tga", spr_tree_oak),
     ("textures/bush.tga", spr_bush),
     ("textures/flowers.tga", spr_flowers),
+    ("textures/critter_walker.tga", spr_critter_walker),
+    ("textures/critter_hopper.tga", spr_critter_hopper),
+    ("textures/critter_flyer.tga", spr_critter_flyer),
+    ("textures/critter_crawler.tga", spr_critter_crawler),
+    ("textures/plant_fungus.tga", spr_plant_fungus),
+    ("textures/plant_shard.tga", spr_plant_shard),
     ("textures/moon.tga", spr_moon),
     ("textures/star.tga", spr_star),
     ("textures/npc_farmer.tga", spr_npc_farmer),
@@ -2166,11 +2276,14 @@ TGA_SIZES = {
     "npc_farmer.tga": (32, 64), "npc_fen_keeper.tga": (32, 64), "npc_child.tga": (32, 48),
     "npc_merchant.tga": (32, 64), "npc_robot.tga": (32, 64), "npc_librarian.tga": (32, 64),
     "lantern_off.tga": (16, 32), "lantern_on.tga": (16, 32), "gear.tga": (16, 16), "book.tga": (16, 16),
+    "critter_walker.tga": (32, 32), "critter_hopper.tga": (32, 32), "critter_flyer.tga": (32, 32),
+    "critter_crawler.tga": (32, 32), "plant_fungus.tga": (32, 32), "plant_shard.tga": (32, 32),
 }
 # sprites that stand on the ground: their bottom row must not be empty
 GROUNDED = {"tree_pine.tga", "tree_oak.tga", "bush.tga", "flowers.tga", "npc_farmer.tga", "npc_fen_keeper.tga",
             "npc_child.tga", "npc_merchant.tga", "npc_robot.tga", "npc_librarian.tga", "lantern_off.tga",
-            "lantern_on.tga", "gear.tga", "book.tga"}
+            "lantern_on.tga", "gear.tga", "book.tga", "critter_walker.tga", "critter_hopper.tga",
+            "critter_crawler.tga", "plant_fungus.tga", "plant_shard.tga"}
 # opaque, seamlessly tiling textures
 TILEABLE = {"grass.tga", "dirt.tga", "cobble.tga", "wood_planks.tga", "house_wall.tga", "roof.tga", "stone.tga",
             "water.tga", "sand.tga", "metal_panel.tga", "crystal.tga", "carpet.tga", "sky_stars.tga"}

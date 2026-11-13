@@ -36,8 +36,9 @@ for seed = 1, 200 do
         local magic = c.magic and c.magic[i] or 0
         -- (under thin air the scorched places above 60 °C are barren)
         local thin = p.data.atmosphere.pressure < 0.3
+        local green = gen.life.has_plants(p.data) -- (lifeless worlds are bare)
         if c.temp[i] > 273.15 + 22 and c.precip[i] > 2200 and c.elevation[i] > 0 and c.elevation[i] < 3 and
-           not (thin and c.temp[i] > 273.15 + 60) and
+           not (thin and c.temp[i] > 273.15 + 60) and green and
            not c.lake[i] and c.setting[i] ~= P.SETTING["volcanic arc"] and magic < 0.3 then
           wet_hot = wet_hot + 1
           -- (a crystal forest is the rainforest of a strongly magical world)

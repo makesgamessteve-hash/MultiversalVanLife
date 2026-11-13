@@ -87,6 +87,14 @@ function system.register(R)
       }
       a = a * (1.45 + rng:next() * 0.75) -- spacing keeps orbits apart
     end
+    -- a promised homeworld or colony needs a rocky world
+    if #ctx:commitments() > 0 then
+      require("gen.life.sapients").ensure_rocky(d, planets, ctx:random("settlers"), system.period)
+      for i, p in ipairs(planets) do
+        p.name = names.planet(star.name, i)
+        p.temperature = math.floor(278 * math.sqrt(root) / math.sqrt(p.a))
+      end
+    end
     for i, p in ipairs(planets) do ctx:child(i - 1, p) end
     d.planets = #planets
     -- belts: in a wide gap across the frost line, and beyond the last planet

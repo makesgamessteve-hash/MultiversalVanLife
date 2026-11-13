@@ -155,6 +155,8 @@ local function biomes(ctx)
   local pressure = d.atmosphere.pressure
   local thin = pressure < 0.05 and "airless" or (pressure < 0.3 and "thin" or nil)
   local strong = (d.magic and d.magic.strength or 0) * 0.55
+  local life = require("gen.life")
+  local plants = life.has_plants(d)
   local biome, counts = {}, {}
   for i = 1, n do
     local e = cells.elevation[i]
@@ -172,6 +174,9 @@ local function biomes(ctx)
     if d.water ~= "liquid" and (id == "ocean" or id == "reef" or id == "lake") then
       id = d.water == "ice" and "sea ice" or "barren"
     end
+    -- forests and grasslands need plants: lifeless worlds are bare there
+    if not plants and life.VEGETATED[id] then id = "barren" end
+    if not plants and id == "reef" then id = "ocean" end
     biome[i] = G.BIOME[id]
     counts[id] = (counts[id] or 0) + 1
     if i % 2500 == 0 then ctx:yield() end
@@ -430,6 +435,8 @@ function G.describe_planet(node)
   local text = require("gen.levels.planet").describe(node)
   local d = node.data
   if d.sky then text = text .. "\n\n" .. require("gen.visuals.sky").describe(d.sky) end
+  local lives = require("gen.life").describe(d)
+  if lives then text = text .. "\n\n" .. lives end
   if not d.cells or not d.cells.temp then return text end
   local c = d.cells
   local lo, hi, wet, land = math.huge, -math.huge, 0, 0
@@ -475,7 +482,7 @@ function G.register(R)
   R:describe("country", G.describe_country)
   R:pass("planet", "climate", { after = { "magic" }, run = function(ctx) if not ctx.summary.prime then climate(ctx) end end })
   R:pass("planet", "hydrology", { after = { "climate" }, run = function(ctx) if not ctx.summary.prime then hydrology(ctx) end end })
-  R:pass("planet", "biomes", { after = { "hydrology" }, run = function(ctx) if not ctx.summary.prime then biomes(ctx) end end })
+  R:pass("planet", "biomes", { after = { "hydrology", "biochemistry" }, run = function(ctx) if not ctx.summary.prime then biomes(ctx) end end })
   R:pass("planet", "subdivision", { after = { "biomes" }, run = function(ctx) if not ctx.summary.prime then subdivide(ctx) end end })
   R:pass("continent", "countries", { run = function(ctx) if not ctx.summary.prime then continent_pass(ctx) end end })
 
