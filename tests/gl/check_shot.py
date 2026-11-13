@@ -7,6 +7,7 @@ CHECKS.json is a list of checks:
    "min": {"red": 0.9}, "max": {"green": 0.001}}
 Colour classes: red, green, blue (channel dominates the others by 40), dark
 (all channels below 40) and cool (blue above red by 25, like water).
+"mean": {"min": a, "max": b} bounds the mean brightness (0..255) of a region.
 """
 import json
 import os
@@ -53,16 +54,21 @@ def main():
     for c in checks:
         w, h, pixel = load_tga(os.path.join(shot_dir, c["file"]))
         x0, y0, x1, y1 = c.get("region", [0, 0, 1, 1])
-        counts, total = {}, 0
+        counts, total, light = {}, 0, 0
         for y in range(int(y0 * h), max(int(y1 * h), int(y0 * h) + 1)):
             for x in range(int(x0 * w), max(int(x1 * w), int(x0 * w) + 1)):
                 total += 1
-                for k in classify(*pixel(x, y)):
+                r, g, b = pixel(x, y)
+                light += (r + g + b) / 3.0
+                for k in classify(r, g, b):
                     counts[k] = counts.get(k, 0) + 1
         fr = {k: counts.get(k, 0) / float(total) for k in ("red", "green", "blue", "dark", "cool")}
+        mean = light / total
         ok = all(fr[k] >= v for k, v in c.get("min", {}).items()) and all(fr[k] <= v for k, v in c.get("max", {}).items())
-        print("%s %s region=%s fractions=%s" % ("ok  " if ok else "FAIL", c["file"], c.get("region"),
-                                               {k: round(v, 4) for k, v in fr.items()}))
+        m = c.get("mean", {})
+        ok = ok and mean >= m.get("min", 0) and mean <= m.get("max", 255)
+        print("%s %s region=%s fractions=%s mean=%.1f" % ("ok  " if ok else "FAIL", c["file"], c.get("region"),
+                                                         {k: round(v, 4) for k, v in fr.items()}, mean))
         failed += 0 if ok else 1
     return 1 if failed else 0
 

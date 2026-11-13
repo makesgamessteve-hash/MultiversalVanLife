@@ -11,6 +11,7 @@
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -360,6 +361,79 @@ static int l_environment(lua_State *L) {
     env->fog_far = opt_field_num(L, 1, "fog_far", env->fog_far);
     env->stars = opt_field_num(L, 1, "stars", env->stars);
     return 0;
+}
+
+/* Normalises a direction in place (leaves a zero vector alone). */
+static void norm3(float *v) {
+    float l = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if (l > 1e-6f) {
+        v[0] /= l;
+        v[1] /= l;
+        v[2] /= l;
+    }
+}
+
+static void read_body(lua_State *L, int t, mvl_sky_body *b) {
+    t = lua_absindex(L, t);
+    read_vec(L, t, "dir", b->dir, 3);
+    norm3(b->dir);
+    b->color[0] = b->color[1] = b->color[2] = 1.0f;
+    read_vec(L, t, "color", b->color, 3);
+    b->size = opt_field_num(L, t, "size", 0.01f);
+}
+
+/* Reads a list of bodies (at most max); returns how many. */
+static int read_bodies(lua_State *L, int t, const char *k, mvl_sky_body *out, int max) {
+    int n = 0;
+    lua_getfield(L, t, k);
+    if (lua_istable(L, -1)) {
+        int len = (int)lua_rawlen(L, -1);
+        for (int i = 1; i <= len && n < max; ++i) {
+            lua_rawgeti(L, -1, i);
+            if (lua_istable(L, -1)) read_body(L, -1, &out[n++]);
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return n;
+}
+
+/* mvl.sky{sun = {dir, color, size, glow}, light = {x, y, z},
+ *         moons = {{dir, color, size}, ...}, planets = {...},
+ *         band = {normal, core, color, strength, width}}
+ * replaces everything the sky shows besides its gradient and stars. */
+static int l_sky(lua_State *L) {
+    mvl_sky *s = &eng(L)->scene.env.sky;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    memset(s, 0, sizeof *s);
+    s->light[1] = -1.0f;
+    s->band_width = 0.12f;
+    lua_getfield(L, 1, "sun");
+    if (lua_istable(L, -1)) {
+        read_body(L, -1, &s->sun);
+        s->sun_glow = opt_field_num(L, lua_absindex(L, -1), "glow", 0.5f);
+        memcpy(s->light, s->sun.dir, sizeof s->light);
+    }
+    lua_pop(L, 1);
+    if (read_vec(L, 1, "light", s->light, 3)) norm3(s->light);
+    s->moon_count = read_bodies(L, 1, "moons", s->moons, MVL_SKY_MOONS);
+    s->planet_count = read_bodies(L, 1, "planets", s->planets, MVL_SKY_PLANETS);
+    lua_getfield(L, 1, "band");
+    if (lua_istable(L, -1)) {
+        int b = lua_absindex(L, -1);
+        read_vec(L, b, "normal", s->band_normal, 3);
+        norm3(s->band_normal);
+        read_vec(L, b, "core", s->band_core, 3);
+        norm3(s->band_core);
+        s->band_color[0] = s->band_color[1] = s->band_color[2] = 0.8f;
+        read_vec(L, b, "color", s->band_color, 3);
+        s->band_strength = opt_field_num(L, b, "strength", 0.5f);
+        s->band_width = opt_field_num(L, b, "width", 0.12f);
+    }
+    lua_pop(L, 1);
+    lua_pushinteger(L, s->moon_count);
+    lua_pushinteger(L, s->planet_count);
+    return 2;
 }
 
 static int l_bounds(lua_State *L) {
@@ -769,7 +843,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"spawn", l_spawn}, {"set", l_set}, {"set_pos", l_set_pos}, {"get_pos", l_get_pos},
     {"set_yaw", l_set_yaw}, {"get_yaw", l_get_yaw}, {"set_visible", l_set_visible}, {"set_color", l_set_color},
     {"destroy", l_destroy}, {"exists", l_exists}, {"clear_scene", l_clear_scene}, {"entity_count", l_entity_count},
-    {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"bounds", l_bounds},
+    {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"sky", l_sky}, {"bounds", l_bounds},
     {"move", l_move}, {"overlaps", l_overlaps},
     {"value", l_value}, {"down", l_down}, {"pressed", l_pressed}, {"released", l_released}, {"look", l_look},
     {"touch", l_touch},

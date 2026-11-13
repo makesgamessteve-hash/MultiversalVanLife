@@ -63,4 +63,31 @@ void test_texgen(void) {
     r.contrast = 5.0f;
     CHECK(mvl_tex_generate(&r, &a));
     mvl_image_free(&a);
+    /* recolouring: foliage only, or every visible pixel, along a palette */
+    {
+        const uint8_t px[4][4] = {{40, 120, 30, 255}, {100, 200, 80, 255}, {120, 80, 40, 255}, {0, 255, 0, 0}};
+        const uint8_t pal[2][4] = {{10, 0, 20, 255}, {200, 0, 220, 255}};
+        CHECK(mvl_image_alloc(&a, 2, 2));
+        memcpy(a.rgba, px, sizeof px);
+        CHECK_EQ_INT(mvl_tex_recolor(&a, pal, 2, MVL_RECOLOR_GREEN), 2);
+        CHECK_EQ_INT(a.rgba[0], 10);            /* darkest leaf -> first colour */
+        CHECK_EQ_INT(a.rgba[4 + 2], 220);       /* brightest leaf -> last colour */
+        CHECK_EQ_INT(a.rgba[8], 120);           /* bark untouched */
+        CHECK_EQ_INT(a.rgba[12 + 1], 255);      /* transparent pixel untouched */
+        CHECK_EQ_INT(a.rgba[3], 255);           /* alpha kept */
+        memcpy(a.rgba, px, sizeof px);
+        CHECK_EQ_INT(mvl_tex_recolor(&a, pal, 2, MVL_RECOLOR_ALL), 3);
+        CHECK_EQ_INT(a.rgba[8 + 1], 0);         /* bark repainted too */
+        CHECK_EQ_INT(mvl_tex_recolor(&a, pal, 0, MVL_RECOLOR_ALL), 0);
+        CHECK_EQ_INT(mvl_tex_recolor(NULL, pal, 2, MVL_RECOLOR_ALL), 0);
+        {
+            uint8_t many[8][4];
+            memset(many, 90, sizeof many);
+            CHECK_EQ_INT(mvl_tex_recolor(&a, (const uint8_t(*)[4])many, 8, MVL_RECOLOR_GREEN), 0); /* nothing green left */
+        }
+        memcpy(a.rgba, px, 4);                  /* one leaf alone: the middle of the palette */
+        CHECK_EQ_INT(mvl_tex_recolor(&a, pal, 2, MVL_RECOLOR_GREEN), 1);
+        CHECK(a.rgba[0] > 90 && a.rgba[0] < 120);
+        mvl_image_free(&a);
+    }
 }

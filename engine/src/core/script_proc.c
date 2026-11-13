@@ -460,6 +460,49 @@ static int l_texture_gen(lua_State *L) {
     return 1;
 }
 
+/* mvl.texture_recolor(path, colors [, "green"]): the texture at path with
+ * its pixels (or only its foliage) repainted along the colours. Cached. */
+static int l_texture_recolor(lua_State *L) {
+    mvl_engine *e = mvl_script_engine(L);
+    const char *path = luaL_checkstring(L, 1);
+    const char *mode = luaL_optstring(L, 3, "all");
+    mvl_recolor_select sel = strcmp(mode, "green") == 0 ? MVL_RECOLOR_GREEN : MVL_RECOLOR_ALL;
+    uint8_t colors[MVL_TEX_MAX_COLORS][4];
+    int count = 0, id;
+    uint32_t h = mvl_hash_str(path, (uint32_t)sel);
+    char name[64];
+    luaL_checktype(L, 2, LUA_TTABLE);
+    for (int i = 1; i <= (int)lua_rawlen(L, 2) && count < MVL_TEX_MAX_COLORS; ++i) {
+        lua_rawgeti(L, 2, i);
+        if (lua_istable(L, -1)) {
+            read_rgba(L, colors[count]);
+            h = mvl_hash_combine(h, (uint32_t)colors[count][0] | ((uint32_t)colors[count][1] << 8) |
+                                        ((uint32_t)colors[count][2] << 16));
+            ++count;
+        }
+        lua_pop(L, 1);
+    }
+    if (count == 0) return luaL_error(L, "texture_recolor needs at least one colour");
+    snprintf(name, sizeof name, "<recolor %08x>", (unsigned)h);
+    id = mvl_res_find_texture(&e->res, name);
+    if (!id) {
+        size_t size;
+        char *data = mvl_vfs_read(&e->vfs, path, &size);
+        mvl_image img;
+        if (!data) return luaL_error(L, "texture not found: %s", path);
+        if (!mvl_image_load_tga(data, size, &img)) {
+            free(data);
+            return luaL_error(L, "could not decode texture: %s", path);
+        }
+        free(data);
+        mvl_tex_recolor(&img, (const uint8_t(*)[4])colors, count, sel);
+        id = mvl_res_texture_from_image(&e->res, name, &img, 0);
+        mvl_image_free(&img);
+    }
+    lua_pushinteger(L, id);
+    return 1;
+}
+
 void mvl_script_open_procedural(lua_State *L) {
     static const luaL_Reg funcs[] = {{"hash", l_hash},
                                      {"rng", l_rng},
@@ -474,6 +517,7 @@ void mvl_script_open_procedural(lua_State *L) {
                                      {"world_pos", l_world_pos},
                                      {"voxels", l_voxels},
                                      {"texture_gen", l_texture_gen},
+                                     {"texture_recolor", l_texture_recolor},
                                      {"portal", l_portal},
                                      {"render_stats", l_render_stats},
                                      {NULL, NULL}};

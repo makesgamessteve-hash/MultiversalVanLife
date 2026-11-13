@@ -21,6 +21,8 @@ void mvl_env_default(mvl_environment *e) {
     e->sun_color[1] = 0.4f;
     e->sun_color[2] = 0.55f;
     e->stars = 1.0f;
+    e->sky.light[1] = -1.0f;
+    e->sky.band_width = 0.12f;
 }
 
 void mvl_scene_init(mvl_scene *s) {

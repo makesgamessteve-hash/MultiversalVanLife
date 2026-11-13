@@ -23,15 +23,14 @@ world.register({
   ambient = "sounds/ambient_night.wav",
   ambient_volume = 0.5,
   build = function(w)
-    w:env({
-      sky_top = { 0.02, 0.03, 0.09 }, sky_horizon = { 0.10, 0.12, 0.24 }, fog_color = { 0.08, 0.1, 0.2 },
-      fog_near = 14, fog_far = 75, ambient = { 0.22, 0.24, 0.34 }, sun_dir = { -0.4, -1, -0.3 },
-      sun_color = { 0.35, 0.4, 0.55 }, stars = 1,
-    })
     local G = gen.world or gen.start(1)
     -- the farm is stored on the first visit, like every place
     local farm = places.get(G, gen.prime.FARM)
     local d = farm.data
+    -- tonight's sky: the real Moon and planets over the farm, the Milky Way
+    local heavens = gen.sky.heavens_of(G, farm) or gen.sky.heavens(G:generate(gen.prime.EARTH).data)
+    w.sky = { heavens = heavens, place = d.place or gen.sky.FARM, time = gen.sky.farm_time(progress.night()) }
+    gen.sky.apply(heavens, w.sky.place, w.sky.time)
     w:land(farm, function(gx, gz)
       local n = gen.neighbour_land(G, farm.address, gx, gz)
       return n and places.get(G, n.address) or nil
@@ -45,7 +44,6 @@ world.register({
         w:light(1, lx, w:height(lx, lz) + 1.6, lz, 1.0, 0.75, 0.4, 5) -- porch window glow
       end
     end
-    w:sprite({ texture = "moon", x = -50, y = 40, z = -70, w = 9, h = 9, unlit = true, nofog = true })
     -- the neighbour
     local n = d.neighbour
     local e, it = w:npc({ texture = n.texture, name = n.name, x = n.x, z = n.z, talk = function()

@@ -30,6 +30,8 @@ struct mvl_renderer {
     world_prog world;
     GLuint sky_prog, ui_prog, post_prog;
     GLint sky_inv, sky_top, sky_hor, sky_stars, sky_tex, sky_time;
+    GLint sky_sun, sky_sun_color, sky_light, sky_moons, sky_moon_dir, sky_moon_color;
+    GLint sky_planets, sky_planet_dir, sky_planet_color, sky_band, sky_band_core, sky_band_color;
     GLint ui_proj, ui_tex;
     GLint post_tex, post_dither, post_size;
     GLuint empty_vao, ui_vao, ui_vbo;
@@ -241,6 +243,12 @@ int mvl_renderer_init(mvl_renderer *r, mvl_engine *e) {
     r->sky_stars = glGetUniformLocation(r->sky_prog, "uStars");
     r->sky_tex = glGetUniformLocation(r->sky_prog, "uTex");
     r->sky_time = glGetUniformLocation(r->sky_prog, "uTime");
+#define S(field, name) r->field = glGetUniformLocation(r->sky_prog, name)
+    S(sky_sun, "uSun"); S(sky_sun_color, "uSunColor"); S(sky_light, "uLight"); S(sky_moons, "uMoons");
+    S(sky_moon_dir, "uMoonDir"); S(sky_moon_color, "uMoonColor"); S(sky_planets, "uPlanets");
+    S(sky_planet_dir, "uPlanetDir"); S(sky_planet_color, "uPlanetColor"); S(sky_band, "uBand");
+    S(sky_band_core, "uBandCore"); S(sky_band_color, "uBandColor");
+#undef S
     r->ui_proj = glGetUniformLocation(r->ui_prog, "uProj");
     r->ui_tex = glGetUniformLocation(r->ui_prog, "uTex");
     r->post_tex = glGetUniformLocation(r->post_prog, "uTex");
@@ -340,6 +348,36 @@ static void draw_sky(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, int r
     glUniform3f(r->sky_hor, env->sky_horizon[0], env->sky_horizon[1], env->sky_horizon[2]);
     glUniform1f(r->sky_stars, r->stars_tex ? env->stars : 0.0f);
     glUniform1f(r->sky_time, (float)e->time);
+    {
+        const mvl_sky *s = &env->sky;
+        float dir[MVL_SKY_PLANETS * 4], col[MVL_SKY_PLANETS * 3];
+        glUniform4f(r->sky_sun, s->sun.dir[0], s->sun.dir[1], s->sun.dir[2], s->sun.size);
+        glUniform4f(r->sky_sun_color, s->sun.color[0], s->sun.color[1], s->sun.color[2], s->sun_glow);
+        glUniform3f(r->sky_light, s->light[0], s->light[1], s->light[2]);
+        glUniform1i(r->sky_moons, s->moon_count);
+        for (int i = 0; i < s->moon_count; ++i) {
+            memcpy(&dir[i * 4], s->moons[i].dir, 3 * sizeof(float));
+            dir[i * 4 + 3] = s->moons[i].size;
+            memcpy(&col[i * 3], s->moons[i].color, 3 * sizeof(float));
+        }
+        if (s->moon_count > 0) {
+            glUniform4fv(r->sky_moon_dir, s->moon_count, dir);
+            glUniform3fv(r->sky_moon_color, s->moon_count, col);
+        }
+        glUniform1i(r->sky_planets, s->planet_count);
+        for (int i = 0; i < s->planet_count; ++i) {
+            memcpy(&dir[i * 4], s->planets[i].dir, 3 * sizeof(float));
+            dir[i * 4 + 3] = s->planets[i].size;
+            memcpy(&col[i * 3], s->planets[i].color, 3 * sizeof(float));
+        }
+        if (s->planet_count > 0) {
+            glUniform4fv(r->sky_planet_dir, s->planet_count, dir);
+            glUniform3fv(r->sky_planet_color, s->planet_count, col);
+        }
+        glUniform4f(r->sky_band, s->band_normal[0], s->band_normal[1], s->band_normal[2], s->band_strength);
+        glUniform4f(r->sky_band_core, s->band_core[0], s->band_core[1], s->band_core[2], s->band_width);
+        glUniform3f(r->sky_band_color, s->band_color[0], s->band_color[1], s->band_color[2]);
+    }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, r->stars_tex ? r->stars_tex : tex_handle(e, 0));
     glUniform1i(r->sky_tex, 0);

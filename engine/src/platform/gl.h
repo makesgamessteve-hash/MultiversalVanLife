@@ -62,6 +62,7 @@
     X(void, glUniform3f, (GLint, GLfloat, GLfloat, GLfloat))                                           \
     X(void, glUniform4f, (GLint, GLfloat, GLfloat, GLfloat, GLfloat))                                  \
     X(void, glUniform3fv, (GLint, GLsizei, const GLfloat *))                                           \
+    X(void, glUniform4fv, (GLint, GLsizei, const GLfloat *))                                           \
     X(void, glUniform1fv, (GLint, GLsizei, const GLfloat *))                                           \
     X(void, glUniformMatrix4fv, (GLint, GLsizei, GLboolean, const GLfloat *))                          \
     X(void, glGenVertexArrays, (GLsizei, GLuint *))                                                    \
@@ -137,6 +138,7 @@ MVL_GL_FUNCS
 #define glUniform3f mvl_glUniform3f
 #define glUniform4f mvl_glUniform4f
 #define glUniform3fv mvl_glUniform3fv
+#define glUniform4fv mvl_glUniform4fv
 #define glUniform1fv mvl_glUniform1fv
 #define glUniformMatrix4fv mvl_glUniformMatrix4fv
 #define glGenVertexArrays mvl_glGenVertexArrays

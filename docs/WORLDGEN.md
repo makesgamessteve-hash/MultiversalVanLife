@@ -211,6 +211,54 @@ travel and no generated lore: `gen.lore(G, address)` returns nothing for any
 place in Prime, and nothing exists below its planets except the way to the
 farm (`gen.prime.FARM`), where the story begins.
 
+## Skies and palettes
+
+**Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid
+world's sky holds: its star's colour and apparent size (enlarged four-fold
+for the eye), its air by day and night, the moons (radius, distance, a
+Kepler period from the planet's mass, colour, enlarged ten-fold), its sister
+planets and the band of its galaxy (the plane's orientation against the
+planet's equator, brighter for spirals and towards the core). Lands keep a
+copy (`heavens`) so a stored land needs no planet to show its sky.
+
+`gen.sky.at(heavens, place, t)` places everything for a land's latitude and
+longitude at a moment (days): the planet turns on its tilted axis, the star
+moves along the ecliptic once a year (a tidally locked world keeps it still,
+overhead at longitude 0, with eternal night on the far side), moons follow
+their orbits, and each moon's phase is where it stands against the star.
+`gen.sky.view` turns that into the environment (sky gradient blended from
+night through dusk to day, ambient and sun light, moonlight at night,
+stars fading by day) and the bodies for `mvl.sky`; the sky shader draws the
+star's disc and halo, moons lit from the star's side, planets as points and
+the band as clouds with dust lanes. A land is visited at a moment of its
+planet's clock that moves on every night (`visit_time`), so the same land
+may be seen by day and, later, by night.
+
+**Air**: the gas mix sets the colour (nitrogen blue, carbon dioxide
+butterscotch, methane teal, sulphur yellow) in the star's light; thin air
+darkens the sky towards black (airless worlds show stars by day), thick air
+washes it out with haze and brings the fog closer (from 52-95 m on thin
+worlds to 5-45 m under a crushing sky).
+
+**Earth**: the farm's sky uses J2000 mean longitudes for the Sun, the Moon
+and the planets, Earth's rotation and tilt and the Milky Way's real
+orientation (galactic pole and centre). The story's first night is
+24 June 2026 at 23:00 at 45° N, under a waxing gibbous Moon; every night
+advances the calendar a day, so the Moon waxes and wanes as it really does.
+
+**Palettes** (`gen/visuals/palette.lua`): a land's `materials` follow from
+its cell of the planet. Plants take the colour that absorbs their star's
+light best (green under G stars, olive under K, near-black and deep purple
+under red M dwarfs, yellow-green under F, red and orange under A, B and O
+stars), faded in dry and cold biomes; stone takes the colour of the bedrock
+(`P.ROCKS`), sand is ground bedrock, soil is bedrock weathered by the
+climate, and water is tinted by the air and the light. They repaint the
+hand-made textures with `mvl.texture_recolor` (grass and plant sprites only
+where green, stone, sand and dirt entirely), the terrain's vertex palette
+(its greens recoloured, stone and sand biomes in the rock's shades, cliffs
+in the bedrock's colour) and three voxel boulder shapes per land, scattered
+through its chunks. Crystal biomes keep their own colours.
+
 ## Lands and chunks
 
 `gen/chunks.lua` turns land descriptions into the walkable world. A world

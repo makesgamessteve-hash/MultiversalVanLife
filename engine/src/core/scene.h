@@ -58,6 +58,32 @@ typedef struct {
     float znear, zfar;
 } mvl_camera;
 
+#define MVL_SKY_MOONS 4
+#define MVL_SKY_PLANETS 8
+
+/* A body in the sky: the direction from the viewer, its colour and its
+ * angular radius (radians). */
+typedef struct {
+    float dir[3];
+    float color[3];
+    float size;
+} mvl_sky_body;
+
+/* What the sky shows besides its gradient and stars. Moons are lit by
+ * `light` (the direction towards the star, even below the horizon), which
+ * gives their phases. The galaxy band is the great circle around
+ * band_normal, brightest towards band_core. */
+typedef struct {
+    mvl_sky_body sun;          /* size 0: no star disc */
+    float sun_glow;            /* halo around the star */
+    float light[3];            /* towards the star, for moon phases */
+    int moon_count, planet_count;
+    mvl_sky_body moons[MVL_SKY_MOONS];
+    mvl_sky_body planets[MVL_SKY_PLANETS];
+    float band_normal[3], band_core[3], band_color[3];
+    float band_strength, band_width;
+} mvl_sky;
+
 typedef struct {
     float sky_top[3], sky_horizon[3];
     float fog_color[3];
@@ -65,7 +91,8 @@ typedef struct {
     float ambient[3];
     vec3 sun_dir;          /* direction the light travels */
     float sun_color[3];
-    float stars;           /* 0..1 star visibility */
+    float stars;           /* 0..1 star visibility (also planets and the galaxy band) */
+    mvl_sky sky;
 } mvl_environment;
 
 #define MVL_MAX_PORTALS 8

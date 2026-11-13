@@ -30,9 +30,16 @@ world.register({
     local planet = places.ancestor(node, "planet")
     w.name = d.name .. ", " .. (planet and planet.name or "?")
     w.ambient, w.ambient_volume = style.ambient, 0.5
-    local e = style.env
-    w:env({ sky_top = e.sky_top, sky_horizon = e.sky_horizon, fog_color = e.fog, fog_near = 14, fog_far = e.fog_far or 70,
-            ambient = e.ambient, sun_dir = { -0.4, -1, -0.3 }, sun_color = { 0.3, 0.32, 0.4 }, stars = e.stars })
+    -- the planet's sky at the moment of this visit
+    local heavens = d.place and gen.sky.heavens_of(G, node)
+    if heavens then
+      w.sky = { heavens = heavens, place = d.place, time = gen.sky.visit_time(heavens, node.seed, progress.night()) }
+      gen.sky.apply(heavens, d.place, w.sky.time)
+    else
+      local e = style.env
+      w:env({ sky_top = e.sky_top, sky_horizon = e.sky_horizon, fog_color = e.fog, fog_near = 14, fog_far = e.fog_far or 70,
+              ambient = e.ambient, sun_dir = { -0.4, -1, -0.3 }, sun_color = { 0.3, 0.32, 0.4 }, stars = e.stars })
+    end
     w:land(node, function(gx, gz)
       local n = gen.neighbour_land(G, addr, gx, gz)
       return n and places.get(G, n.address) or nil

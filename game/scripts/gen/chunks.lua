@@ -9,6 +9,7 @@
 -- on the land and the chunk, so a discarded chunk comes back identical.
 local landgen = require("gen.levels.land")
 local changes = require("memory.changes")
+local PAL = require("gen.visuals.palette")
 
 local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
 local S = {}
@@ -127,7 +128,7 @@ function S:build(cx, cz, rec)
   local c = { cx = cx, cz = cz, entities = {}, meshes = {}, land = rec }
   local mesh = mvl.terrain_chunk(cx, cz, size, chunks.CELLS)
   c.meshes[#c.meshes + 1] = mesh
-  c.entities[#c.entities + 1] = mvl.spawn({ mesh = mesh, texture = mvl.texture("textures/" .. (d.texture or "grass") .. ".tga"),
+  c.entities[#c.entities + 1] = mvl.spawn({ mesh = mesh, texture = PAL.texture(d.materials, d.texture or "grass"),
                                             pos = { x0, 0, z0 } })
   -- the land's features standing in this chunk, plus what the player put
   -- there; the change log and a hook may hide or alter them (items taken,
@@ -152,13 +153,13 @@ function S:build(cx, cz, rec)
       wx, wz = f.x + rec.ox, f.z + rec.oz
       local e
       if f.sprite then
-        e = mvl.spawn({ kind = "sprite", texture = mvl.texture("textures/" .. f.sprite .. ".tga"),
+        e = mvl.spawn({ kind = "sprite", texture = PAL.texture(d.materials, f.sprite),
                         pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, scale = { f.w or 1, f.h or 1, 1 },
                         unlit = f.unlit, nofog = f.nofog, color = f.color, solid = f.radius ~= nil, radius = f.radius })
       else
         local s = f.scale or 1
         e = mvl.spawn({
-          mesh = resolve_mesh(f), texture = f.texture and mvl.texture("textures/" .. f.texture .. ".tga") or 0,
+          mesh = resolve_mesh(f), texture = f.texture and PAL.texture(d.materials, f.texture) or 0,
           pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
           scale = type(s) == "number" and { s, s, s } or s, color = f.color,
           solid = f.box ~= nil or f.radius ~= nil, box = f.box, radius = f.radius,
@@ -180,7 +181,7 @@ function S:build(cx, cz, rec)
     if inside(wx, wz, x0, z0) then
       local m = mvl.plane_mesh(fl.w, fl.d, fl.w / 4, fl.d / 4, math.max(1, math.floor(math.max(fl.w, fl.d) / 4)))
       c.meshes[#c.meshes + 1] = m
-      c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/" .. fl.texture .. ".tga"),
+      c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = PAL.texture(d.materials, fl.texture),
                                                 pos = { wx, mvl.height(wx, wz) + 0.02, wz }, yaw = fl.yaw, color = fl.tint,
                                                 decal = true })
     end
@@ -204,19 +205,21 @@ function S:build(cx, cz, rec)
         end
         local m = mvl.ribbon_mesh(pts, road.width, 4)
         c.meshes[#c.meshes + 1] = m
-        c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/" .. road.texture .. ".tga"),
+        c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = PAL.texture(d.materials, road.texture),
                                                   pos = { mx, 0, mz }, decal = true })
       end
     end
   end
   -- water: the sea wherever the ground dips below sea level, and rivers
+  local wc = d.materials and d.materials.water or { 0.55, 0.75, 0.9 }
+  local water = { wc[1], wc[2], wc[3], 1 }
   local _, ylo = mvl.mesh_bounds(mesh)
   if ylo and ylo < 0 then
     if not self.sea_mesh then self.sea_mesh = mvl.plane_mesh(size, size, size / 8, size / 8, 4) end
     c.sea = true
     c.entities[#c.entities + 1] = mvl.spawn({ mesh = self.sea_mesh, texture = mvl.texture("textures/water.tga"),
                                               pos = { x0 + size / 2, 0, z0 + size / 2 }, uv_scroll = { 0.01, 0.006 },
-                                              color = { 0.55, 0.75, 0.9, 1 } })
+                                              color = water })
   end
   -- each chunk draws the part of a river inside its square, so the water
   -- is there wherever the player is and pieces meet at chunk borders
@@ -252,7 +255,7 @@ function S:build(cx, cz, rec)
         c.meshes[#c.meshes + 1] = m
         c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/water.tga"),
                                                   pos = { mx, 0, mz }, uv_scroll = { 0.0, 0.05 },
-                                                  color = { 0.55, 0.75, 0.9, 1 } })
+                                                  color = water })
       end
     end
   end
@@ -271,7 +274,7 @@ function S:build(cx, cz, rec)
     if mvl.height(lx + rec.ox, lz + rec.oz) < 0.3 then return end -- nothing grows under water
     local wx, wz = lx + rec.ox, lz + rec.oz
     c.entities[#c.entities + 1] = mvl.spawn({
-      kind = "sprite", texture = mvl.texture("textures/" .. texture .. ".tga"),
+      kind = "sprite", texture = PAL.texture(d.materials, texture),
       pos = { wx, mvl.height(wx, wz), wz }, scale = { w * sc, h * sc, 1 }, solid = radius ~= nil, radius = radius,
     })
   end
@@ -281,6 +284,27 @@ function S:build(cx, cz, rec)
   end
   for _ = 1, rng:int(0, flora.bush_count * 2) do plant("bush", 1, 1) end
   for _ = 1, rng:int(0, flora.flower_count * 2) do plant("flowers", 0.6, 0.6) end
+  -- boulders of the land's bedrock
+  if d.materials then
+    self.boulders = self.boulders or {}
+    local shapes = self.boulders[rec.node.address]
+    if not shapes then
+      shapes = PAL.boulders(d.materials, mvl.hash(rec.node.seed, "boulders"), 3)
+      self.boulders[rec.node.address] = shapes
+    end
+    for _ = 1, rng:int(0, 2) do
+      local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
+      local shape = shapes[rng:int(1, #shapes)]
+      local wx, wz = lx + rec.ox, lz + rec.oz
+      local sc = 0.6 + rng:next() * 0.9
+      if cleared(d, lx, lz) and mvl.height(wx, wz) > 0.3 and shape.mesh > 0 then
+        c.rocks = (c.rocks or 0) + 1
+        c.entities[#c.entities + 1] = mvl.spawn({ mesh = shape.mesh, pos = { wx, mvl.height(wx, wz) - 0.15, wz },
+                                                  yaw = rng:next() * 6.283, scale = { sc, sc, sc },
+                                                  solid = true, radius = shape.radius * sc })
+      end
+    end
+  end
   self.loaded[key(cx, cz)] = c
   self.count = self.count + 1
   self.stats.built = self.stats.built + 1
@@ -337,6 +361,10 @@ function S:clear()
     mvl.release_mesh(self.sea_mesh)
     self.sea_mesh = nil
   end
+  for _, shapes in pairs(self.boulders or {}) do
+    for _, s in ipairs(shapes) do if s.mesh > 0 then mvl.release_mesh(s.mesh) end end
+  end
+  self.boulders = nil
 end
 
 -- Spawns a feature added at runtime (e.g. a dropped item) if its chunk is
@@ -348,7 +376,7 @@ function S:add_feature(f, rec)
   local c = self:chunk_at(wx, wz)
   if not c then return nil end
   local e = mvl.spawn({ kind = f.sprite and "sprite" or nil,
-                        texture = f.sprite and mvl.texture("textures/" .. f.sprite .. ".tga") or 0,
+                        texture = f.sprite and PAL.texture(rec.node.data.materials, f.sprite) or 0,
                         mesh = (not f.sprite) and resolve_mesh(f) or nil,
                         pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
                         scale = f.sprite and { f.w or 1, f.h or 1, 1 } or

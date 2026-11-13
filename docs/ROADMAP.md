@@ -25,7 +25,7 @@ Rules for every phase:
 | 10 | `p10-world-memory-basics` | 4 | quality-and-testing, world-memory | done |
 | 11 | `p11-planet-geology` | 6 | planet-generation, scripting-api | done |
 | 12 | `p12-planet-climate-and-lands` | 6 | land-streaming, planet-generation, scripting-api | done |
-| 13 | `p13-planet-skies-and-palettes` | 4 | planet-generation, prime-universe, procedural-visuals | planned |
+| 13 | `p13-planet-skies-and-palettes` | 4 | planet-generation, prime-universe, procedural-visuals | done |
 | 14 | `p14-life-and-ecosystems` | 5 | land-streaming, life-generation | planned |
 | 15 | `p15-voxel-flora-and-fauna` | 6 | life-generation, procedural-visuals | planned |
 | 16 | `p16-languages-and-religions` | 6 | culture-generation | planned |

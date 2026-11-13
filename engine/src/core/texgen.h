@@ -39,4 +39,15 @@ int mvl_tex_generate(const mvl_tex_recipe *r, mvl_image *img);
 uint32_t mvl_tex_recipe_hash(const mvl_tex_recipe *r);
 mvl_tex_kind mvl_tex_kind_from_name(const char *name);
 
+/* Which pixels mvl_tex_recolor repaints. */
+typedef enum {
+    MVL_RECOLOR_ALL = 0,  /* every visible pixel */
+    MVL_RECOLOR_GREEN,    /* pixels where green dominates (foliage) */
+} mvl_recolor_select;
+
+/* Repaints the selected pixels of an image along a palette gradient by their
+ * brightness (darkest selected pixel -> first colour, brightest -> last),
+ * keeping alpha and the unselected pixels. Returns the pixels repainted. */
+int mvl_tex_recolor(mvl_image *img, const uint8_t (*colors)[4], int count, mvl_recolor_select select);
+
 #endif

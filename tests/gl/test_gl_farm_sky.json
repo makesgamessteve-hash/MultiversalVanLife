@@ -1,0 +1,3 @@
+[{"file": "moon.tga", "region": [0.495, 0.49, 0.505, 0.51], "mean": {"min": 120}},
+ {"file": "band.tga", "region": [0.4, 0.4, 0.6, 0.6], "mean": {"min": 55}},
+ {"file": "off_band.tga", "region": [0.4, 0.4, 0.6, 0.6], "mean": {"max": 45}}]

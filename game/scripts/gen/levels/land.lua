@@ -188,8 +188,10 @@ local function place_on_planet(ctx, d, country)
   d.place = { cell = cell, latitude = dm.round(dm.atan(y / l, math.sqrt(x * x + z * z) / l) * 180 / dm.pi, 3),
               longitude = dm.round(dm.atan(z, x) * 180 / dm.pi, 3) }
   d.biome = biome.id
+  d.heavens = require("gen.visuals.sky").heavens(planet.data)
   d.climate = { temperature = dm.round(cells.temp[cell] - 273.15, 1), coldest = dm.round(cells.tmin[cell] - 273.15, 1),
                 warmest = dm.round(cells.tmax[cell] - 273.15, 1), precipitation = cells.precip[cell] }
+  d.materials = require("gen.visuals.palette").materials(planet.data, cell, biome, d.climate)
   d.continent = ctx:ancestor("continent").data.name
   d.country = ctx.parent.summary.name
   d.coast = false
@@ -350,6 +352,9 @@ function land.register(R)
     clip_roads(ctx, d, country)
     if d.style == "farm" then
       farm(ctx, d, country)
+      local sky = require("gen.visuals.sky")
+      d.place = { latitude = sky.FARM.latitude, longitude = sky.FARM.longitude }
+      d.heavens = sky.heavens(ctx:ancestor("planet").data)
     elseif prime.inside(ctx.node.address) then
       countryside(ctx, d)
     else
@@ -366,6 +371,7 @@ function land.register(R)
       if biome then
         d.biome_trees = biome.trees
         d.texture_override = biome.texture
+        require("gen.visuals.palette").terrain(d.terrain, d.materials, biome)
       end
     end
     local ps = provisional.STYLES[d.style]

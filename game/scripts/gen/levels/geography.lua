@@ -429,6 +429,7 @@ end
 function G.describe_planet(node)
   local text = require("gen.levels.planet").describe(node)
   local d = node.data
+  if d.sky then text = text .. "\n\n" .. require("gen.visuals.sky").describe(d.sky) end
   if not d.cells or not d.cells.temp then return text end
   local c = d.cells
   local lo, hi, wet, land = math.huge, -math.huge, 0, 0

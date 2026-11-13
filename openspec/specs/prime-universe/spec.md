@@ -32,3 +32,10 @@ The farm and its surroundings SHALL be generated from the save's seed: farmhouse
 #### Scenario: Two journeys
 - **WHEN** two new journeys are started
 - **THEN** their farms differ in layout while both contain a farmhouse, a neighbour and the van at the gate
+
+### Requirement: Home sky
+The farm's sky SHALL show the real Moon with its current phase and the band of the Milky Way.
+
+#### Scenario: Night sky at home
+- **WHEN** the player looks at the sky at the farm
+- **THEN** the Moon shows a phase and the band of the Milky Way is visible

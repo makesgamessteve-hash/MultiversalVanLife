@@ -397,6 +397,12 @@ static const char *PROC_SCRIPT =
     "  assert(mvl.texture_gen{ colors = {} } > 0)\n"
     "  assert(not pcall(mvl.texture_gen, { size = 33 }))\n"
     "  assert(mvl.release_texture(t1) and not mvl.release_texture(t1) and not mvl.release_texture(0))\n"
+    "  local r1 = mvl.texture_recolor('textures/font.tga', {{10, 20, 30}, {200, 200, 200}})\n"
+    "  assert(r1 > 0 and mvl.texture_recolor('textures/font.tga', {{10, 20, 30}, {200, 200, 200}}) == r1)\n"
+    "  assert(mvl.texture_recolor('textures/font.tga', {{10, 20, 30}, 'x'}, 'green') ~= r1)\n"
+    "  assert(not pcall(mvl.texture_recolor, 'textures/none.tga', {{1, 2, 3}}))\n"
+    "  assert(not pcall(mvl.texture_recolor, 'data.txt', {{1, 2, 3}}))\n"
+    "  assert(not pcall(mvl.texture_recolor, 'textures/font.tga', {}))\n"
     "  assert(mvl.portal(0, { pos = {1, 2, 3}, yaw = 0.5, w = 2, h = 1, target = {9, 9, 9}, target_yaw = 1 }))\n"
     "  assert(mvl.portal(1, {}) and not mvl.portal(1) and not pcall(mvl.portal, 8, {}))\n"
     "end\n";
@@ -409,6 +415,34 @@ void test_engine_procedural_api(void) {
     CHECK(mvl_engine_init(&e, &d));
     CHECK_EQ_INT(e.script_errors, 0);
     if (e.script_errors) fprintf(stderr, "%s\n", e.last_error);
+    /* the sky: star, moons (at most four), planets and the galaxy band */
+    CHECK(mvl_script_run_string(&e,
+                                "N1, N2 = mvl.sky{ sun = { dir = {0, 2, 0}, color = {1, 0.5, 0.2}, size = 0.05, glow = 0.3 },"
+                                " moons = { { dir = {1, 1, 0}, size = 0.03, color = {0.5, 0.5, 0.5} }, { dir = {0, 0, 0} },"
+                                " 'x', {}, {}, {} }, planets = { { dir = {0, 1, 1} } },"
+                                " band = { normal = {0, 0, 3}, core = {1, 0, 0}, color = {1, 1, 1}, strength = 0.4, width = 0.2 } }"
+                                " assert(N1 == 4 and N2 == 1)",
+                                "=sky"));
+    {
+        const mvl_sky *s = &e.scene.env.sky;
+        CHECK_EQ_INT(s->moon_count, 4);
+        CHECK_EQ_INT(s->planet_count, 1);
+        CHECK_NEAR(s->sun.dir[1], 1, 1e-6);   /* normalised */
+        CHECK_NEAR(s->light[1], 1, 1e-6);     /* moons lit from the star */
+        CHECK_NEAR(s->sun_glow, 0.3, 1e-6);
+        CHECK_NEAR(s->moons[0].dir[0], 0.70710678, 1e-5);
+        CHECK_NEAR(s->moons[1].size, 0.01, 1e-6);
+        CHECK_NEAR(s->moons[1].color[0], 1, 0);
+        CHECK_NEAR(s->band_normal[2], 1, 1e-6);
+        CHECK_NEAR(s->band_width, 0.2, 1e-6);
+    }
+    CHECK(mvl_script_run_string(&e, "mvl.sky{ light = {0, 0, -2} }", "=sky2"));
+    CHECK_EQ_INT(e.scene.env.sky.moon_count, 0);
+    CHECK_NEAR(e.scene.env.sky.light[2], -1, 1e-6);
+    CHECK_NEAR(e.scene.env.sky.sun.size, 0, 0);
+    CHECK(mvl_script_run_string(&e, "mvl.sky{ moons = { {} } } mvl.environment{ reset = true }", "=sky3"));
+    CHECK_EQ_INT(e.scene.env.sky.moon_count, 0);
+    CHECK_NEAR(e.scene.env.sky.light[1], -1, 0);
     /* decal flag and clamped layer reach the entity */
     CHECK(mvl_script_run_string(&e, "D1 = mvl.spawn{ decal = true, layer = 9 } D2 = mvl.spawn{ layer = -3 }", "=decal"));
     {

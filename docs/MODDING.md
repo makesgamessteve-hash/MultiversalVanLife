@@ -124,9 +124,9 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `ribbon_mesh({x, y, z, ...}, width [, v_scale])`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Planets | `planet_grid(level)`, `planet_cell(level, i)`, `planet_neighbours(level, i)`, `planet_nearest(level, x, y, z)`, `planet_sample(level, values, x, y, z)`, `planet_plates(level, seed, n)`, `planet_tectonics{level, seed, plates, continental}`, `planet_climate{level, elevation, axis, tilt_sin, locked, sub, mean, span, lapse, water, iterations}` → `{temp, tmin, tmax, precip, wind}`, `planet_rivers{level, elevation, precip}` → `{filled, flow_to, flow, lake}`, `planet_territory(level, seeds, cost)` → owner per cell, `planet_components(level, mask)` → ids, count (cells and plates are numbered from 1; 0 means none) |
-| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}` |
+| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
 | Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
-| World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
+| World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
 | Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])` |
 | Audio | `play(sound, vol, pan, loop, group)`, `stop`, `stop_group`, `fade(voice, vol, secs, stop)`, `playing`, `group_volume(g [, v])` |
 | UI | `ui_size()`, `rect`, `image`, `text(x, y, s, scale, r, g, b, a)`, `text_width`, `wrap(s, width)` |
@@ -215,6 +215,54 @@ local sandstone = mvl.texture_gen{ kind = "stone", size = 32, seed = 3, scale = 
                                    colors = {{120, 50, 40}, {190, 110, 80}, {230, 170, 130}} }
 local wall = mvl.spawn{ mesh = mvl.box_mesh(2, 2, 0.5), texture = sandstone, pos = {0, 0, -4} }
 assert(sandstone > 0 and mvl.exists(wall))
+```
+
+`mvl.texture_recolor(path, colors [, "green"])` repaints a texture file
+along a gradient of up to 6 colours by brightness (darkest pixel to the
+first colour, brightest to the last) and returns the new texture id (cached).
+With `"green"` only pixels where green dominates (leaves, grass) are
+repainted, so trunks, petals and stones keep their colours. Generated lands
+use it to colour plants by their star's light and stone by their bedrock
+(`gen/visuals/palette.lua`).
+
+<!-- example -->
+```lua
+local purple_oak = mvl.texture_recolor("textures/tree_oak.tga", {{10, 8, 14}, {50, 30, 68}, {84, 54, 108}}, "green")
+local red_stone = mvl.texture_recolor("textures/stone.tga", {{94, 46, 33}, {170, 84, 60}, {191, 127, 109}})
+assert(purple_oak > 0 and red_stone > 0 and purple_oak ~= red_stone)
+```
+
+### The sky
+
+`mvl.environment{...}` sets the sky's gradient (`sky_top`, `sky_horizon`),
+fog, ambient light, the sun's light (`sun_dir`, the direction the light
+travels, and `sun_color`) and `stars` (0..1, also dims planets and the
+galaxy band). `mvl.sky{...}` sets what stands in the sky, replacing what was
+there (`mvl.environment{reset = true}` clears it too):
+
+| Field | Meaning |
+|---|---|
+| `sun = {dir, color, size, glow}` | the star's disc: direction from the viewer, colour, angular radius (radians), halo |
+| `light = {x, y, z}` | direction towards the star for moon phases (default: `sun.dir`; may be below the horizon) |
+| `moons = {{dir, color, size}, ...}` | up to 4 discs, lit from `light`, so they show their phases |
+| `planets = {{dir, color, size}, ...}` | up to 8 bright points |
+| `band = {normal, core, color, strength, width}` | the galaxy: a cloudy great circle around `normal`, brightest towards `core` |
+
+It returns the number of moons and planets taken. Generated places compute
+all of it with `gen.sky` (positions for a place and a moment, phases, the
+air's colours by day and night).
+
+<!-- example -->
+```lua
+mvl.environment{ sky_top = {0.01, 0.01, 0.04}, sky_horizon = {0.05, 0.06, 0.12}, stars = 1 }
+local moons, planets = mvl.sky{
+  light = {1, -0.2, 0},                                  -- the star lies just below the horizon, towards +x
+  moons = { { dir = {-0.3, 0.5, -1}, size = 0.08, color = {0.9, 0.9, 0.85} },
+            { dir = {0.4, 0.4, -1}, size = 0.05, color = {0.9, 0.6, 0.4} } },
+  planets = { { dir = {0, 0.2, -1}, size = 0.006, color = {1, 0.9, 0.7} } },
+  band = { normal = {1, 0.3, 0.2}, core = {0, 0.3, -1}, color = {0.8, 0.8, 1}, strength = 0.4, width = 0.15 },
+}
+assert(moons == 2 and planets == 1)
 ```
 
 ### Decals

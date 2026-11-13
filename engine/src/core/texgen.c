@@ -122,3 +122,40 @@ int mvl_tex_generate(const mvl_tex_recipe *r, mvl_image *img) {
         }
     return 1;
 }
+
+/* ------------------------------------------------------------ recolour */
+static int selected(const uint8_t *p, mvl_recolor_select s) {
+    if (p[3] < 8) return 0;
+    if (s == MVL_RECOLOR_GREEN) return p[1] > p[0] + 6 && p[1] > p[2] + 6;
+    return 1;
+}
+
+int mvl_tex_recolor(mvl_image *img, const uint8_t (*colors)[4], int count, mvl_recolor_select select) {
+    int lo = 255 * 3, hi = 0, n = 0, total;
+    mvl_tex_recipe r;
+    if (!img || !img->rgba || count < 1) return 0;
+    if (count > MVL_TEX_MAX_COLORS) count = MVL_TEX_MAX_COLORS;
+    memset(&r, 0, sizeof r);
+    memcpy(r.colors, colors, (size_t)count * 4);
+    r.color_count = count;
+    total = img->w * img->h;
+    for (int i = 0; i < total; ++i) {
+        const uint8_t *p = img->rgba + i * 4;
+        int l = p[0] + p[1] + p[2];
+        if (!selected(p, select)) continue;
+        if (l < lo) lo = l;
+        if (l > hi) hi = l;
+    }
+    for (int i = 0; i < total; ++i) {
+        uint8_t *p = img->rgba + i * 4, out[4];
+        float t;
+        if (!selected(p, select)) continue;
+        t = hi > lo ? (float)(p[0] + p[1] + p[2] - lo) / (float)(hi - lo) : 0.5f;
+        gradient(&r, t, out);
+        p[0] = out[0];
+        p[1] = out[1];
+        p[2] = out[2];
+        ++n;
+    }
+    return n;
+}
