@@ -34,8 +34,46 @@ function progress.set_location(id) mvl.save_set("story.location", id) end
 function progress.flag(name) return mvl.save_get("flag." .. name) == "1" end
 function progress.set_flag(name, on) mvl.save_set("flag." .. name, on == false and nil or "1") end
 
-function progress.helped(world) return progress.flag("helped." .. world) end
-function progress.set_helped(world) progress.set_flag("helped." .. world) end
+-- Helped places: world ids or land addresses.
+function progress.helped(id) return progress.flag("helped." .. id) end
+function progress.set_helped(id)
+  if not progress.helped(id) then mvl.save_set("story.helped_count", progress.helped_total() + 1) end
+  progress.set_flag("helped." .. id)
+end
+function progress.helped_total() return tonumber(mvl.save_get("story.helped_count", "0")) or 0 end
+
+-- Locations are world ids ("home") or generated lands ("land:<address>").
+function progress.land_address(loc)
+  loc = loc or progress.location()
+  return loc:match("^land:(.+)$")
+end
+
+-- The logbook: every visited land (a save record).
+function progress.logbook()
+  local r = mvl.record_read("logbook")
+  return r and r.entries or {}
+end
+
+function progress.log_visit(entry)
+  local entries = progress.logbook()
+  for _, e in ipairs(entries) do if e.address == entry.address then return false end end
+  entries[#entries + 1] = entry
+  mvl.record_write("logbook", { entries = entries })
+  return true
+end
+
+-- Troubles offered on recent nights (for signal variety).
+function progress.recent_troubles()
+  local out = {}
+  for id in (mvl.save_get("signals.recent", "") .. ","):gmatch("([^,]*),") do if id ~= "" then out[id] = true end end
+  return out
+end
+
+function progress.remember_troubles(list)
+  local ids = {}
+  for _, s in ipairs(list) do ids[#ids + 1] = s.trouble end
+  mvl.save_set("signals.recent", table.concat(ids, ","))
+end
 
 function progress.helped_count(worlds)
   local n = 0

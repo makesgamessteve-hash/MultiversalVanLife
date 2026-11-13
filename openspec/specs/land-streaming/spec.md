@@ -26,3 +26,10 @@ Land terrain SHALL be continuous across chunks and across neighbouring lands, fl
 #### Scenario: Neighbouring land
 - **WHEN** the player walks towards the edge of a land
 - **THEN** the neighbouring land is generated lazily and its terrain continues without a seam
+
+### Requirement: Settlements and roads
+Each land SHALL place the settlements, buildings, roads and villagers its description contains, near the landing spot for lands reached by signals.
+
+#### Scenario: Settlement near the van
+- **WHEN** the player arrives at a land through a signal
+- **THEN** buildings of a settlement are visible from the van's door

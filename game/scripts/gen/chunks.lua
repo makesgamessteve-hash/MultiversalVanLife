@@ -20,6 +20,8 @@ local function key(a, b) return a .. "," .. b end
 function chunks.new(anchor, provider)
   local self = setmetatable({
     anchor = anchor, provider = provider, lands = {}, land_list = {}, loaded = {}, count = 0,
+    spawned = {},     -- feature id -> entity, for features in built chunks
+    hook = nil,       -- function(feature, land) -> false (skip), a replacement feature, or nil
     stats = { built = 0, unloaded = 0, max_loaded = 0, lands = 0 },
     agx = anchor.data.grid[1], agz = anchor.data.grid[2],
   }, S)
@@ -118,17 +120,36 @@ function S:build(cx, cz, rec)
   c.meshes[#c.meshes + 1] = mesh
   c.entities[#c.entities + 1] = mvl.spawn({ mesh = mesh, texture = mvl.texture("textures/" .. (d.texture or "grass") .. ".tga"),
                                             pos = { x0, 0, z0 } })
-  -- the land's features standing in this chunk
-  for _, f in ipairs(d.features) do
-    local wx, wz = f.x + rec.ox, f.z + rec.oz
-    if inside(wx, wz, x0, z0) then
-      local s = f.scale or 1
-      c.entities[#c.entities + 1] = mvl.spawn({
-        mesh = resolve_mesh(f), texture = f.texture and mvl.texture("textures/" .. f.texture .. ".tga") or 0,
-        pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
-        scale = type(s) == "number" and { s, s, s } or s, color = f.color,
-        solid = f.box ~= nil or f.radius ~= nil, box = f.box, radius = f.radius,
-      })
+  -- the land's features standing in this chunk (a hook may hide or alter
+  -- them, e.g. quest items already taken or lamps already lit)
+  for _, f0 in ipairs(d.features) do
+    local wx, wz = f0.x + rec.ox, f0.z + rec.oz
+    local f = f0
+    if inside(wx, wz, x0, z0) and self.hook then f = self.hook(f0, rec) end
+    if f == nil then f = f0 end
+    if f and inside(wx, wz, x0, z0) then
+      local e
+      if f.sprite then
+        e = mvl.spawn({ kind = "sprite", texture = mvl.texture("textures/" .. f.sprite .. ".tga"),
+                        pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, scale = { f.w or 1, f.h or 1, 1 },
+                        unlit = f.unlit, nofog = f.nofog, color = f.color, solid = f.radius ~= nil, radius = f.radius })
+      else
+        local s = f.scale or 1
+        e = mvl.spawn({
+          mesh = resolve_mesh(f), texture = f.texture and mvl.texture("textures/" .. f.texture .. ".tga") or 0,
+          pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
+          scale = type(s) == "number" and { s, s, s } or s, color = f.color,
+          solid = f.box ~= nil or f.radius ~= nil, box = f.box, radius = f.radius,
+        })
+      end
+      c.entities[#c.entities + 1] = e
+      if f.id then
+        self.spawned[f.id] = e
+        self.owner = self.owner or {}
+        self.owner[f.id] = c
+        c.ids = c.ids or {}
+        c.ids[#c.ids + 1] = f.id
+      end
     end
   end
   -- fields: decals on their flattened ground
@@ -196,6 +217,7 @@ end
 function S:unload(k)
   local c = self.loaded[k]
   for _, e in ipairs(c.entities) do mvl.destroy(e) end
+  for _, id in ipairs(c.ids or {}) do self.spawned[id] = nil end
   for _, m in ipairs(c.meshes) do mvl.release_mesh(m) end
   self.loaded[k] = nil
   self.count = self.count - 1
@@ -237,6 +259,27 @@ function S:fill(px, pz) return self:update(px, pz, math.huge) end
 -- Destroys every chunk.
 function S:clear()
   for k in pairs(self.loaded) do self:unload(k) end
+end
+
+-- World position of a feature of a land.
+function S:feature_pos(f, rec)
+  rec = rec or self.land_list[1]
+  local x, z = f.x + rec.ox, f.z + rec.oz
+  return x, mvl.height(x, z), z
+end
+
+-- Destroys a feature's entity now (it is rebuilt from the hook's view later).
+function S:remove_feature(id)
+  local e = self.spawned[id]
+  if not e then return end
+  mvl.destroy(e)
+  self.spawned[id] = nil
+  local c = self.owner and self.owner[id]
+  if c then
+    for i, x in ipairs(c.entities) do
+      if x == e then table.remove(c.entities, i) break end
+    end
+  end
 end
 
 -- Chunk record at a world position (nil if not built).

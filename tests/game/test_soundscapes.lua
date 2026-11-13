@@ -34,7 +34,7 @@ test.expect(math.abs(test.voice_volume(hum) - audio.SCAPES.van.volume) < 0.01, "
 H.finish_dialogue()
 H.use("console")
 H.finish_dialogue()
-H.choose(D.story.menu, "Lanternfen")
+H.choose(D.story.menu, "Signal")
 test.wait(5)
 test.expect(test.mixer_voices(0) >= 1, "the travel sound plays")
 test.eq(audio.ambient, hum, "the hum carries on while travelling")
@@ -42,9 +42,10 @@ test.until_true(function() return not D.story.busy end, 600, "arrived")
 H.finish_dialogue()
 test.eq(audio.ambient, hum, "still the hum after arriving")
 
--- stepping out at the destination crossfades to its ambience
+-- stepping out at the destination crossfades to its world's ambience
 H.step_outside()
-test.eq(audio.ambient_path, D.world.get("fen").ambient, "Lanternfen's ambience")
+test.eq(audio.ambient_path, (D.world.ambient()), "the land's own ambience")
+test.expect(audio.ambient_path ~= audio.SCAPES.van.path, "not the van hum")
 test.seconds(2)
 test.eq(test.voice_volume(hum), -1, "van hum stopped outside")
 

@@ -43,8 +43,13 @@ require("gen.levels.universe")(gen.cosmos)
 require("gen.levels.galaxy").register(gen.cosmos)
 require("gen.levels.cluster").register(gen.cosmos)
 require("gen.levels.system").register(gen.cosmos)
+gen.provisional = require("gen.levels.provisional")
+gen.provisional.register(gen.cosmos)
+gen.quests = require("gen.quests")
+gen.quests.register(gen.cosmos)
 gen.land = require("gen.levels.land")
 gen.land.register(gen.cosmos)
+gen.signals = require("gen.signals")
 
 -- Inside Prime nothing is generated below the planets except the farm and
 -- the countryside around it; elsewhere places exist up to their parent's cap.

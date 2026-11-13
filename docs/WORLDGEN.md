@@ -224,6 +224,30 @@ between journeys, while the gate, the van's parking spot and the porch stay
 in the same place relative to the farmhouse. The other lands of the farm's
 country are open countryside along the old road.
 
+## Signals, provisional worlds and quests
+
+Until the deep generators exist (planned for phases 11 to 22), places
+outside Prime are filled by provisional rules (`gen/levels/provisional.lua`):
+
+- A **planet's style** (temperate, marsh, desert, snow, crystal, fungal)
+  follows from its temperature, its star and its universe's magic, and sets
+  the terrain, sky, sounds, buildings, people and the words its quests use.
+- Every **land** gets a named settlement around a square near the landing
+  spot, villagers with generated names, a lane to the van, and one trouble.
+- A land's **trouble** is a quest template picked from the land's seed alone
+  (`gen/quests.lua`), so it is known before the land is generated. The quest
+  is stored as data in the land; its items and targets are land features
+  that stream with their chunks (taken items never come back, lit lamps stay
+  lit). Base templates: relight, gather, return, lost person.
+- **Signals** (`gen/signals.lua`): each night candidates are drawn from the
+  save's seed and the night number in universes 1 to 24 (never Prime): a
+  galaxy, a cluster in its habitable band, a star and one of its rocky
+  worlds are generated down to the star system; the land is only named.
+  Three are chosen by severity plus novelty (an unvisited galaxy, a trouble
+  not offered last time), never two from the same galaxy. Choosing one
+  requests the land; the van stays in the vortex until it is generated
+  (at least 3.5 s).
+
 ## Fingerprints
 
 `tests/game/test_gen_fingerprint.lua` compares fingerprints (hashes of the

@@ -13,7 +13,8 @@ rebuild) and restart the game.
 | `config/engine.ini` | Render resolution, dithering, UI size, tick rate, main script, VR eye height |
 | `config/input.ini` | Key, mouse and gamepad bindings per action |
 | `scripts/` | Lua 5.4 gameplay. `main.lua` is the entry point |
-| `scripts/worlds/` | One file per world (home and the destinations) |
+| `scripts/worlds/` | `home.lua` (the farm) and `land.lua` (any generated land) |
+| `scripts/gen/` | The multiverse generator (see [WORLDGEN.md](WORLDGEN.md)) |
 | `scripts/lib/van.lua` | Juniper's interior, its window portals and the vortex |
 | `shaders/` | GLSL shaders (written for GLSL 3.30 / GLSL ES 3.00, without `#version`) |
 | `textures/` | TGA images (sprites use alpha cut-out) |
@@ -36,37 +37,47 @@ better_textures
 
 Each mod folder mirrors `game/`. A file in a mod replaces the base file with
 the same path; mods listed later win. If a mod has an `init.lua` at its root,
-the game runs it at start-up, after the base worlds are registered.
+the game runs it at start-up, after the base game and its generator are set up.
 
-### Adding a destination
+### Adding a kind of trouble
 
-`mods/my_world/init.lua`:
+The places Juniper's signals lead to are generated (see
+[WORLDGEN.md](WORLDGEN.md)). Mods extend the generator rather than adding
+fixed places: they register generation passes, content tables and quest
+templates. This is the complete sample mod, `mods/sample_mod/init.lua`, which
+`tests/game/test_mods.lua` runs:
 
+<!-- sample_mod -->
 ```lua
-local world = require("lib.world")
-local story = require("lib.story")
-local dialogue = require("lib.dialogue")
+-- Example mod used by tests/game/test_mods.lua and docs/MODDING.md: a new
+-- kind of trouble that generated lands can have.
+local gen = require("gen")
 
-world.register({
-  id = "my_world",
-  name = "Glass Dunes",
-  destination = true,       -- listed on the van console
-  order = 10,               -- position in the list
-  ambient = "sounds/ambient_night.wav",
-  build = function(w)
-    w:env({ sky_top = {0.3, 0.1, 0.4}, sky_horizon = {0.9, 0.5, 0.6}, fog_far = 50 })
-    w:bounds(-30, -30, 30, 30)
-    w:ground("sand", 100, 50)
-    w:prop({ voxel = "well", x = 4, z = -6, radius = 1 })
-    w:sprite({ texture = "tree_oak", x = -5, z = -8, w = 3, h = 4, radius = 0.4 })
-    w:npc({ texture = "npc_robot", name = "Dune Bot", x = 0, z = -4, talk = function()
-      dialogue.say("tock_1")
-    end })
-    story.place_van(w, 0, 6, -math.pi / 2)
-    return story.van_door.x, story.van_door.z, story.van_door.yaw
-  end,
+gen.cosmos:content("quest_templates", {
+  { id = "moonberries", w = 1, kind = "gather", short = "the moonberry harvest spilled",
+    part = "moonberry", item = "flowers",
+    intro = { "The {folk} of {place} pick moonberries only on nights like this one.",
+              "But the baskets tipped over on the hill! Could you find all {n} {part}s?" },
+    progress = "{left} {part}s are still out there.",
+    done = "A full basket! The {folk} will feast tonight, thanks to you." },
 })
 ```
+
+Quest templates have a `kind` (`relight`, `gather`, `return` or `lost`), a
+weight `w`, the words they use (`part`, `keepsake`, `light`, `glow`, `spot`,
+`machine`, and `item`, the sprite of collectable items) and text with
+placeholders: `{giver}`, `{place}` (the settlement), `{folk}`, `{n}`,
+`{left}`, `{lost}` and the words above. A land's trouble is picked from its
+seed among all registered templates, so newly generated lands can get the
+mod's trouble. Other things a mod can extend:
+
+| Table | Contents |
+|---|---|
+| `gen.cosmos:content("quest_templates", {...})` | Troubles of generated lands |
+| `gen.cosmos:content("magic_sources" / "ftl_modes", {...})` | Universe laws (`{ id, w }`) |
+| `gen.provisional.STYLES` | Looks of generated worlds: terrain, sky, sounds, buildings, people, words |
+| `gen.names.LEXICONS` | Syllables of generated names |
+| `gen.cosmos:pass(level, name, {...})` | Any generation pass (a pass with an existing name replaces it) |
 
 Add your own lines by shipping a `dialogue/lines.txt` (it replaces the base
 file, so copy the base lines too), or call `dialogue.say` with existing ids.

@@ -3,7 +3,8 @@
 A retro 3D exploration game. You live on a quiet farm. One night an old camper
 van is parked at your gate, and a voice calls you in. The van is **Juniper**:
 sentient, much bigger on the inside, and able to travel between worlds. Every
-night the two of you visit a strange place and help the people who live there.
+night Juniper picks up signals from places in trouble somewhere in an endless,
+generated multiverse; you choose one, visit, and help the people who live there.
 
 - **Retro 3D**: low-resolution rendering, per-vertex lighting, wobbly vertex
   snapping, fog and ordered dithering. Scenes mix OBJ models, billboard
@@ -12,8 +13,9 @@ night the two of you visit a strange place and help the people who live there.
   controls on phones, and WebXR virtual reality.
 - **Moddable**: the C engine only runs what it finds in the `game/` folder next
   to the executable (Lua scripts, shaders, textures, models, voxels, sounds,
-  dialogue). Mods in `mods/` can override or add anything, including new
-  worlds. See [docs/MODDING.md](docs/MODDING.md).
+  dialogue). Mods in `mods/` can override anything and extend the generator
+  with new troubles, styles and generation passes. See
+  [docs/MODDING.md](docs/MODDING.md).
 - **Generated multiverse**: every place, from universes down to single lands,
   is generated lazily and deterministically from the save's seed, with causes
   for every fact. See [docs/WORLDGEN.md](docs/WORLDGEN.md) and the roadmap in

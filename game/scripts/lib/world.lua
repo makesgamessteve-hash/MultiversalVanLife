@@ -1,6 +1,6 @@
 -- Multiversal Van Life - world loading, prop helpers and interaction (MIT).
--- A world module is a table: { id, name, description, destination, order,
--- ambient, build = function(w) ... end, update = function(w, dt) end }.
+-- A world module is a table: { id, name, ambient, build = function(w) ... end,
+-- update = function(w, dt) end }. Generated lands use the "land" world.
 local util = require("lib.util")
 local player = require("lib.player")
 local audio = require("lib.audio")
@@ -17,15 +17,6 @@ end
 
 function world.get(id) return world.registry[id] end
 
-function world.destinations()
-  local list = {}
-  for _, id in ipairs(world.order) do
-    local def = world.registry[id]
-    if def.destination then list[#list + 1] = def end
-  end
-  table.sort(list, function(a, b) return (a.order or 99) < (b.order or 99) end)
-  return list
-end
 
 -- ----------------------------------------------------------- helpers
 local W = {}
@@ -132,6 +123,14 @@ end
 
 function W:on_update(fn) world.updaters[#world.updaters + 1] = fn end
 
+-- NPC standing on the ground: t = { name, texture, x, z, w, h, tint }.
+function W:npc_at(t, talk)
+  local e, it = self:npc({ texture = t.texture, name = t.name, x = t.x, z = t.z, w = t.w, h = t.h, talk = talk })
+  mvl.set_pos(e, t.x, self:height(t.x, t.z), t.z)
+  if t.tint then mvl.set_color(e, t.tint[1], t.tint[2], t.tint[3], t.tint[4] or 1) end
+  return e, it
+end
+
 -- NPC: a sprite with a talk interaction.
 function W:npc(t)
   local e = self:sprite({ texture = t.texture, x = t.x, z = t.z, w = t.w or 0.8, h = t.h or 1.7, radius = 0.35 })
@@ -143,7 +142,8 @@ end
 -- Builds a world around the player. Persistent entities (the van interior)
 -- survive. While the player is inside the van they stay where they are and
 -- hear the van, not the world.
-function world.load(id, spawn)
+-- `args` are passed to the world's build as w.args (e.g. a land address).
+function world.load(id, spawn, args)
   local def = world.registry[id]
   assert(def, "unknown world " .. tostring(id))
   if world.current and world.current.streamer then world.current.streamer:clear() end
@@ -152,7 +152,7 @@ function world.load(id, spawn)
   world.interactables, world.updaters, world.focus = {}, {}, nil
   mvl.environment({ reset = true })
   for i = 0, 7 do mvl.light(i) end
-  local w = setmetatable({ def = def, state = {} }, W)
+  local w = setmetatable({ def = def, state = {}, args = args or {} }, W)
   world.current = w
   world.apply_bounds()
   local sx, sz, syaw = def.build(w, spawn)
@@ -165,9 +165,22 @@ function world.load(id, spawn)
   end
   if not world.inside() then
     player.place(w.spawn.x, w.spawn.z, w.spawn.yaw)
-    audio.set_ambient(def.ambient, def.ambient_volume)
+    audio.set_ambient(world.ambient())
   end
   return w
+end
+
+-- The current world's soundscape (a world may choose one per place).
+function world.ambient()
+  local w = world.current
+  if not w then return nil end
+  return w.ambient or w.def.ambient, w.ambient_volume or w.def.ambient_volume
+end
+
+-- Display name of the current place.
+function world.place_name()
+  local w = world.current
+  return w and (w.name or w.def.name) or "?"
 end
 
 local function it_pos(it)

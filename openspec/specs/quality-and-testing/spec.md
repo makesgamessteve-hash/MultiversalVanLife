@@ -16,8 +16,8 @@ Unit tests and automated game tests together SHALL cover at least 95% of the lin
 Every `tests/game/test_*.lua` file SHALL be run by CTest through the headless runner with a fresh save folder; tests drive the real game with input actions, touch events and simulated XR state and fail on any failed expectation, script error or timeout.
 
 #### Scenario: Full quest
-- **WHEN** `test_fen.lua` runs
-- **THEN** it travels to Lanternfen, catches every firefly, lights every lantern and checks that the fen is marked as helped
+- **WHEN** a quest test runs for a quest template
+- **THEN** it travels to a generated land using that template, completes the quest through the game's own interactions and checks that the land is marked as helped
 
 ### Requirement: Web smoke test
 CI SHALL load the web build in headless Chromium, both as a desktop browser and as an emulated phone, and fail on page errors, console errors or a blank screen.

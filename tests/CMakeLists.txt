@@ -42,6 +42,13 @@ add_test(NAME tools.bible
     -DOUT=${MVL_TEST_TMP}/bible.md
     -P ${CMAKE_CURRENT_SOURCE_DIR}/run_bible_test.cmake)
 
+# The sample mod in docs/MODDING.md is the one test_mods runs.
+if(Python3_FOUND)
+  add_test(NAME docs.sample_mod
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_mod_example.py
+      ${CMAKE_SOURCE_DIR}/docs/MODDING.md ${CMAKE_CURRENT_SOURCE_DIR}/game/mods/sample_mod/init.lua)
+endif()
+
 # Documented Lua examples (docs/*.md blocks marked <!-- example -->) must run.
 if(Python3_FOUND)
   add_test(NAME docs.examples

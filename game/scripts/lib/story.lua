@@ -20,6 +20,7 @@ function story.after(seconds, fn) story.tasks[#story.tasks + 1] = { t = seconds,
 
 function story.update(dt)
   van.update(dt)
+  story.update_trip(dt)
   local due = {}
   for i = #story.tasks, 1, -1 do
     local task = story.tasks[i]
@@ -40,7 +41,7 @@ function story.update(dt)
 end
 
 function story.reset()
-  story.busy, story.menu, story.tasks, story.shake = false, nil, {}, 0
+  story.busy, story.menu, story.tasks, story.shake, story.trip = false, nil, {}, 0, nil
 end
 
 -- Fades out, runs `fn` (usually loading a world) and fades back in.
@@ -94,30 +95,73 @@ end
 van.on_console = function() story.open_console() end
 van.on_door = function() story.exit_van() end
 
-local function all_helped()
-  local list = world.destinations()
-  return #list > 0 and progress.helped_count(list) == #list
-end
-story.all_helped = all_helped
+-- ------------------------------------------------------------- console
+local function gen() return require("gen") end
 
-function story.open_console()
-  local loc = progress.location()
-  local items = {}
-  for _, def in ipairs(world.destinations()) do
-    local label = def.name .. (progress.helped(def.id) and "  (helped)" or "")
-    items[#items + 1] = { label = label, enabled = def.id ~= loc, action = function() story.travel(def.id) end }
+-- Tonight's signals (the same all night).
+function story.signals()
+  local G = gen().world
+  local key = G.seed .. ":" .. progress.night()
+  if story.signal_cache and story.signal_cache.key == key then return story.signal_cache.list end
+  local visited = {}
+  for _, e in ipairs(progress.logbook()) do visited[e.galaxy] = true end
+  local list = gen().signals.tonight(G, progress.night(), visited, progress.recent_troubles())
+  story.signal_cache = { key = key, list = list }
+  return list
+end
+
+-- "Night 3 - Pandor, Vesra b" / "Night 3 - Home"
+local function location_label()
+  local addr = progress.land_address()
+  if addr then
+    for _, e in ipairs(progress.logbook()) do if e.address == addr then return e.name .. ", " .. e.planet end end
+    return world.place_name()
   end
-  if loc ~= "home" then
+  local def = world.get(progress.location())
+  return def and def.name or progress.location()
+end
+
+function story.open_logbook()
+  local here = progress.land_address()
+  local items = {}
+  for _, e in ipairs(progress.logbook()) do
+    local label = e.name .. " (" .. e.planet .. ")" .. (progress.helped(e.address) and "  - helped" or "")
+    items[#items + 1] = { label = label, enabled = e.address ~= here, action = function() story.travel(e.address) end }
+  end
+  items[#items + 1] = { label = "Back", action = function() story.open_console(true) end }
+  story.menu = Menu.new("LOGBOOK", items, { subtitle = #items - 1 .. " places visited",
+                                            cancel = function() story.open_console(true) end })
+end
+
+function story.open_console(quiet)
+  local here = progress.land_address()
+  local items = {}
+  local signals = story.signals()
+  for _, s in ipairs(signals) do
+    local label = "Signal: " .. s.name .. " - " .. s.short .. (progress.helped(s.address) and "  (helped)" or "")
+    items[#items + 1] = { label = label, enabled = s.address ~= here, action = function() story.travel(s.address) end }
+  end
+  items[#items + 1] = { label = "Logbook", enabled = #progress.logbook() > 0, action = function() story.open_logbook() end }
+  if progress.location() ~= "home" then
     items[#items + 1] = { label = "Home - end the night", action = function() story.travel("home") end }
   end
   items[#items + 1] = { label = "Not yet", action = function() story.menu = nil end }
   story.menu = Menu.new("CONSOLE", items, {
-    subtitle = "Night " .. progress.night() .. " - " .. (world.get(loc) and world.get(loc).name or loc),
+    subtitle = "Night " .. progress.night() .. " - " .. location_label(),
     cancel = function() story.menu = nil end,
   })
-  dialogue.say("van_console")
+  if quiet then return end
+  local lines = { "van_console" }
+  for _, s in ipairs(signals) do
+    lines[#lines + 1] = { speaker = "juniper", text = gen().signals.describe(s) }
+  end
+  dialogue.say(lines)
 end
 
+-- ------------------------------------------------------------- travel
+-- Travels to "home" or to a land address. The destination is generated
+-- while the van is in the vortex; the trip lasts at least 3.5 seconds and
+-- until the destination is ready.
 function story.travel(to)
   story.menu = nil
   story.busy = true
@@ -126,21 +170,66 @@ function story.travel(to)
   audio.sfx("travel", 0.9)
   story.shake = 3.5
   van.set_travelling(true)
-  -- the outside is replaced while the player stays inside, looking at the vortex
-  story.after(1.0, function() world.load(to) end)
-  story.after(3.6, function()
-    van.set_travelling(false)
-    progress.set_location(to)
-    if to == "home" then
-      progress.end_night()
-      hud.title_card("Night " .. (progress.night() - 1) .. " complete", 3)
-      dialogue.say(all_helped() and { "van_home", "van_all_done" } or "van_home")
-    else
-      progress.save()
-      dialogue.say(progress.helped(to) and "van_welcome_back" or "van_arrive")
-    end
+  local G = gen().world
+  local trip = { to = to, t = 0 }
+  if to ~= "home" then
+    trip.job = G:request(to)
+    trip.budget, G.budget = G.budget, 0.02 -- generate faster while nobody looks outside
+  end
+  story.trip = trip
+end
+
+local function arrive(trip)
+  local G = gen().world
+  if trip.budget then G.budget = trip.budget end
+  van.set_travelling(false)
+  story.trip = nil
+  if trip.failed then
+    dialogue.say("van_lost_signal")
     story.busy = false
-  end)
+    return
+  end
+  if trip.to == "home" then
+    progress.set_location("home")
+    progress.end_night()
+    hud.title_card("Night " .. (progress.night() - 1) .. " complete", 3)
+    local total, reached = progress.helped_total(), tonumber(mvl.save_get("story.milestones", "0")) or 0
+    if total >= (reached + 1) * 3 then
+      mvl.save_set("story.milestones", math.floor(total / 3))
+      progress.save()
+      dialogue.say({ "van_home", "van_milestone" })
+    else
+      dialogue.say("van_home")
+    end
+  else
+    local node = G:node(trip.to)
+    local planet = G:node(trip.to:match("^(.-)%.k%d+%.n%d+%.l%d+$"))
+    progress.set_location("land:" .. trip.to)
+    local first = progress.log_visit({ address = trip.to, name = node.data.name, planet = planet.data.name,
+                                       galaxy = trip.to:match("^(u%d+%.g%d+)"), night = progress.night() })
+    progress.remember_troubles(story.signals())
+    progress.save()
+    dialogue.say(first and "van_arrive" or "van_welcome_back")
+  end
+  story.busy = false
+end
+
+function story.update_trip(dt)
+  local trip = story.trip
+  if not trip then return end
+  trip.t = trip.t + dt
+  -- the outside is replaced while the player stays inside, looking at the vortex
+  if not trip.loaded and trip.t >= 1.0 and (not trip.job or trip.job.done) then
+    trip.loaded = true
+    if trip.job and trip.job.error then
+      trip.failed = true
+    elseif trip.to == "home" then
+      world.load("home")
+    else
+      world.load("land", nil, { address = trip.to })
+    end
+  end
+  if trip.loaded and trip.t >= 3.6 then arrive(trip) end
 end
 
 return story

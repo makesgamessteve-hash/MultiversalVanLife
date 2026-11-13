@@ -23,21 +23,6 @@ The virtual file system SHALL reject absolute paths and paths containing `..` co
 - **WHEN** a script requests `../secret.txt`
 - **THEN** the request fails and no file outside the data roots is read
 
-### Requirement: Mods override and extend the base game
-The engine SHALL add every folder listed in `mods/mods.txt` as a data root with higher priority than the base game, and scripts SHALL be able to run each mod's `init.lua`.
-
-#### Scenario: Overriding an asset
-- **WHEN** an enabled mod contains `textures/grass.tga`
-- **THEN** the game loads the mod's file instead of the base one
-
-#### Scenario: Adding a destination
-- **WHEN** an enabled mod's `init.lua` registers a world with `destination = true`
-- **THEN** the van console lists that destination and the player can travel there
-
-#### Scenario: Invalid mod names
-- **WHEN** `mods.txt` lists a name containing `/` or `..`
-- **THEN** that entry is ignored with a warning
-
 ### Requirement: Supported asset formats
 The engine SHALL load TGA images (uncompressed and RLE; 8, 24 or 32 bit), PCM WAV sounds (8 or 16 bit, mono or stereo), MP3 sounds (mono or stereo), Wavefront OBJ meshes and MagicaVoxel `.vox` models.
 
@@ -48,3 +33,18 @@ The engine SHALL load TGA images (uncompressed and RLE; 8, 24 or 32 bit), PCM WA
 #### Scenario: MP3 music
 - **WHEN** a script loads `music/title.mp3`
 - **THEN** it is decoded to the same sound format as WAV files and can be played and looped
+
+### Requirement: Mods override and extend generated content
+The engine SHALL add every folder listed in `mods/mods.txt` as a data root with higher priority than the base game, and scripts SHALL be able to run each mod's `init.lua`; mods SHALL be able to register generation passes and content tables (such as land styles, quest templates and name lexicons).
+
+#### Scenario: Overriding an asset
+- **WHEN** an enabled mod contains `textures/grass.tga`
+- **THEN** the game loads the mod's file instead of the base one
+
+#### Scenario: Adding generation content
+- **WHEN** an enabled mod's `init.lua` registers a new quest template
+- **THEN** newly generated lands can use it
+
+#### Scenario: Invalid mod names
+- **WHEN** `mods.txt` lists a name containing `/` or `..`
+- **THEN** that entry is ignored with a warning

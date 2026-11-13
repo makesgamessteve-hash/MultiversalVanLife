@@ -137,8 +137,7 @@ function van.exit(player, world, x, z, yaw)
   player.base_y = 0
   player.place(x, z, yaw)
   world.apply_bounds()
-  local def = world.current and world.current.def
-  audio.set_ambient(def and def.ambient, def and def.ambient_volume)
+  audio.set_ambient(world.ambient())
 end
 
 function van.update(dt)

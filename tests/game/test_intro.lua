@@ -1,5 +1,5 @@
 -- Night 1: the van calls out, the player walks in, meets Juniper and flies
--- to Lanternfen, then steps outside into the new world.
+-- to one of tonight's signals, then steps outside into the new world.
 H.new_game()
 test.eq(H.current(), "home", "at home")
 test.until_true(function() return game.debug.dialogue.active() end, 300, "the van calls")
@@ -20,7 +20,7 @@ test.until_true(function() return game.debug.dialogue.active() end, 60, "intro s
 test.eq(game.debug.dialogue.current.id, "van_intro_1", "intro line")
 H.finish_dialogue()
 
-H.travel("Lanternfen")
-test.eq(game.debug.progress.location(), "fen", "location saved")
+H.travel("Signal")
+test.expect(game.debug.progress.location():find("^land:u%d+"), "location saved")
 H.step_outside()
-test.eq(H.current(), "fen", "outside in Lanternfen")
+test.eq(H.current(), "land", "outside in the generated land")

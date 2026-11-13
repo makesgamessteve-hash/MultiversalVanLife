@@ -14,9 +14,7 @@ local Menu = require("lib.menu")
 local gen = require("gen")
 
 require("worlds.home")
-require("worlds.fen")
-require("worlds.market")
-require("worlds.library")
+require("worlds.land")
 
 -- Mods: each enabled mod may provide an init.lua (see docs/MODDING.md).
 for index, name in ipairs(mvl.mods()) do
@@ -37,16 +35,18 @@ local function start_play(new_game)
   game.state = "play"
   player.enabled = true
   local loc = progress.location()
-  if not world.get(loc) then loc = "home" end
+  local land = progress.land_address(loc)
+  -- saves at a place that no longer exists continue at home
+  if not land and not world.get(loc) then loc = "home" progress.set_location("home") end
   story.van.build()
   story.van.inside = false
-  player.base_y = 0
-  world.load(loc)
+  player.base_y, player.indoors = 0, false
+  if land then world.load("land", nil, { address = land }) else world.load(loc) end
   -- every session begins inside the van unless the van has not been met yet
   if progress.flag("van_met") then story.van.enter(player, world) end
   hud.title_card("Night " .. progress.night(), 2.5)
   if progress.flag("van_met") and loc ~= "home" then
-    hud.notify("Juniper is parked at " .. world.get(loc).name)
+    hud.notify("Juniper is parked at " .. world.place_name())
   end
 end
 
@@ -77,7 +77,7 @@ local function open_pause()
     game.state = "title"
     build_title()
     story.van.inside = false
-    player.base_y = 0
+    player.base_y, player.indoors = 0, false
     world.load("home")
     audio.scape("title")
   end }

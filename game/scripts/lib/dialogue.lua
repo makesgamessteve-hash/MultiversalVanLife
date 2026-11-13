@@ -8,12 +8,8 @@ local dialogue = { queue = {}, current = nil, shown = 0, timer = 0, blip = 0, on
 
 dialogue.speakers = {
   juniper  = { name = "Juniper", color = { 1.0, 0.75, 0.35 } },
-  mabel    = { name = "Mabel", color = { 0.75, 0.9, 0.6 } },
-  wick     = { name = "Old Wick", color = { 0.6, 0.9, 0.8 } },
-  pip      = { name = "Pip", color = { 0.9, 0.8, 1.0 } },
-  tock     = { name = "Tock", color = { 0.7, 0.85, 1.0 } },
-  brassa   = { name = "Brassa", color = { 1.0, 0.65, 0.4 } },
-  quillfin = { name = "Quillfin", color = { 0.55, 0.8, 1.0 } },
+  mabel    = { name = "Neighbour", color = { 0.75, 0.9, 0.6 } },  -- the farm's neighbour (named per journey)
+  villager = { name = "Villager", color = { 0.85, 0.85, 1.0 } },   -- people of generated lands (named per land)
   narrator = { name = nil, color = { 0.85, 0.85, 0.85 } },
 }
 

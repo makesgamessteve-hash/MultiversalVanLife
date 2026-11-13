@@ -1,30 +1,50 @@
--- Going home ends the night; after all three worlds Juniper celebrates;
+-- Going home ends the night; every third land helped is celebrated;
 -- progress survives a save/continue round trip.
-H.new_game_in_van()
-local prog = game.debug.progress
-H.travel("Lanternfen")
+local D = game.debug
+local prog = D.progress
+local story = D.story
+H.new_game_in_van(4)
+H.travel("Signal")
 -- the console offers going home when away
-local story = game.debug.story
 H.use("console")
 H.finish_dialogue()
 local labels = {}
 for _, it in ipairs(story.menu.items) do labels[#labels + 1] = it.label end
 test.expect(table.concat(labels, ","):find("Home", 1, true), "home option offered")
+test.expect(table.concat(labels, ","):find("Not yet", 1, true), "cancel offered")
 test.press("back")
 test.eq(story.menu, nil, "menu closed with back")
-prog.set_helped("fen"); prog.set_helped("market"); prog.set_helped("library")
-H.travel("Home")
+-- two lands helped: no milestone yet
+prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l1")
+prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l2")
+H.use("console")
+H.finish_dialogue()
+H.choose(story.menu, "Home")
+test.until_true(function() return not story.busy end, 1200, "home")
+local lines = H.collect_lines()
+test.expect(H.said(lines, "van_home") and not H.said(lines, "van_milestone"), "home line, no milestone yet")
 test.eq(prog.night(), 2, "night advanced")
 test.eq(prog.location(), "home", "home again")
--- the last travel queued van_home + van_all_done; H.travel finished them
-test.expect(story.all_helped(), "everyone helped")
+-- the third land helped: Juniper celebrates on the way home
+H.travel("Signal")
+prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l3")
+prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l3") -- counted once
+test.eq(prog.helped_total(), 3, "three lands helped")
+H.use("console")
+H.finish_dialogue()
+H.choose(story.menu, "Home")
+test.until_true(function() return not story.busy end, 1200, "home")
+local said = H.collect_lines()
+test.expect(H.said(said, "van_home") and H.said(said, "van_milestone"), "the milestone line: " .. table.concat(said, ","))
+test.eq(prog.night(), 3, "night advanced again")
 -- save / continue
-game.debug.open_pause()
-H.choose(game.debug.pause_menu(), "Save and return")
+D.open_pause()
+H.choose(D.pause_menu(), "Save and return")
 test.eq(game.state, "title", "back on title")
-local menu = game.debug.title_menu()
+local menu = D.title_menu()
 test.expect(menu.items[1].enabled ~= false, "continue enabled")
 H.choose(menu, "Continue")
 test.eq(game.state, "play", "continued")
-test.eq(prog.night(), 2, "night restored")
+test.eq(prog.night(), 3, "night restored")
+test.eq(prog.helped_total(), 3, "helped lands restored")
 test.eq(H.current(), "van", "continue starts in the van")

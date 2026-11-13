@@ -9,6 +9,8 @@
 local dm = require("gen.dmath")
 local prime = require("gen.prime")
 local util = require("gen.util")
+local provisional = require("gen.levels.provisional")
+local quests = require("gen.quests")
 
 local land = { SIZE = 2048, GRID = 16, ROAD_STEP = 128 }
 
@@ -43,11 +45,13 @@ land.STYLES = {
 local function country_terrain(ctx)
   local rng = ctx:rng()
   local d = ctx.data
-  d.style = "countryside"
+  local planet = ctx:ancestor("planet")
+  d.style = planet.data.style or "countryside"
+  local st = planet.data.style and provisional.style(planet.data.style).terrain
   d.terrain = {
-    seed = rng:int(0, 1000000), base = 0, amp = dm.round(5 + rng:next() * 4, 3),
-    freq = dm.round(0.005 + rng:next() * 0.003, 5), octaves = 4, lacunarity = 2, gain = 0.5,
-    palette = { { 46, 70, 36 }, { 68, 96, 48 }, { 100, 116, 70 }, { 128, 126, 98 } },
+    seed = rng:int(0, 1000000), base = 0, amp = dm.round((st and st.amp or 5) + rng:next() * 4, 3),
+    freq = dm.round((st and st.freq or 0.005) + rng:next() * 0.003, 5), octaves = 4, lacunarity = 2, gain = 0.5,
+    palette = st and util.copy(st.palette) or { { 46, 70, 36 }, { 68, 96, 48 }, { 100, 116, 70 }, { 128, 126, 98 } },
     color_low = -7, color_high = 9, slope_color = { 96, 86, 70 }, slope_start = 0.22, color_noise = 0.1, uv_scale = 4,
   }
   -- the old road: west to east along the first row of lands, wandering
@@ -211,8 +215,20 @@ function land.register(R)
     d.features, d.flats, d.roads, d.fields = {}, {}, {}, {}
     d.style = ctx.node.address == prime.FARM and "farm" or (country.style or "countryside")
     clip_roads(ctx, d, country)
-    if d.style == "farm" then farm(ctx, d, country) else countryside(ctx, d) end
-    d.flora = util.copy(land.STYLES[d.style] or land.STYLES.countryside)
+    if d.style == "farm" then
+      farm(ctx, d, country)
+    elseif prime.inside(ctx.node.address) then
+      countryside(ctx, d)
+    else
+      -- provisional: a settlement with people and a trouble near the landing spot
+      local T = country.terrain
+      local cx, cz = d.center[1], d.center[2]
+      provisional.settlement(ctx, d, d.style, function(x, z) return land.raw_height(T, x + cx, z + cz) end)
+      quests.generate(ctx, d, provisional.style(d.style))
+    end
+    local ps = provisional.STYLES[d.style]
+    d.flora = util.copy(land.STYLES[d.style] or (ps and { trees = ps.trees, tree_count = ps.tree_count, bush_count = 2,
+                                                          flower_count = 1, texture = ps.texture }) or land.STYLES.countryside)
     d.texture = d.flora.texture
     d.spots = d.spots or { spawn = { x = 0, z = (road_z_at(d, 0) or 0) + 6, yaw = 0 } }
   end })
@@ -222,6 +238,9 @@ function land.register(R)
     if d.style == "farm" then
       return string.format("The farm: a farmhouse, a barn, a well and %d fields; %s lives next door.", #d.fields,
                            d.neighbour.name)
+    end
+    if d.quest then
+      return string.format("%s, a %s settlement of %d people. Trouble: %s.", d.name, d.style, #d.people, d.quest.short)
     end
     return string.format("Rolling %s, crossed by %s.", d.style, #d.roads > 0 and d.roads[1].name or "no road")
   end)
