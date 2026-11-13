@@ -18,6 +18,13 @@ The project SHALL build with Emscripten into an HTML page, JavaScript loader, We
 - **WHEN** the page is opened on a touch device
 - **THEN** the game starts with touch controls enabled
 
+### Requirement: Published web build
+Every push to `main` that passes CI SHALL publish the web build to GitHub Pages with the game page as `index.html`.
+
+#### Scenario: Playing online
+- **WHEN** a player opens the repository's GitHub Pages URL
+- **THEN** the latest web build of `main` loads and can be played with mouse, keyboard, touch or WebXR
+
 ### Requirement: Headless runner
 The project SHALL build `mvl_headless`, which runs the game without window, GPU or audio device for automated tests.
 

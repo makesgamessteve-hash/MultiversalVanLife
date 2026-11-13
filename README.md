@@ -69,7 +69,9 @@ cmake --build build-web
 python3 -m http.server -d build-web 8000
 ```
 
-Open `http://localhost:8000/multiversal_van_life.html`. Phones and tablets get
+Open `http://localhost:8000/multiversal_van_life.html`. Every push to `main`
+also publishes the web build to GitHub Pages:
+<https://makesgamessteve-hash.github.io/MultiversalVanLife/>. Phones and tablets get
 touch controls automatically. In a WebXR-capable browser with a headset, an
 **Enter VR** button appears (also available in the pause menu). WebXR needs
 HTTPS or `localhost`.
@@ -121,8 +123,10 @@ the web, and validates the OpenSpec specs.
 
 ## Voice lines (ElevenLabs)
 
-Dialogue lives in `game/voice/lines.txt`. If `game/voice/<id>.wav` exists, the
-game plays it when the line is shown; otherwise it plays a soft blip. To
+Dialogue lives in `game/voice/lines.txt`. Every spoken line has a voice clip
+in `game/voice/<id>.wav`, generated once with ElevenLabs text to speech and
+shipped as a normal asset; the game plays it when the line is shown (a line
+without a clip falls back to a soft blip). To
 generate voices with ElevenLabs, see [tools/voicegen/README.md](tools/voicegen/README.md).
 The game itself never needs an API key.
 

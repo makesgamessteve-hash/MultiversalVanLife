@@ -107,6 +107,9 @@ if(MVL_BUILD_GAME)
       --pre-js ${CMAKE_SOURCE_DIR}/web/pre.js
       --shell-file ${CMAKE_SOURCE_DIR}/web/shell.html
       --preload-file ${CMAKE_SOURCE_DIR}/game@/game)
+    # repackage the preloaded data whenever anything in game/ changes
+    file(GLOB_RECURSE MVL_GAME_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/game/*)
+    set_property(TARGET multiversal_van_life APPEND PROPERTY LINK_DEPENDS ${MVL_GAME_FILES})
     set_property(TARGET multiversal_van_life APPEND PROPERTY LINK_DEPENDS
       ${CMAKE_SOURCE_DIR}/web/shell.html ${CMAKE_SOURCE_DIR}/web/library_webxr.js ${CMAKE_SOURCE_DIR}/web/pre.js)
   else()

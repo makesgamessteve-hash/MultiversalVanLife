@@ -124,6 +124,36 @@ jobs:
         with:
           name: web-screenshots
           path: shots
+      - name: Prepare GitHub Pages site
+        run: |
+          mkdir -p site
+          cp build-web/multiversal_van_life.html site/index.html
+          cp build-web/multiversal_van_life.js build-web/multiversal_van_life.wasm build-web/multiversal_van_life.data site/
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  pages:
+    name: Deploy web build to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [web, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - id: deployment
+        uses: actions/deploy-pages@v4
 
   specs-and-tools:
     name: OpenSpec + voice tool

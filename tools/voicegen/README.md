@@ -27,7 +27,10 @@ npm install
 npm run generate
 ```
 
-Generates every missing line (narrator lines are skipped). Options:
+Generates every missing line (narrator lines are skipped). The generated
+clips are committed in `game/voice/`, so you only need to run this again after
+adding or changing lines. Behind an HTTPS proxy, run it with
+`NODE_USE_ENV_PROXY=1` (Node 22.21+) so Node's fetch uses the proxy. Options:
 
 - `npm run generate -- --only van_intro_1,van_call_1` generates just these ids.
 - `npm run generate -- --force` regenerates existing files.

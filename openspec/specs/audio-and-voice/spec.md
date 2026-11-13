@@ -25,6 +25,10 @@ All dialogue SHALL be defined in `game/voice/lines.txt` as `id | speaker | text`
 - **WHEN** a line with id X is shown and `voice/X.wav` exists
 - **THEN** the clip plays on the voice group
 
+#### Scenario: Shipped voice clips
+- **WHEN** the game is built
+- **THEN** every non-narrator line in `lines.txt` has a voice clip in `game/voice/`, generated once with ElevenLabs and committed as an asset
+
 #### Scenario: Unvoiced line
 - **WHEN** no clip exists for a non-narrator line
 - **THEN** a soft blip plays while the text types out
