@@ -6,10 +6,13 @@ function lines.load()
   lines.by_id = {}
   local text = mvl.read("voice/lines.txt") or ""
   for line in text:gmatch("[^\r\n]+") do
-    if not line:match("^%s*#") and line:find("|", 1, true) then
-      local parts = util.split(line, "|")
-      local id, speaker, body = util.trim(parts[1] or ""), util.trim(parts[2] or ""), util.trim(parts[3] or "")
-      if id ~= "" then lines.by_id[id] = { id = id, speaker = speaker, text = body } end
+    if not line:match("^%s*#") then
+      -- only the first two '|' separate fields; the text may contain more
+      local id, speaker, body = line:match("^([^|]*)|([^|]*)|(.*)$")
+      if id and util.trim(id) ~= "" then
+        id = util.trim(id)
+        lines.by_id[id] = { id = id, speaker = util.trim(speaker), text = util.trim(body) }
+      end
     end
   end
   return lines.by_id

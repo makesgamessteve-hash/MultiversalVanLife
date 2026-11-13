@@ -29,6 +29,32 @@ foreach(test_file ${MVL_GAME_TESTS})
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
 endforeach()
 
+# Optional: run the same game tests through the real SDL3/OpenGL game
+# (needs a display, e.g. `xvfb-run ctest -L gl` on Linux CI with Mesa).
+option(MVL_GL_TESTS "Also run game tests with the real OpenGL renderer" OFF)
+if(MVL_GL_TESTS AND TARGET multiversal_van_life)
+  foreach(test_file ${MVL_GAME_TESTS})
+    get_filename_component(test_name ${test_file} NAME_WE)
+    set(extra "--mute")
+    if(test_name STREQUAL "test_mods")
+      set(extra --mute --mods ${CMAKE_CURRENT_SOURCE_DIR}/game/mods)
+    endif()
+    add_test(NAME gl.${test_name}
+      COMMAND ${CMAKE_COMMAND}
+        -DRUNNER=$<TARGET_FILE:multiversal_van_life>
+        -DDATA=${CMAKE_SOURCE_DIR}/game
+        -DSAVE=${MVL_TEST_TMP}/glsave_${test_name}
+        -DTEST=${test_file}
+        "-DEXTRA=${extra}"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
+    set_tests_properties(gl.${test_name} PROPERTIES LABELS gl)
+  endforeach()
+  add_test(NAME gl.screenshot
+    COMMAND $<TARGET_FILE:multiversal_van_life> --mute --data ${CMAKE_SOURCE_DIR}/game
+            --save ${MVL_TEST_TMP}/glsave_shot --frames 90 --screenshot ${CMAKE_BINARY_DIR}/screenshot.tga)
+  set_tests_properties(gl.screenshot PROPERTIES LABELS gl)
+endif()
+
 # Coverage report for the engine core (requires MVL_COVERAGE=ON and gcovr).
 find_program(GCOVR gcovr)
 if(MVL_COVERAGE AND GCOVR)

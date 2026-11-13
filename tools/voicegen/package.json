@@ -1,0 +1,19 @@
+{
+  "name": "mvl-voicegen",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Generates voice lines for Multiversal Van Life with ElevenLabs text to speech",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "voices": "node generate.mjs --list-voices",
+    "test": "node --test test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.78.0"
+  }
+}

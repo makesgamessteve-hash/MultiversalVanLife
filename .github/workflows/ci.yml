@@ -1,0 +1,144 @@
+# Multiversal Van Life - continuous integration (MIT License).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (tests, coverage, OpenGL)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build gcovr xvfb mesa-utils libgl1-mesa-dri \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxfixes-dev libgl-dev libegl-dev libasound2-dev libpulse-dev \
+            libwayland-dev libxkbcommon-dev libdrm-dev libgbm-dev
+      - name: Unit + game tests with coverage
+        run: |
+          cmake -S . -B build-cov -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMVL_BUILD_GAME=OFF -DMVL_COVERAGE=ON
+          cmake --build build-cov
+          ctest --test-dir build-cov --output-on-failure
+      - name: Coverage gate (95% of engine core lines)
+        run: cmake --build build-cov --target coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build-cov/coverage
+      - name: Build game (SDL3 fetched) and run game tests with the OpenGL renderer
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMVL_GL_TESTS=ON
+          cmake --build build
+          xvfb-run -a -s "-screen 0 1280x720x24" ctest --test-dir build -L gl --output-on-failure
+      - name: Package
+        run: |
+          mkdir -p dist/MultiversalVanLife
+          cp build/multiversal_van_life dist/MultiversalVanLife/
+          cp -r game LICENSE LICENSE-ART.md CREDITS.md README.md dist/MultiversalVanLife/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multiversal-van-life-linux
+          path: dist
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Unit + game tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/MultiversalVanLife | Out-Null
+          Copy-Item build/Release/multiversal_van_life.exe dist/MultiversalVanLife/
+          Copy-Item -Recurse game, LICENSE, LICENSE-ART.md, CREDITS.md, README.md dist/MultiversalVanLife/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multiversal-van-life-windows
+          path: dist
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G Xcode
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Unit + game tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package
+        run: |
+          mkdir -p dist/MultiversalVanLife
+          cp build/Release/multiversal_van_life dist/MultiversalVanLife/
+          cp -r game LICENSE LICENSE-ART.md CREDITS.md README.md dist/MultiversalVanLife/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multiversal-van-life-macos
+          path: dist
+
+  web:
+    name: Web (Emscripten, touch, WebXR shell)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: |
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web
+      - name: Smoke test in headless Chromium (desktop + phone)
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+          mkdir -p shots
+          node tests/web/smoke.mjs build-web shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multiversal-van-life-web
+          path: |
+            build-web/multiversal_van_life.html
+            build-web/multiversal_van_life.js
+            build-web/multiversal_van_life.wasm
+            build-web/multiversal_van_life.data
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-screenshots
+          path: shots
+
+  specs-and-tools:
+    name: OpenSpec + voice tool
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate OpenSpec specs
+        run: npx -y @fission-ai/openspec@latest validate --specs --strict
+      - name: Voice tool tests
+        working-directory: tools/voicegen
+        run: |
+          npm ci
+          npm test
+      - name: Asset generator self-check
+        run: python3 tools/gen_assets.py --check

@@ -191,11 +191,13 @@ static void frame(void) {
         e->xr_requested = 0;
         mvl_xr_start(e);
     }
-    if (e->xr_active) return; /* the XR session drives frames */
+#ifdef __EMSCRIPTEN__
+    if (e->xr_active) return; /* the WebXR session drives frames */
+#endif
     now = SDL_GetTicksNS();
     dt = (double)(now - a->last_ticks) / 1e9;
     a->last_ticks = now;
-    if (a->max_frames > 0) dt = 1.0 / 60.0; /* deterministic when testing */
+    if (a->max_frames > 0 || e->test_mode) dt = 1.0 / 60.0; /* deterministic when testing */
     SDL_GetWindowSizeInPixels(a->window, &w, &h);
     if (h > 0) mvl_engine_set_aspect(e, (float)w / (float)h);
     mvl_engine_frame(e, dt);
@@ -318,7 +320,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "OpenGL 3.3 / ES 3.0 context unavailable: %s\n", SDL_GetError());
         return 1;
     }
-    SDL_GL_SetSwapInterval(a->max_frames > 0 ? 0 : 1);
+    SDL_GL_SetSwapInterval((a->max_frames > 0 || d.test_script) ? 0 : 1);
 
     if (!mute) {
         SDL_AudioSpec spec;
