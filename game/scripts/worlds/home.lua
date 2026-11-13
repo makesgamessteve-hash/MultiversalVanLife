@@ -7,6 +7,7 @@ local dialogue = require("lib.dialogue")
 local lines = require("lib.lines")
 local progress = require("lib.progress")
 local gen = require("gen")
+local places = require("memory.places")
 
 local neighbour_lines = { "mabel_1", "mabel_2", "mabel_3" }
 
@@ -28,9 +29,13 @@ world.register({
       sun_color = { 0.35, 0.4, 0.55 }, stars = 1,
     })
     local G = gen.world or gen.start(1)
-    local farm = G:generate(gen.prime.FARM)
+    -- the farm is stored on the first visit, like every place
+    local farm = places.get(G, gen.prime.FARM)
     local d = farm.data
-    w:land(farm, function(gx, gz) return gen.neighbour_land(G, farm.address, gx, gz) end)
+    w:land(farm, function(gx, gz)
+      local n = gen.neighbour_land(G, farm.address, gx, gz)
+      return n and places.get(G, n.address) or nil
+    end)
     -- lights of the farmhouse
     for _, f in ipairs(d.features) do
       if f.role == "lamp" then w:light(0, f.x, w:height(f.x, f.z) + 2.8, f.z, 1.0, 0.8, 0.5, 9) end

@@ -7,6 +7,7 @@ local dialogue = require("lib.dialogue")
 local progress = require("lib.progress")
 local LQ = require("lib.landquest")
 local gen = require("gen")
+local places = require("memory.places")
 
 local CHATTER = {
   "A van? Out here? Well, I've seen stranger things fall out of the sky.",
@@ -22,16 +23,20 @@ world.register({
   build = function(w)
     local addr = w.args.address or progress.land_address()
     local G = gen.world
-    local node = G:generate(addr)
+    -- stored on the first visit; later visits load exactly what was stored
+    local node = places.get(G, addr)
     local d = node.data
     local style = gen.provisional.style(d.style)
-    local planet = G:node(gen.address.parent(gen.address.parent(gen.address.parent(addr))))
-    w.name = d.name .. ", " .. planet.data.name
+    local planet = places.ancestor(node, "planet")
+    w.name = d.name .. ", " .. (planet and planet.name or "?")
     w.ambient, w.ambient_volume = style.ambient, 0.5
     local e = style.env
     w:env({ sky_top = e.sky_top, sky_horizon = e.sky_horizon, fog_color = e.fog, fog_near = 14, fog_far = e.fog_far or 70,
             ambient = e.ambient, sun_dir = { -0.4, -1, -0.3 }, sun_color = { 0.3, 0.32, 0.4 }, stars = e.stars })
-    w:land(node, function(gx, gz) return gen.neighbour_land(G, addr, gx, gz) end)
+    w:land(node, function(gx, gz)
+      local n = gen.neighbour_land(G, addr, gx, gz)
+      return n and places.get(G, n.address) or nil
+    end)
     -- people (the first one has the trouble)
     for i = 2, #d.people do
       local p = d.people[i]

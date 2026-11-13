@@ -8,6 +8,7 @@
 -- the land's features, fields and road pieces inside it, flora) depends only
 -- on the land and the chunk, so a discarded chunk comes back identical.
 local landgen = require("gen.levels.land")
+local changes = require("memory.changes")
 
 local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
 local S = {}
@@ -22,6 +23,7 @@ function chunks.new(anchor, provider)
     anchor = anchor, provider = provider, lands = {}, land_list = {}, loaded = {}, count = 0,
     spawned = {},     -- feature id -> entity, for features in built chunks
     hook = nil,       -- function(feature, land) -> false (skip), a replacement feature, or nil
+    remember = true,  -- apply each land's change log (memory/changes.lua)
     stats = { built = 0, unloaded = 0, max_loaded = 0, lands = 0 },
     agx = anchor.data.grid[1], agz = anchor.data.grid[2],
   }, S)
@@ -35,6 +37,7 @@ function S:offset(gx, gz) return (gx - self.agx) * landgen.SIZE, (gz - self.agz)
 function S:activate(node, gx, gz)
   local ox, oz = self:offset(gx, gz)
   local rec = { node = node, gx = gx, gz = gz, ox = ox, oz = oz }
+  if self.remember then rec.memory = changes.open(node.address) end
   self.lands[key(gx, gz)] = rec
   self.land_list[#self.land_list + 1] = rec
   self.stats.lands = self.stats.lands + 1
@@ -120,14 +123,27 @@ function S:build(cx, cz, rec)
   c.meshes[#c.meshes + 1] = mesh
   c.entities[#c.entities + 1] = mvl.spawn({ mesh = mesh, texture = mvl.texture("textures/" .. (d.texture or "grass") .. ".tga"),
                                             pos = { x0, 0, z0 } })
-  -- the land's features standing in this chunk (a hook may hide or alter
-  -- them, e.g. quest items already taken or lamps already lit)
-  for _, f0 in ipairs(d.features) do
+  -- the land's features standing in this chunk, plus what the player put
+  -- there; the change log and a hook may hide or alter them (items taken,
+  -- lamps lit, things moved)
+  local list = d.features
+  if rec.memory and next(rec.memory.placed) then
+    list = {}
+    for _, f in ipairs(d.features) do list[#list + 1] = f end
+    for _, f in ipairs(rec.memory:placed_list()) do list[#list + 1] = f end
+  end
+  for _, f0 in ipairs(list) do
     local wx, wz = f0.x + rec.ox, f0.z + rec.oz
     local f = f0
-    if inside(wx, wz, x0, z0) and self.hook then f = self.hook(f0, rec) end
-    if f == nil then f = f0 end
+    if inside(wx, wz, x0, z0) then
+      if rec.memory then f = changes.apply(rec.memory, f) end
+      if f and self.hook then
+        local h = self.hook(f, rec)
+        if h ~= nil then f = h end
+      end
+    end
     if f and inside(wx, wz, x0, z0) then
+      wx, wz = f.x + rec.ox, f.z + rec.oz
       local e
       if f.sprite then
         e = mvl.spawn({ kind = "sprite", texture = mvl.texture("textures/" .. f.sprite .. ".tga"),
@@ -191,10 +207,14 @@ function S:build(cx, cz, rec)
   local flora = d.flora
   local lcx, lcz = cx - math.floor(rec.ox / size), cz - math.floor(rec.oz / size)
   local rng = mvl.rng(mvl.hash(rec.node.seed, lcx, lcz))
+  local planted = 0
   local function plant(texture, w, h, radius)
     local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
     local sc = 0.8 + rng:next() * 0.5
-    if not cleared(d, lx, lz) then return end
+    planted = planted + 1
+    -- stable id: the chunk's place in the land and the plant's number
+    local id = "flora/" .. lcx .. "," .. lcz .. "/" .. planted
+    if not cleared(d, lx, lz) or (rec.memory and rec.memory:taken(id)) then return end
     local wx, wz = lx + rec.ox, lz + rec.oz
     c.entities[#c.entities + 1] = mvl.spawn({
       kind = "sprite", texture = mvl.texture("textures/" .. texture .. ".tga"),
@@ -259,6 +279,32 @@ function S:fill(px, pz) return self:update(px, pz, math.huge) end
 -- Destroys every chunk.
 function S:clear()
   for k in pairs(self.loaded) do self:unload(k) end
+end
+
+-- Spawns a feature added at runtime (e.g. a dropped item) if its chunk is
+-- built; otherwise it appears when the chunk is built (if it is in the
+-- land's change log).
+function S:add_feature(f, rec)
+  rec = rec or self.land_list[1]
+  local wx, wz = f.x + rec.ox, f.z + rec.oz
+  local c = self:chunk_at(wx, wz)
+  if not c then return nil end
+  local e = mvl.spawn({ kind = f.sprite and "sprite" or nil,
+                        texture = f.sprite and mvl.texture("textures/" .. f.sprite .. ".tga") or 0,
+                        mesh = (not f.sprite) and resolve_mesh(f) or nil,
+                        pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
+                        scale = f.sprite and { f.w or 1, f.h or 1, 1 } or
+                                (type(f.scale) == "table" and f.scale or { f.scale or 1, f.scale or 1, f.scale or 1 }),
+                        unlit = f.unlit, nofog = f.nofog, color = f.color })
+  c.entities[#c.entities + 1] = e
+  if f.id then
+    self.spawned[f.id] = e
+    self.owner = self.owner or {}
+    self.owner[f.id] = c
+    c.ids = c.ids or {}
+    c.ids[#c.ids + 1] = f.id
+  end
+  return e
 end
 
 -- World position of a feature of a land.

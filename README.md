@@ -93,6 +93,7 @@ HTTPS or `localhost`.
 | Back | Backspace | B | X | right grip |
 | Pause | Esc, Tab | Start | II | left menu button |
 | Run | Shift | X | | |
+| Put down a carried item | Q | Y | | |
 
 Bindings live in `game/config/input.ini`.
 

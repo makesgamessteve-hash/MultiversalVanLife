@@ -22,7 +22,7 @@ Rules for every phase:
 | 7 | `p07-cosmos-and-prime` | 7 | multiverse-generation, prime-universe | done |
 | 8 | `p08-land-streaming-and-farm` | 5 | land-streaming, prime-universe, rendering, story-and-worlds | done |
 | 9 | `p09-signals-and-generated-lands` | 7 | data-and-mods, generated-quests, land-streaming, quality-and-testing, signals-and-codex, story-and-worlds | done |
-| 10 | `p10-world-memory-basics` | 4 | quality-and-testing, world-memory | planned |
+| 10 | `p10-world-memory-basics` | 4 | quality-and-testing, world-memory | done |
 | 11 | `p11-planet-geology` | 6 | planet-generation, scripting-api | planned |
 | 12 | `p12-planet-climate-and-lands` | 6 | land-streaming, planet-generation, scripting-api | planned |
 | 13 | `p13-planet-skies-and-palettes` | 4 | planet-generation, prime-universe, procedural-visuals | planned |

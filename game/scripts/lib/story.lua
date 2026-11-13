@@ -173,6 +173,8 @@ function story.travel(to)
   local G = gen().world
   local trip = { to = to, t = 0 }
   if to ~= "home" then
+    -- a place visited before is loaded, not generated again
+    require("memory.places").load(G, to)
     trip.job = G:request(to)
     trip.budget, G.budget = G.budget, 0.02 -- generate faster while nobody looks outside
   end
@@ -203,9 +205,9 @@ local function arrive(trip)
     end
   else
     local node = G:node(trip.to)
-    local planet = G:node(trip.to:match("^(.-)%.k%d+%.n%d+%.l%d+$"))
+    local planet = require("memory.places").ancestor(node, "planet")
     progress.set_location("land:" .. trip.to)
-    local first = progress.log_visit({ address = trip.to, name = node.data.name, planet = planet.data.name,
+    local first = progress.log_visit({ address = trip.to, name = node.data.name, planet = planet and planet.name or "?",
                                        galaxy = trip.to:match("^(u%d+%.g%d+)"), night = progress.night() })
     progress.remember_troubles(story.signals())
     progress.save()

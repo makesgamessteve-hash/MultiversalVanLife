@@ -31,6 +31,8 @@ local function start_play(new_game)
   if new_game then progress.reset() progress.save() end
   story.reset()
   dialogue.skip_all()
+  -- a new session: places and their changes are read back from the save
+  require("memory.changes").reset()
   gen.start(progress.seed())
   game.state = "play"
   player.enabled = true
@@ -89,6 +91,8 @@ function game.init()
   -- tool mode: mvl_headless --bible ADDRESS --out FILE [--seed N]
   if mvl.option("bible") then return gen.bible.cli(gen.cosmos, gen.run) end
   lines.load()
+  -- the title shows the save's own farm (places are stored on first sight)
+  gen.start(progress.has_save() and progress.seed() or 1)
   story.van.build()
   build_title()
   world.load("home")

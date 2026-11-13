@@ -2,6 +2,7 @@
 -- A world module is a table: { id, name, ambient, build = function(w) ... end,
 -- update = function(w, dt) end }. Generated lands use the "land" world.
 local util = require("lib.util")
+local changes = require("memory.changes")
 local player = require("lib.player")
 local audio = require("lib.audio")
 
@@ -59,6 +60,11 @@ function W:height(x, z) return self.streamer and mvl.height(x, z) or 0 end
 -- Turns this world into a generated land streamed in chunks around the
 -- player (see gen/chunks.lua). `provider(gx, gz)` returns neighbouring land
 -- nodes of the same country. Coordinates are metres around the land's centre.
+-- Every change the player makes is kept in the land's change log
+-- (w:memory(), memory/changes.lua) and applied whenever chunks are built.
+-- The change log of this world's land (or of another land of it).
+function W:memory(node) return changes.open((node or self.land_node).address) end
+
 function W:land(node, provider)
   local chunks = require("gen.chunks")
   self.land_node = node
@@ -147,6 +153,7 @@ function world.load(id, spawn, args)
   local def = world.registry[id]
   assert(def, "unknown world " .. tostring(id))
   if world.current and world.current.streamer then world.current.streamer:clear() end
+  changes.flush_all() -- leaving a place: write what changed there
   player.ground = nil
   mvl.clear_scene()
   world.interactables, world.updaters, world.focus = {}, {}, nil
@@ -222,6 +229,11 @@ function world.update(dt, allow_interact)
     -- stream around the player, or around the parked van while inside it
     local a = world.inside() and world.anchor() or nil
     w.streamer:update(a and a.x or player.x, a and a.z or player.z)
+  end
+  world.flush_timer = (world.flush_timer or 0) + dt
+  if world.flush_timer >= changes.FLUSH_EVERY then
+    world.flush_timer = 0
+    changes.flush_all()
   end
   if w.def.update then w.def.update(w, dt) end
   for _, fn in ipairs(world.updaters) do fn(dt) end

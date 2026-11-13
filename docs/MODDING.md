@@ -277,6 +277,50 @@ mvl.destroy(body)                               -- also destroys the head
 assert(not mvl.exists(head))
 ```
 
+## World memory
+
+Every place the player visits is stored in the save on the first visit and
+loaded on later visits instead of being generated again
+(`memory/places.lua`), so it stays exactly as the player found it, even
+after a game update changes the generator. Everything the player changes
+there is kept in the place's **change log** (`memory/changes.lua`) and
+applied whenever its chunks are built.
+
+Objects have stable ids: features of a land have their own `id`
+(`"farmhouse"`, `"building3"`, `"q_item2"`, ...), plants are
+`"flora/<chunk x>,<chunk z>/<n>"`, and things the player puts into the world
+get `"placed/<n>"`. A world's change log is `w:memory()`:
+
+| Call | Effect |
+|---|---|
+| `log:get(id)` | The recorded overrides of an object (or nil) |
+| `log:set(id, fields)` | Overrides fields: `x`, `z`, `y`, `yaw`, `sprite`, `texture`, `color`, `unlit`, `hidden`, `state` or any field of your own |
+| `log:take(id)`, `log:taken(id)` | Removes an object for good / asks whether it was |
+| `log:place(object)` | Puts a new object (`sprite` or `voxel`/`model`, `x`, `z`, ...) into the land; returns its id |
+| `log:unplace(id)` | Removes a placed object |
+| `log.quest`, `log:set_quest(t)` | The land's quest progress |
+| `log:flush()` | Writes the log now (otherwise it is written when leaving, on saving, at the end of the night and every 30 seconds) |
+
+`w.streamer:add_feature(object)` shows a newly placed object at once;
+`w.streamer:remove_feature(id)` removes one from the built world.
+
+<!-- example -->
+```lua
+local world = require("lib.world")
+local w = world.current                  -- the farm is a generated land too
+local log = w:memory()
+local well
+for _, f in ipairs(w.land_node.data.features) do if f.role == "well" then well = f end end
+-- paint the well blue and move it a little, for good
+log:set(well.id, { x = well.x + 0.5, color = { 0.6, 0.7, 1, 1 }, state = "painted" })
+-- and leave some flowers next to it
+local id = log:place({ sprite = "flowers", x = well.x + 3, z = well.z, w = 0.6, h = 0.6 })
+w.streamer:add_feature(log.placed[id])
+assert(log:get(well.id).state == "painted" and log.placed[id].x == well.x + 3)
+log:flush()
+assert(mvl.record_read("changes/" .. w.land_node.address).objects[well.id].state == "painted")
+```
+
 ## Saves and records
 
 A save is a folder (the platform's user data folder, `/save` in the browser,
@@ -285,7 +329,7 @@ or the folder passed with `--save`):
 | Path | Content |
 |---|---|
 | `index.ini` | Sorted `key = value` lines: seed, night, location, flags. Read and written with `mvl.save_get`, `mvl.save_set` and `mvl.save_write`. |
-| `records/<name>.rec` | One data record per place or other structured progress, e.g. `records/places/u3/g12/farm.rec`. |
+| `records/<name>.rec` | Data records: `places/<address>` (a visited land), `changes/<address>` (its change log), `logbook`, and whatever mods store. |
 
 A record holds a table of numbers, strings, booleans and nested tables (up to
 48 levels; functions and other values are refused). It is stored in a

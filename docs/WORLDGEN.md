@@ -248,6 +248,14 @@ outside Prime are filled by provisional rules (`gen/levels/provisional.lua`):
   requests the land; the van stays in the vortex until it is generated
   (at least 3.5 s).
 
+## World memory
+
+Generated places are not regenerated once visited: the first visit stores a
+land's description and its ancestors' summaries (`records/places/<address>`),
+later visits and restarts load them, and a change log per land
+(`records/changes/<address>`) records everything the player changed. See
+[MODDING.md](MODDING.md#world-memory).
+
 ## Fingerprints
 
 `tests/game/test_gen_fingerprint.lua` compares fingerprints (hashes of the

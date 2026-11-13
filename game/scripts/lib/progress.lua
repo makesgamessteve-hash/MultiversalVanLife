@@ -10,6 +10,7 @@ function progress.new_seed()
 end
 
 function progress.reset(seed)
+  require("memory.changes").discard()
   mvl.save_clear()
   mvl.save_set("story.started", "1")
   mvl.save_set("story.seed", seed or progress.new_seed())
@@ -86,6 +87,10 @@ function progress.end_night()
   progress.save()
 end
 
-function progress.save() return mvl.save_write() end
+-- Saves the index and every place's unsaved changes.
+function progress.save()
+  require("memory.changes").flush_all()
+  return mvl.save_write()
+end
 
 return progress
