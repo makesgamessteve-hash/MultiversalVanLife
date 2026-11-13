@@ -2,64 +2,91 @@
 
 ## Purpose
 
-Generates an endless, seeded multiverse: the destinations the van can reach and the worlds themselves, streamed around the player in chunks so that only nearby content exists at any time.
+Defines the generation hierarchy of the cosmos (multiverse, universe, galaxy, star cluster, star system, planet, continent, country, land): how places are addressed, generated lazily and deterministically, kept consistent across levels, and explained through causal links.
 
 ## ADDED Requirements
 
-### Requirement: Seeded multiverse
-Every save game SHALL have a multiverse seed chosen when a new journey starts, and all generated content SHALL be a pure function of that seed and the content's coordinates.
+### Requirement: Hierarchical addresses
+Every generated place SHALL have an address listing its index on each level from the multiverse down (universe, galaxy, star cluster, star system, planet, continent, country, land), and its seed SHALL be derived only from the save's multiverse seed and that address.
 
-#### Scenario: Same seed, same world
-- **WHEN** a destination is generated twice from the same seed
-- **THEN** its name, biome, terrain, props, characters and quest are identical
+#### Scenario: Same address, same place
+- **WHEN** the same address is generated twice from the same multiverse seed
+- **THEN** both results are identical in every generated field
 
-#### Scenario: New journey
-- **WHEN** the player starts a new journey
-- **THEN** a new seed is chosen and the destinations differ from the previous journey
+### Requirement: Lazy path generation
+Travelling to or inspecting a place SHALL generate that place and only those of its ancestors that were not generated yet; siblings and descendants SHALL only be generated as summaries their parent needs.
 
-### Requirement: Endless destinations
-The van console SHALL offer at least three generated destinations every night, derived from the seed and the night number, and SHALL keep offering new ones without limit.
+#### Scenario: Travelling to a land
+- **WHEN** the player travels to a land in a galaxy that was never generated
+- **THEN** the universe, galaxy, cluster, star system, planet, continent and country on its path are generated in detail, and no other planet, continent or country is generated in detail
 
-#### Scenario: Next night
-- **WHEN** the player opens the console on a later night
-- **THEN** it offers destinations that were not offered on earlier nights
+### Requirement: Order independence
+Generation results SHALL NOT depend on which places were generated before or in which order.
 
-#### Scenario: Returning to a place
-- **WHEN** the player has visited a destination before
-- **THEN** the console can also take them back to it, and it is generated exactly as before
+#### Scenario: Two travel orders
+- **WHEN** one test visits place A then place B and another visits B then A from the same seed
+- **THEN** A and B are identical in both runs
 
-### Requirement: Lazy chunk streaming
-Worlds SHALL be generated in square chunks around the player: chunks within the view radius are generated on demand, chunks well beyond it are discarded, and at most a fixed number of chunks are generated per tick.
+### Requirement: Commitments between levels
+When a level generates facts about places inside it (such as a species' homeworld, a capital, a battle site, a birthplace or an artifact's location), it SHALL record them as commitments on the child's address, and the child's generation SHALL honour every commitment before adding its own content.
 
-#### Scenario: Walking away
-- **WHEN** the player walks several chunks in one direction
-- **THEN** new chunks appear ahead before they are visible and chunks behind are removed, so the number of entities stays bounded
+#### Scenario: Homeworld promised by the galaxy
+- **WHEN** the galaxy commits that planet 2 of star system 5 in cluster 33 is the homeworld of a species
+- **THEN** generating that planet produces a life-bearing world whose intelligent species is that species
 
-#### Scenario: Coming back
-- **WHEN** the player returns to a discarded chunk
-- **THEN** it is regenerated with the same content
+#### Scenario: Battle site
+- **WHEN** a galaxy-level war records a battle in a star system
+- **THEN** that system, once generated, contains the battle in its history and its traces (wrecks or ruins) where the battle placed them
 
-### Requirement: Terrain
-Generated worlds SHALL have continuous rolling terrain without seams between chunks; the area around the van's landing spot and settlements SHALL be flattened, and the player and every placed object SHALL stand on the terrain surface.
+### Requirement: Shared things live at the common ancestor
+Anything that involves more than one child of a place (a faction across clusters, a species on several planets, a religion spanning countries, a trade route) SHALL be defined on the lowest level that contains all of them, and descendants SHALL refer to it instead of redefining it.
 
-#### Scenario: Crossing a chunk border
-- **WHEN** the player walks across the border between two chunks
-- **THEN** the ground height is continuous and the player does not jump or sink
+#### Scenario: Interstellar empire
+- **WHEN** an empire spans three star clusters
+- **THEN** it is defined at galaxy level and each cluster refers to the same empire, rulers and history
 
-### Requirement: Data-driven biomes
-Each destination SHALL use a biome template that defines its sky, fog, palette, terrain shape, ground and decal textures, plants, props, characters, ambience and quest types; biome templates SHALL be Lua data that mods can add to.
+### Requirement: Causal links
+Every generated fact SHALL record the facts it was derived from (for example climate from latitude and terrain, a holiday from an eclipse and a founding event), so the game can answer why something is as it is.
 
-#### Scenario: Biome variety
-- **WHEN** many destinations are generated from one seed
-- **THEN** they use several different biomes and colour variations
+#### Scenario: Asking why
+- **WHEN** the codex shows a tradition
+- **THEN** it can list the religious, historical and environmental facts that caused it
 
-#### Scenario: Mod biome
-- **WHEN** an enabled mod registers a biome
-- **THEN** generated destinations can use it
+### Requirement: Universe metaphysics
+Each universe SHALL have generated laws: whether magic exists and its source (life, stars, tectonics or belief), psionic strength, the kind of faster-than-light travel (none, gates or jumps), whether gods can be real, and its age and cosmic eras; all lower levels SHALL derive their magic, technology and religion from these laws.
 
-### Requirement: Generated home
-The home farm SHALL also be generated from the seed: the farmhouse, barn, fields, roads, trees and the neighbour's name and look vary between journeys, while the farmhouse, the gate and the van's parking spot stay recognisable.
+#### Scenario: Belief-fed magic
+- **WHEN** a universe's magic is fed by belief
+- **THEN** widely worshipped gods in it can manifest in history and its strongest magic appears near major holy sites
 
-#### Scenario: Two journeys
-- **WHEN** two new journeys are started
-- **THEN** their farms differ in layout while both contain a farmhouse, a neighbour and the van at the gate
+#### Scenario: No faster-than-light travel
+- **WHEN** a universe has no faster-than-light travel
+- **THEN** no faction in it holds territory in more than one star system except through generation ships or magic
+
+### Requirement: Cosmic structure
+Each level SHALL generate the layout of its children: a universe's galaxy density with notable galaxies, a galaxy's shape (spiral, barred, elliptical, irregular or ring) with clusters placed along it, a cluster's stars in 3D with travel lanes, and a star system's stars, planets, belts and moons on orbits.
+
+#### Scenario: Galaxy shape matters
+- **WHEN** a cluster lies in a spiral arm rather than the old core
+- **THEN** its stars are younger and richer in heavy elements and planets there are more likely to be rocky
+
+### Requirement: History stored as eras
+Every level's history SHALL be stored as named eras with snapshots of the place's state at each era's end, so a place's past state can be reconstructed; the game SHALL show only the present for now.
+
+#### Scenario: Ruins have a past
+- **WHEN** a land contains ruins of a fallen kingdom
+- **THEN** the stored eras contain the kingdom's state when it stood
+
+### Requirement: Generation budgets
+Generation SHALL run incrementally within a per-frame time budget, start when a signal is chosen and finish during the travel vortex at the latest, and each level SHALL have fixed caps on its counts (for example events, individuals and factions) so time and memory stay bounded.
+
+#### Scenario: Travelling to a new galaxy on the web
+- **WHEN** the player chooses a signal leading into an ungenerated galaxy in the web build
+- **THEN** the frame rate stays above 30 FPS and the destination is ready when the travel sequence ends
+
+### Requirement: Versioned generation
+Every generated place SHALL record the generator version and the active mods it was generated with; newly generated places use the current version while stored places keep their recorded content.
+
+#### Scenario: Game update
+- **WHEN** the generator changes in a game update
+- **THEN** places the player already visited stay as they were and only new places use the new generator

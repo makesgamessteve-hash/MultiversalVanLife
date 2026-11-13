@@ -16,15 +16,15 @@ The engine SHALL load TGA images (uncompressed and RLE; 8, 24 or 32 bit), PCM WA
 ## ADDED Requirements
 
 ### Requirement: Mods override and extend generated content
-The engine SHALL add every folder listed in `mods/mods.txt` as a data root with higher priority than the base game, and scripts SHALL be able to run each mod's `init.lua`.
+The engine SHALL add every folder listed in `mods/mods.txt` as a data root with higher priority than the base game, and scripts SHALL be able to run each mod's `init.lua`; mods SHALL be able to register generation passes and content (event types, body-plan parts, religion motifs, architecture elements, quest templates, tension types and name lexicons).
 
 #### Scenario: Overriding an asset
 - **WHEN** an enabled mod contains `textures/grass.tga`
 - **THEN** the game loads the mod's file instead of the base one
 
-#### Scenario: Adding a biome
-- **WHEN** an enabled mod's `init.lua` registers a biome or a quest template
-- **THEN** generated destinations can use it and the player can travel there through the console
+#### Scenario: Adding generation content
+- **WHEN** an enabled mod's `init.lua` registers a new religion motif and a new tension type
+- **THEN** newly generated places can use them, and places generated before the mod was enabled are unchanged
 
 #### Scenario: Invalid mod names
 - **WHEN** `mods.txt` lists a name containing `/` or `..`
@@ -34,4 +34,4 @@ The engine SHALL add every folder listed in `mods/mods.txt` as a data root with 
 
 ### Requirement: Mods override and extend the base game
 **Reason**: Fixed destinations no longer exist; mods extend the generator instead. Replaced by "Mods override and extend generated content".
-**Migration**: Register a biome or quest template in the mod's `init.lua` instead of a world with `destination = true`.
+**Migration**: Register generation content in the mod's `init.lua` instead of a world with `destination = true`.

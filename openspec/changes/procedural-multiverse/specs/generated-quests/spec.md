@@ -2,45 +2,45 @@
 
 ## Purpose
 
-Gives every generated destination people to meet and a problem to solve, built from quest templates with generated characters, names and dialogue text.
+Turns each land's present-day tensions into quests with real stakeholders, local lore and lasting outcomes.
 
 ## ADDED Requirements
 
-### Requirement: One quest per destination
-Every generated destination SHALL contain a settlement near the landing spot with a quest giver and one quest built from a template allowed by its biome.
+### Requirement: Quests from tensions
+Every quest SHALL come from an active tension of the land, with a quest giver and other stakeholders who are real characters of that land, and its text SHALL use the land's lore (names, places, saints, holidays, history).
 
-#### Scenario: Arriving somewhere new
-- **WHEN** the player steps out of the van at a new destination
-- **THEN** a quest giver is within sight of the van and talking to them explains the problem
+#### Scenario: Arriving through a signal
+- **WHEN** the player steps out of the van at a land reached through a signal
+- **THEN** a stakeholder of the signalled tension is within sight of the van and talking to them explains the problem in local terms
 
 ### Requirement: Quest templates
-The base game SHALL provide at least these templates, each with a generated count and generated item names: relight lights (carry glowing things to dark lamps), gather parts (find items and bring them to the giver), return items (carry items to their places) and find a lost person (find someone far away and lead them back).
-
-#### Scenario: Gathering
-- **WHEN** the player has collected every item of a gather quest and talks to the giver
-- **THEN** the quest is complete
+The base game SHALL provide quest templates that tensions can use, at least: relight lights, gather parts, return items, find a lost person, carry a message, mediate a dispute, escort someone and restore a failing source of magic or water; templates are filled with items, places and people from the land.
 
 #### Scenario: Lost person
 - **WHEN** the player finds the lost person and walks back to the giver
 - **THEN** the lost person follows the player and the quest completes on arrival
 
+#### Scenario: Mediation
+- **WHEN** the player talks to both parties of a dispute and chooses a resolution
+- **THEN** the quest completes with the chosen outcome
+
+### Requirement: Choices with lasting outcomes
+Quests SHALL allow different outcomes where the tension allows it (siding with one party, a compromise, failure or abandoning), and each outcome SHALL have lasting consequences recorded by the world memory.
+
+#### Scenario: Taking a side
+- **WHEN** the player resolves a water dispute in favour of the upstream village
+- **THEN** the upstream village thrives and the downstream village resents the player on later visits
+
 ### Requirement: Reachable quest items
-Quest items and targets SHALL be placed on walkable ground within a bounded distance of the settlement, independent of which chunks are currently loaded.
+Quest items and targets SHALL be placed on walkable ground within a bounded distance of the quest giver, independent of which chunks are currently built, and never duplicated.
 
 #### Scenario: Items beyond view
-- **WHEN** a quest item lies in a chunk that has not been generated yet
-- **THEN** it appears when that chunk is generated and it is not duplicated when the chunk is regenerated
+- **WHEN** a quest item lies in a chunk that has not been built yet
+- **THEN** it appears when that chunk is built and it is not duplicated when the chunk is rebuilt
 
-### Requirement: Generated characters and dialogue
-Characters SHALL get generated names, tinted sprites and dialogue text assembled from templates that mention their names, the place and the quest items; dialogue SHALL be shown as text without recorded voices.
+### Requirement: Generated dialogue
+Characters SHALL speak lines assembled from templates using their culture's names, greetings, blessings, idioms and versions of history, their memory of the player, and current events; dialogue SHALL be text only.
 
-#### Scenario: Talking to a villager
-- **WHEN** the player talks to a villager who is not the quest giver
-- **THEN** they say a generated line that uses the place or their own name
-
-### Requirement: Remembered completion
-A completed quest SHALL be stored in the save and SHALL stay completed when the destination is revisited; its giver SHALL thank the player instead of repeating the quest.
-
-#### Scenario: Revisit after helping
-- **WHEN** the player returns to a destination whose quest was completed
-- **THEN** the quest items are not spawned again and the giver thanks the player
+#### Scenario: Blessing
+- **WHEN** a villager of a moon-worshipping culture says farewell
+- **THEN** the farewell can invoke their moon deity by name
