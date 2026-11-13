@@ -880,6 +880,7 @@ int mvl_script_init(mvl_engine *e) {
     lua_pushstring(L, "0.1.0");
     lua_setfield(L, -2, "version");
     mvl_script_open_procedural(L);
+    mvl_script_open_planet(L);
     lua_setglobal(L, "mvl");
     lua_newtable(L);
     lua_setglobal(L, "game");

@@ -24,7 +24,16 @@ local function render(v, indent, out, depth)
   end
   for _, k in ipairs(util.sorted_keys(v)) do
     local x = v[k]
-    if type(x) == "table" and depth < 4 and next(x) ~= nil then
+    if type(x) == "table" and #x > 32 then
+      -- per-cell fields and other long lists: summarised, not listed
+      local lo, hi, num = math.huge, -math.huge, true
+      for i = 1, #x do
+        if type(x[i]) ~= "number" then num = false break end
+        lo, hi = math.min(lo, x[i]), math.max(hi, x[i])
+      end
+      out[#out + 1] = indent .. "- **" .. scalar(k) .. "**: " .. #x .. " values" ..
+                      (num and (" from " .. scalar(lo) .. " to " .. scalar(hi)) or "")
+    elseif type(x) == "table" and depth < 4 and next(x) ~= nil then
       out[#out + 1] = indent .. "- **" .. scalar(k) .. "**"
       render(x, indent .. "  ", out, depth + 1)
     elseif type(x) == "table" then

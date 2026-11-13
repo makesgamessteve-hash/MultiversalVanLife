@@ -34,12 +34,14 @@ local function candidate(G, rng)
   end
   if #rocky == 0 then return nil end
   local p = rocky[rng:int(1, #rocky)]
-  local planet = G:generate(saddr .. ".p" .. p)
-  local addr = string.format("%s.k%d.n%d.l%d", planet.address, rng:int(0, 3), rng:int(0, 15), rng:int(0, 255))
+  -- the planet itself is generated only when the van travels there
+  local planet = system.children[p]
+  local paddr = saddr .. ".p" .. p
+  local addr = string.format("%s.k%d.n%d.l%d", paddr, rng:int(0, 3), rng:int(0, 15), rng:int(0, 255))
   local land_seed = address.seed(G.seed, addr)
   local t = quests.pick(G.registry, land_seed)
   return {
-    address = addr, name = provisional.settlement_name(land_seed), planet = planet.data.name, style = planet.data.style,
+    address = addr, name = provisional.settlement_name(land_seed), planet = planet.name,
     galaxy = galaxy.address, galaxy_name = galaxy.data.name, universe = "u" .. u,
     trouble = t.id, short = t.short or t.id, severity = quests.severity(land_seed),
   }

@@ -123,6 +123,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 |---|---|
 | Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `ribbon_mesh({x, y, z, ...}, width [, v_scale])`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
+| Planets | `planet_grid(level)`, `planet_cell(level, i)`, `planet_neighbours(level, i)`, `planet_nearest(level, x, y, z)`, `planet_sample(level, values, x, y, z)`, `planet_plates(level, seed, n)`, `planet_tectonics{level, seed, plates, continental}` (cells and plates are numbered from 1) |
 | Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}` |
 | Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
 | World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |

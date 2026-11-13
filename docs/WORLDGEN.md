@@ -19,6 +19,7 @@ index on each level below the multiverse:
 | star system | `s` | `u3.g12.c4.s1` |
 | planet | `p` | `u3.g12.c4.s1.p2` |
 | continent | `k` | `u3.g12.c4.s1.p2.k0` |
+| planet | Physics from star and orbit (radius, gravity, composition, air, seas, temperatures, day, tilt, year, tidal locking, starlight); on solid worlds a geodesic grid of 10,242 cells (`mvl.planet_*` kernels in `planet.c`) with tectonic plates, elevation (mountains where plates collide, trenches and island arcs at subduction, ridges and rifts where they part), geological settings, rocks, deposits (metal, fuel, gem, magical minerals) and a magic map following the universe's source. |
 | country | `n` | `u3.g12.c4.s1.p2.k0.n5` |
 | land | `l` | `u3.g12.c4.s1.p2.k0.n5.l7` |
 
