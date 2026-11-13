@@ -5,6 +5,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <direct.h>
+#include <io.h>
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <unistd.h>
+#endif
 
 void mvl_vfs_init(mvl_vfs *vfs) { memset(vfs, 0, sizeof *vfs); }
 
@@ -160,4 +170,120 @@ int mvl_file_write(const char *path, const void *data, size_t size) {
     n = fwrite(data, 1, size, f);
     fclose(f);
     return n == size;
+}
+
+int mvl_file_write_atomic(const char *path, const void *data, size_t size) {
+    char tmp[MVL_PATH_MAX + 8];
+    FILE *f;
+    int ok;
+    if (snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp) return 0;
+    f = fopen(tmp, "wb");
+    if (!f) return 0;
+    ok = fwrite(data, 1, size, f) == size;
+    ok = fflush(f) == 0 && ok;
+#if defined(_WIN32)
+    ok = ok && _commit(_fileno(f)) == 0;
+#else
+    ok = ok && fsync(fileno(f)) == 0;
+#endif
+    ok = fclose(f) == 0 && ok;
+#if defined(_WIN32)
+    ok = ok && MoveFileExA(tmp, path, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+#else
+    ok = ok && rename(tmp, path) == 0;
+#endif
+    if (!ok) remove(tmp);
+    return ok;
+}
+
+int mvl_is_dir(const char *path) {
+    struct stat st;
+    return stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR;
+}
+
+int mvl_mkdirs(const char *dir) {
+    char buf[MVL_PATH_MAX];
+    size_t n = strlen(dir);
+    if (n == 0 || n >= sizeof buf) return 0;
+    memcpy(buf, dir, n + 1);
+    for (size_t i = 1; i <= n; ++i) {
+        char c = buf[i];
+        if (c != '/' && c != '\\' && c != 0) continue;
+        if (i == 2 && buf[1] == ':') continue; /* drive letter */
+        buf[i] = 0;
+        if (!mvl_is_dir(buf)) {
+#if defined(_WIN32)
+            _mkdir(buf);
+#else
+            mkdir(buf, 0755);
+#endif
+        }
+        buf[i] = c;
+    }
+    return mvl_is_dir(dir);
+}
+
+static int walk(char *path, size_t root_len, int depth, mvl_dir_fn fn, void *user) {
+    size_t len = strlen(path);
+    int count = 0;
+    if (depth > 16) return 0;
+#if defined(_WIN32)
+    {
+        WIN32_FIND_DATAA fd;
+        HANDLE h;
+        if (len + 3 >= MVL_PATH_MAX) return 0;
+        memcpy(path + len, "/*", 3);
+        h = FindFirstFileA(path, &fd);
+        path[len] = 0;
+        if (h == INVALID_HANDLE_VALUE) return 0;
+        do {
+            const char *name = fd.cFileName;
+#else
+    {
+        DIR *d = opendir(path);
+        struct dirent *ent;
+        if (!d) return 0;
+        while ((ent = readdir(d)) != NULL) {
+            const char *name = ent->d_name;
+#endif
+            size_t nl = strlen(name);
+            int is_dir;
+            if (!strcmp(name, ".") || !strcmp(name, "..") || len + nl + 2 >= MVL_PATH_MAX) continue;
+            path[len] = '/';
+            memcpy(path + len + 1, name, nl + 1);
+            is_dir = mvl_is_dir(path);
+            if (is_dir) count += walk(path, root_len, depth + 1, fn, user);
+            fn(path + root_len + 1, is_dir, user);
+            ++count;
+            path[len] = 0;
+#if defined(_WIN32)
+        } while (FindNextFileA(h, &fd));
+        FindClose(h);
+    }
+#else
+        }
+        closedir(d);
+    }
+#endif
+    return count;
+}
+
+int mvl_dir_walk(const char *dir, mvl_dir_fn fn, void *user) {
+    char path[MVL_PATH_MAX];
+    size_t n = strlen(dir);
+    if (n == 0 || n >= sizeof path) return 0;
+    memcpy(path, dir, n + 1);
+    while (n > 1 && (path[n - 1] == '/' || path[n - 1] == '\\')) path[--n] = 0;
+    return walk(path, n, 0, fn, user);
+}
+
+int mvl_remove_path(const char *path) {
+    if (mvl_is_dir(path)) {
+#if defined(_WIN32)
+        return _rmdir(path) == 0;
+#else
+        return rmdir(path) == 0;
+#endif
+    }
+    return remove(path) == 0;
 }

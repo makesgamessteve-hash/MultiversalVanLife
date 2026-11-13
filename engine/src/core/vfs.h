@@ -49,5 +49,18 @@ char *mvl_vfs_read_root(const mvl_vfs *vfs, int root, const char *rel, size_t *s
 /* Plain file helpers (absolute or cwd-relative paths). */
 char *mvl_file_read(const char *path, size_t *size);
 int mvl_file_write(const char *path, const void *data, size_t size);
+/* Writes `<path>.tmp`, flushes it to disk and renames it over `path`, so a
+ * crash leaves either the old or the new file. Returns 1 on success. */
+int mvl_file_write_atomic(const char *path, const void *data, size_t size);
+int mvl_is_dir(const char *path);
+/* Creates a folder and its missing parents. Returns 1 if it exists after. */
+int mvl_mkdirs(const char *dir);
+/* Calls fn(relative path, is_dir, user) for everything below `dir`,
+ * children before their folder (so callers may delete as they go).
+ * Returns the number of entries visited. */
+typedef void (*mvl_dir_fn)(const char *rel, int is_dir, void *user);
+int mvl_dir_walk(const char *dir, mvl_dir_fn fn, void *user);
+/* Removes a file or an empty folder. Returns 1 on success. */
+int mvl_remove_path(const char *path);
 
 #endif

@@ -1,7 +1,8 @@
 // Multiversal Van Life - automated web smoke test (MIT License).
 // Serves the Emscripten build, loads it in headless Chromium (desktop and a
 // touch phone), checks that the game boots without errors, renders
-// something other than a blank canvas and enables touch controls on mobile.
+// something other than a blank canvas, keeps its save folder in IndexedDB
+// across a reload and enables touch controls on mobile.
 //   node tests/web/smoke.mjs <build-web-dir> [screenshot-dir]
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -32,6 +33,11 @@ const url = `http://127.0.0.1:${server.address().port}/multiversal_van_life.html
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 let failures = 0;
 
+async function waitReady(page) {
+  await page.waitForFunction(() => document.getElementById('status').style.display === 'none', null, { timeout: 60000 });
+  await page.waitForTimeout(1500);
+}
+
 async function run(name, contextOptions, checks) {
   const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
@@ -39,8 +45,7 @@ async function run(name, contextOptions, checks) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); if (process.env.MVL_WEB_VERBOSE) console.log('  [' + name + '] ' + m.text()); });
   await page.goto(url);
-  await page.waitForFunction(() => document.getElementById('status').style.display === 'none', null, { timeout: 60000 });
-  await page.waitForTimeout(1500);
+  await waitReady(page);
   const result = await checks(page);
   if (shots) await page.screenshot({ path: join(shots, `web-${name}.png`) });
   // WebGL canvases cannot be read back without preserveDrawingBuffer, so
@@ -56,8 +61,23 @@ async function run(name, contextOptions, checks) {
 }
 
 await run('desktop', { viewport: { width: 1280, height: 720 } }, async (page) => {
-  await page.keyboard.press('Enter'); // "New journey" is preselected without a save
+  // "New journey" is preselected without a save; hold the key like a person
+  // (a press and release within one frame is not seen by the game)
+  await page.keyboard.down('Enter');
+  await page.waitForTimeout(120);
+  await page.keyboard.up('Enter');
   await page.waitForTimeout(1500);
+  // the new journey was saved to /save (IndexedDB): it must survive a reload
+  await page.reload();
+  await waitReady(page);
+  const index = await page.evaluate(() => {
+    try {
+      return new TextDecoder().decode((Module.FS || FS).readFile('/save/index.ini'));
+    } catch (e) {
+      return 'unreadable: ' + e;
+    }
+  });
+  if (!/story\.started = 1/.test(index)) return 'save did not survive a reload: ' + index;
   return true;
 });
 

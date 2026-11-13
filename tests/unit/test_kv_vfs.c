@@ -131,8 +131,14 @@ void test_vfs_roots_and_mods(void) {
         for (int i = 1; i < MVL_VFS_MAX_ROOTS; ++i) mvl_vfs_add_root(&v2, base, "x");
         CHECK_EQ_INT(mvl_vfs_add_root(&v2, base, "x"), -1);
     }
-    CHECK(mvl_file_read("/nonexistent/file", NULL) == NULL);
-    CHECK(!mvl_file_write("/nonexistent/dir/file", "x", 1));
+    {
+        /* paths below a plain file can be neither read nor written, even by root */
+        char blocked[512];
+        tmp_write("vfs_blocker", "x", 1);
+        tmp_path(blocked, sizeof blocked, "vfs_blocker/file");
+        CHECK(mvl_file_read(blocked, NULL) == NULL);
+        CHECK(!mvl_file_write(blocked, "x", 1));
+    }
     {
         /* reading a directory fails gracefully */
         char *d = mvl_file_read(base, NULL);

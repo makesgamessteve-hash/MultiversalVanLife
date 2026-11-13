@@ -41,7 +41,9 @@ typedef struct mvl_engine {
     mvl_kv config;
     mvl_kv save;
     mvl_terrain terrain;     /* height field configured by scripts */
-    char save_path[MVL_PATH_MAX];
+    char save_dir[MVL_PATH_MAX];  /* save folder: index file + records/ */
+    char save_path[MVL_PATH_MAX]; /* the index file */
+    int save_sync_pending;        /* something was written since the last on_save */
     char platform[16];
     struct lua_State *L;
 
@@ -59,7 +61,8 @@ typedef struct mvl_engine {
     int script_errors;
     char last_error[1024];
 
-    /* save hook: called after the save file was written (web: sync IDBFS) */
+    /* save hook: called once at the end of a frame in which the index or a
+     * record was written (web: sync IDBFS) */
     void (*on_save)(void *user);
     void *on_save_user;
 
@@ -87,8 +90,14 @@ int mvl_engine_run_headless(mvl_engine *e, int max_frames);
  * wall-clock time) and when no audio device could be opened. */
 void mvl_engine_drain_audio(mvl_engine *e, double dt);
 void mvl_engine_set_aspect(mvl_engine *e, float aspect);
-/* Writes the save data to disk. Returns 1 on success. */
+/* Writes the save index to disk (atomically). Returns 1 on success. */
 int mvl_engine_write_save(mvl_engine *e);
+/* Path of record `name` (sanitised: letters, digits, `_ - . /`) in the save
+ * folder's records/ folder. Returns 0 for invalid names or without a save
+ * folder. */
+int mvl_engine_record_path(const mvl_engine *e, const char *name, char *out, size_t out_size);
+/* Deletes every record. */
+void mvl_engine_clear_records(mvl_engine *e);
 /* UI canvas size derived from config (ui.height) and aspect. */
 void mvl_engine_ui_size(const mvl_engine *e, float *w, float *h);
 

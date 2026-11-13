@@ -116,7 +116,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])` |
 | Audio | `play(sound, vol, pan, loop, group)`, `stop`, `stop_group`, `fade(voice, vol, secs, stop)`, `playing`, `group_volume(g [, v])` |
 | UI | `ui_size()`, `rect`, `image`, `text(x, y, s, scale, r, g, b, a)`, `text_width`, `wrap(s, width)` |
-| Data | `config(key, default)`, `save_get`, `save_set`, `save_write`, `save_clear`, `file_exists`, `read`, `mods()`, `run_mod(i)` |
+| Data | `config(key, default)`, `save_get`, `save_set`, `save_write`, `save_clear`, `record_read(name)`, `record_write(name, table)`, `record_list([prefix])`, `record_delete(name)`, `file_exists`, `read`, `mods()`, `run_mod(i)` |
 | Misc | `log`, `time`, `ticks`, `quit`, `platform`, `headless`, `testing`, `xr()`, `xr_request()`, `xr_head()`, `version` |
 
 Scripts run in a sandbox: `io`, `loadfile` and the process functions of `os`
@@ -260,6 +260,51 @@ local hx, hy, hz = mvl.world_pos(head)
 assert(math.abs(hx - -1.2) < 1e-4 and math.abs(hz - -3) < 1e-4)
 mvl.destroy(body)                               -- also destroys the head
 assert(not mvl.exists(head))
+```
+
+## Saves and records
+
+A save is a folder (the platform's user data folder, `/save` in the browser,
+or the folder passed with `--save`):
+
+| Path | Content |
+|---|---|
+| `index.ini` | Sorted `key = value` lines: seed, night, location, flags. Read and written with `mvl.save_get`, `mvl.save_set` and `mvl.save_write`. |
+| `records/<name>.rec` | One data record per place or other structured progress, e.g. `records/places/u3/g12/farm.rec`. |
+
+A record holds a table of numbers, strings, booleans and nested tables (up to
+48 levels; functions and other values are refused). It is stored in a
+compact binary format with a checksum and never runs code when it is loaded.
+Every write goes to `<name>.rec.tmp` first and is then renamed over the old
+file, so a crash leaves either the old or the new version. Record names use
+letters, digits, `_`, `-`, `.` and `/` (folders).
+
+| Function | Result |
+|---|---|
+| `mvl.record_write(name, t)` | Stores `t` now. `true`, or `false, message` if the disk refused. |
+| `mvl.record_read(name)` | A fresh copy of the table, or `nil, "missing"` / `nil, "damaged"`. |
+| `mvl.record_list([prefix])` | Sorted names of the stored records that start with `prefix`. |
+| `mvl.record_delete(name)` | `true` if a record was removed. |
+| `mvl.save_clear()` | Empties the index and deletes every record (a new journey). |
+
+Records are written immediately; in the browser the save folder is copied
+to IndexedDB at the end of every frame that wrote something. A save from an
+older version (a single `savegame.ini`) is converted on start and kept as
+`savegame.ini.bak`.
+
+<!-- example -->
+```lua
+-- remember what happened at a place, across sessions
+local name = "places/example/old_farm"
+local place = mvl.record_read(name) or { visits = 0, notes = {} }
+place.visits = place.visits + 1
+place.notes[#place.notes + 1] = { night = 1, text = "the gate was left open" }
+assert(mvl.record_write(name, place))
+
+local again = mvl.record_read(name)
+assert(again.visits == place.visits and again.notes[1].text == "the gate was left open")
+assert(mvl.record_list("places/example/")[1] == name)
+mvl.record_delete(name)
 ```
 
 ## Testing a mod

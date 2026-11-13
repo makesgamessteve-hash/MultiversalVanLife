@@ -24,17 +24,41 @@ void mvl_engine_set_aspect(mvl_engine *e, float aspect) {
     mvl_touch_set_aspect(&e->touch, aspect);
 }
 
+/* Saves before the save folder existed were a single `savegame.ini`. Its
+ * keys become the index; the old file is kept as `savegame.ini.bak`. */
+static void migrate_old_save(mvl_engine *e) {
+    char old[MVL_PATH_MAX], bak[MVL_PATH_MAX + 8];
+    char *text;
+    mvl_path_join(old, sizeof old, e->save_dir, "savegame.ini");
+    if (!strcmp(old, e->save_path) || mvl_is_dir(old) || !(text = mvl_file_read(old, NULL))) return;
+    mvl_kv_parse(&e->save, text);
+    free(text);
+    if (!mvl_engine_write_save(e)) return;
+    snprintf(bak, sizeof bak, "%s.bak", old);
+    remove(bak);
+    if (rename(old, bak) == 0) MVL_INFO("converted old save %s", old);
+}
+
 static void load_save(mvl_engine *e, const char *save_dir) {
     char *text;
     mvl_kv_init(&e->save);
-    e->save_path[0] = 0;
-    if (!save_dir || !*save_dir) return;
+    e->save_path[0] = e->save_dir[0] = 0;
+    if (!save_dir || !*save_dir || strlen(save_dir) >= sizeof e->save_dir - 32) return;
+    snprintf(e->save_dir, sizeof e->save_dir, "%s", save_dir);
     mvl_path_join(e->save_path, sizeof e->save_path, save_dir,
-                  mvl_kv_get_str(&e->config, "save.file", "savegame.ini"));
+                  mvl_kv_get_str(&e->config, "save.file", "index.ini"));
     text = mvl_file_read(e->save_path, NULL);
+    if (!text) {
+        /* an interrupted save leaves the complete new index in .tmp */
+        char tmp[MVL_PATH_MAX + 8];
+        snprintf(tmp, sizeof tmp, "%s.tmp", e->save_path);
+        text = mvl_file_read(tmp, NULL);
+    }
     if (text) {
         mvl_kv_parse(&e->save, text);
         free(text);
+    } else {
+        migrate_old_save(e);
     }
 }
 
@@ -45,11 +69,48 @@ int mvl_engine_write_save(mvl_engine *e) {
     if (!e->save_path[0]) return 0;
     text = mvl_kv_serialize(&e->save, &len);
     if (!text) return 0;
-    ok = mvl_file_write(e->save_path, text, len);
+    mvl_mkdirs(e->save_dir);
+    ok = mvl_file_write_atomic(e->save_path, text, len);
     free(text);
     if (!ok) MVL_WARN("could not write save file %s", e->save_path);
-    if (ok && e->on_save) e->on_save(e->on_save_user);
+    e->save_sync_pending |= ok;
     return ok;
+}
+
+int mvl_engine_record_path(const mvl_engine *e, const char *name, char *out, size_t out_size) {
+    char clean[MVL_PATH_MAX], rel[MVL_PATH_MAX + 16];
+    size_t n = strlen(name);
+    if (!e->save_dir[0] || n == 0 || n > 200) return 0;
+    for (const char *p = name; *p; ++p) {
+        char c = *p;
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' ||
+              c == '.' || c == '/'))
+            return 0;
+    }
+    if (!mvl_vfs_sanitize(name, clean, sizeof clean) || strcmp(clean, name)) return 0;
+    snprintf(rel, sizeof rel, "records/%s.rec", clean);
+    mvl_path_join(out, out_size, e->save_dir, rel);
+    return 1;
+}
+
+static void remove_entry(const char *rel, int is_dir, void *user) {
+    char path[MVL_PATH_MAX * 2];
+    (void)is_dir;
+    mvl_path_join(path, sizeof path, (const char *)user, rel);
+    mvl_remove_path(path);
+}
+
+void mvl_engine_clear_records(mvl_engine *e) {
+    char dir[MVL_PATH_MAX];
+    if (!e->save_dir[0]) return;
+    mvl_path_join(dir, sizeof dir, e->save_dir, "records");
+    if (mvl_dir_walk(dir, remove_entry, dir) > 0) e->save_sync_pending = 1;
+}
+
+static void flush_save_sync(mvl_engine *e) {
+    if (!e->save_sync_pending) return;
+    e->save_sync_pending = 0;
+    if (e->on_save) e->on_save(e->on_save_user);
 }
 
 int mvl_engine_init(mvl_engine *e, const mvl_engine_desc *d) {
@@ -107,6 +168,7 @@ int mvl_engine_init(mvl_engine *e, const mvl_engine_desc *d) {
 }
 
 void mvl_engine_shutdown(mvl_engine *e) {
+    flush_save_sync(e);
     mvl_script_shutdown(e);
     mvl_mixer_stop_all(&e->mixer);
     mvl_res_shutdown(&e->res);
@@ -139,6 +201,7 @@ void mvl_engine_frame(mvl_engine *e, double dt) {
     mvl_ui_begin(&e->ui, w, h);
     mvl_script_call(e, "draw_ui", 0, 0);
     draw_touch_controls(e);
+    flush_save_sync(e);
     e->frame++;
 }
 

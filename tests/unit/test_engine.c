@@ -242,8 +242,10 @@ void test_engine_save_and_mods(void) {
     CHECK(mvl_engine_init(&e, &d));
     CHECK_EQ_INT(e.script_errors, 0);
     mvl_engine_shutdown(&e);
-    /* unwritable save location */
-    d.save_dir = "/nonexistent/dir";
+    /* unwritable save location (below a plain file: fails even for root) */
+    tmp_write("eng_save_blocker", "x", 1);
+    tmp_path(p, sizeof p, "eng_save_blocker/dir");
+    d.save_dir = p;
     write_base(data, "function game.init() assert(not mvl.save_write()) end\n");
     CHECK(mvl_engine_init(&e, &d));
     CHECK_EQ_INT(e.script_errors, 0);
@@ -400,5 +402,110 @@ void test_engine_procedural_api(void) {
         CHECK_EQ_INT(top, 7);
         CHECK(bottom >= 1);
     }
+    mvl_engine_shutdown(&e);
+}
+
+void test_engine_records(void) {
+    static mvl_engine e;
+    char data[512], save[512], p[700];
+    mvl_engine_desc d = desc_for("eng_rec", data, save, NULL);
+    snprintf(p, sizeof p, "%s/s.ini", save);
+    tmp_write(p, "", 0);
+    write_base(data,
+               "function game.init()\n"
+               "  for _, n in ipairs(mvl.record_list()) do mvl.record_delete(n) end\n"
+               "  local place = { name = 'Lanternfen', visits = 2, log = { { t = 1, what = 'lit lantern' } } }\n"
+               "  assert(mvl.record_write('places/u1/fen', place))\n"
+               "  assert(mvl.record_write('places/u1/market', { name = 'Market' }))\n"
+               "  assert(mvl.record_write('codex', { seen = { 'fen' } }))\n"
+               "  local back = mvl.record_read('places/u1/fen')\n"
+               "  assert(back.name == 'Lanternfen' and back.log[1].what == 'lit lantern')\n"
+               "  local all = mvl.record_list()\n"
+               "  assert(#all == 3 and all[1] == 'codex' and all[2] == 'places/u1/fen', table.concat(all, ','))\n"
+               "  assert(#mvl.record_list('places/') == 2)\n"
+               "  local v, why = mvl.record_read('places/none') assert(v == nil and why == 'missing')\n"
+               "  assert(mvl.record_delete('codex') and not mvl.record_delete('codex'))\n"
+               "  for _, bad in ipairs({ '../x', '/abs', 'a//b', 'sp ace', '', 'a\\\\b', 'x:y', './a' }) do\n"
+               "    assert(not pcall(mvl.record_write, bad, {}), bad) end\n"
+               "  assert(not pcall(mvl.record_write, 'f', { print }))\n"
+               "  assert(not pcall(mvl.record_write, 'f', 5))\n"
+               "end\n");
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    /* a damaged record reads as damaged */
+    snprintf(p, sizeof p, "%s/records/places/u1/market.rec", save);
+    tmp_write(p, "return 1", 8);
+    CHECK(mvl_script_run_string(&e, "local v, why = mvl.record_read('places/u1/market') assert(v == nil and why == 'damaged')",
+                                "=t"));
+    /* writes are synced once per frame */
+    g_saved = 0;
+    e.on_save = on_save;
+    CHECK(mvl_script_run_string(&e, "mvl.record_write('a', {}) mvl.record_write('b', {}) mvl.save_write()", "=t"));
+    mvl_engine_frame(&e, 0.0);
+    mvl_engine_frame(&e, 0.0);
+    CHECK_EQ_INT(g_saved, 1);
+    /* save_clear removes every record */
+    CHECK(mvl_script_run_string(&e, "mvl.save_clear() assert(#mvl.record_list() == 0)", "=t"));
+    mvl_engine_frame(&e, 0.0);
+    CHECK_EQ_INT(g_saved, 2);
+    mvl_engine_shutdown(&e);
+    /* records survive a restart */
+    write_base(data, "function game.init() assert(mvl.record_write('persist/me', { n = 7, s = { 'a', 'b' } })) end\n");
+    CHECK(mvl_engine_init(&e, &d));
+    mvl_engine_shutdown(&e);
+    write_base(data, "function game.init() local r = mvl.record_read('persist/me')\n"
+                     "  assert(r.n == 7 and r.s[2] == 'b') end\n");
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    mvl_engine_shutdown(&e);
+    /* without a save folder records are unavailable, bad values still fail */
+    d = desc_for("eng_rec_nosave", data, NULL, NULL);
+    write_base(data, "function game.init()\n"
+                     "  local ok, err = mvl.record_write('x', { 1 }) assert(ok == false and err == 'no save folder')\n"
+                     "  assert(not pcall(mvl.record_write, 'x', { print }))\n"
+                     "  assert(mvl.record_read('x') == nil and #mvl.record_list() == 0 and mvl.record_delete('x') == nil)\n"
+                     "end\n");
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    mvl_engine_shutdown(&e);
+}
+
+void test_engine_old_save(void) {
+    static mvl_engine e;
+    char data[512], save[512], p[700];
+    char *text;
+    mvl_engine_desc d = desc_for("eng_oldsave", data, save, NULL);
+    write_base(data, "function game.init() assert(mvl.save_get('story.night') == '3') end\n");
+    snprintf(p, sizeof p, "%s/s.ini", save);
+    remove(p);
+    snprintf(p, sizeof p, "%s/s.ini.tmp", save); /* left by an earlier run */
+    remove(p);
+    snprintf(p, sizeof p, "%s/savegame.ini", save);
+    tmp_write(p, "story.night = 3\nflag.van_met = 1\n", 33);
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    mvl_engine_shutdown(&e);
+    CHECK(mvl_file_read(p, NULL) == NULL); /* renamed */
+    snprintf(p, sizeof p, "%s/savegame.ini.bak", save);
+    text = mvl_file_read(p, NULL);
+    CHECK(text != NULL);
+    free(text);
+    snprintf(p, sizeof p, "%s/s.ini", save);
+    text = mvl_file_read(p, NULL);
+    CHECK(text && strstr(text, "flag.van_met = 1"));
+    free(text);
+    /* a second start uses the index */
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    mvl_engine_shutdown(&e);
+    /* an index lost in a crash is recovered from index.tmp */
+    snprintf(p, sizeof p, "%s/s.ini", save);
+    text = mvl_file_read(p, NULL);
+    remove(p);
+    snprintf(p, sizeof p, "%s/s.ini.tmp", save);
+    tmp_write(p, text, strlen(text));
+    free(text);
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
     mvl_engine_shutdown(&e);
 }

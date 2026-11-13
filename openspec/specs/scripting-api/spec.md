@@ -85,3 +85,10 @@ Scripts SHALL be able to define portals (a rectangle in the scene and the transf
 #### Scenario: Disabling a portal
 - **WHEN** a script switches a portal off
 - **THEN** the renderer no longer draws its linked view
+
+### Requirement: Persistent place storage
+Scripts SHALL be able to read and write structured data records (tables of numbers, strings, booleans and nested tables) by name in the save folder.
+
+#### Scenario: Record round trip
+- **WHEN** a script stores a nested table and loads it again after a restart
+- **THEN** the loaded table equals the stored one

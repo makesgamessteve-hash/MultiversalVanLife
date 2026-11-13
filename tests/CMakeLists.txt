@@ -12,7 +12,8 @@ target_compile_definitions(mvl_unit_tests PRIVATE MVL_TEST_TMP="${MVL_TEST_TMP}"
 add_test(NAME unit COMMAND mvl_unit_tests)
 
 # Automated game tests: the real Lua game driven by scripted input through
-# the headless runner. Each test gets a fresh save folder.
+# the headless runner. Each test gets a fresh save folder, seeded from
+# game/saves/<test name> when that folder exists.
 file(GLOB MVL_GAME_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/game/test_*.lua)
 foreach(test_file ${MVL_GAME_TESTS})
   get_filename_component(test_name ${test_file} NAME_WE)
@@ -26,6 +27,7 @@ foreach(test_file ${MVL_GAME_TESTS})
       -DRUNNER=$<TARGET_FILE:mvl_headless>
       -DDATA=${CMAKE_SOURCE_DIR}/game
       -DSAVE=${save_dir}
+      -DSEED=${CMAKE_CURRENT_SOURCE_DIR}/game/saves/${test_name}
       -DTEST=${test_file}
       "-DEXTRA=${extra}"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
@@ -54,6 +56,7 @@ if(MVL_GL_TESTS AND TARGET multiversal_van_life)
         -DRUNNER=$<TARGET_FILE:multiversal_van_life>
         -DDATA=${CMAKE_SOURCE_DIR}/game
         -DSAVE=${MVL_TEST_TMP}/glsave_${test_name}
+        -DSEED=${CMAKE_CURRENT_SOURCE_DIR}/game/saves/${test_name}
         -DTEST=${test_file}
         "-DEXTRA=${extra}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)

@@ -6,6 +6,7 @@
  */
 #include "core/engine.h"
 #include "core/log.h"
+#include "core/record.h"
 #include "core/script_internal.h"
 #include "lauxlib.h"
 #include "lua.h"
@@ -511,7 +512,125 @@ static int l_save_write(lua_State *L) {
 }
 static int l_save_clear(lua_State *L) {
     mvl_kv_clear(&eng(L)->save);
+    mvl_engine_clear_records(eng(L));
     return 0;
+}
+
+/* ------------------------------------------------------------- records */
+static const char *record_path(lua_State *L, char *out, size_t size) {
+    const char *name = luaL_checkstring(L, 1);
+    if (!mvl_engine_record_path(eng(L), name, out, size)) {
+        if (!eng(L)->save_dir[0]) return NULL;
+        luaL_error(L, "invalid record name '%s' (use letters, digits, _ - . and /)", name);
+    }
+    return out;
+}
+
+static int l_record_write(lua_State *L) {
+    char path[MVL_PATH_MAX * 2], err[256];
+    luaL_checktype(L, 2, LUA_TTABLE);
+    if (!record_path(L, path, sizeof path)) {
+        size_t size;
+        unsigned char *data = mvl_record_encode(L, 2, &size, err, sizeof err); /* still report bad values */
+        if (!data) return luaL_error(L, "record '%s': %s", lua_tostring(L, 1), err);
+        free(data);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "no save folder");
+        return 2;
+    }
+    if (!mvl_record_save(L, 2, path, err, sizeof err)) {
+        if (strncmp(err, "could not write", 15)) return luaL_error(L, "record '%s': %s", lua_tostring(L, 1), err);
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, err);
+        return 2;
+    }
+    eng(L)->save_sync_pending = 1;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int l_record_read(lua_State *L) {
+    char path[MVL_PATH_MAX * 2];
+    int r;
+    if (!record_path(L, path, sizeof path)) return 0;
+    r = mvl_record_load(L, path);
+    if (r > 0) return 1;
+    lua_pushnil(L);
+    lua_pushstring(L, r < 0 ? "damaged" : "missing");
+    return 2;
+}
+
+static int l_record_delete(lua_State *L) {
+    char path[MVL_PATH_MAX * 2], tmp[MVL_PATH_MAX * 2 + 8];
+    int removed;
+    if (!record_path(L, path, sizeof path)) return 0;
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    removed = mvl_remove_path(path);
+    removed |= mvl_remove_path(tmp);
+    eng(L)->save_sync_pending |= removed;
+    lua_pushboolean(L, removed);
+    return 1;
+}
+
+typedef struct {
+    lua_State *L;
+    const char *prefix;
+    size_t prefix_len;
+    int set; /* stack index of the name set */
+} list_ctx;
+
+static void list_entry(const char *rel, int is_dir, void *user) {
+    list_ctx *c = (list_ctx *)user;
+    size_t n = strlen(rel);
+    char name[MVL_PATH_MAX];
+    if (is_dir || n >= sizeof name) return;
+    memcpy(name, rel, n + 1);
+    for (char *p = name; *p; ++p)
+        if (*p == '\\') *p = '/';
+    if (n > 8 && !strcmp(name + n - 8, ".rec.tmp")) name[n - 8] = 0;
+    else if (n > 4 && !strcmp(name + n - 4, ".rec")) name[n - 4] = 0;
+    else return;
+    if (strncmp(name, c->prefix, c->prefix_len)) return;
+    lua_pushboolean(c->L, 1);
+    lua_setfield(c->L, c->set, name);
+}
+
+static int cmp_str(const void *a, const void *b) { return strcmp(*(const char *const *)a, *(const char *const *)b); }
+
+static int l_record_list(lua_State *L) {
+    char dir[MVL_PATH_MAX];
+    list_ctx c;
+    const char **names;
+    size_t n = 0;
+    c.L = L;
+    c.prefix = luaL_optlstring(L, 1, "", &c.prefix_len);
+    lua_newtable(L); /* result */
+    if (!eng(L)->save_dir[0]) return 1;
+    lua_newtable(L); /* set of names (a record may exist as .rec and .rec.tmp) */
+    c.set = lua_gettop(L);
+    mvl_path_join(dir, sizeof dir, eng(L)->save_dir, "records");
+    mvl_dir_walk(dir, list_entry, &c);
+    lua_pushnil(L);
+    while (lua_next(L, c.set)) {
+        lua_pop(L, 1);
+        ++n;
+    }
+    names = (const char **)malloc(sizeof *names * (n ? n : 1));
+    if (!names) return luaL_error(L, "out of memory");
+    n = 0;
+    lua_pushnil(L);
+    while (lua_next(L, c.set)) {
+        lua_pop(L, 1);
+        names[n++] = lua_tostring(L, -1); /* anchored by the set */
+    }
+    qsort(names, n, sizeof *names, cmp_str);
+    for (size_t i = 0; i < n; ++i) {
+        lua_pushstring(L, names[i]);
+        lua_rawseti(L, c.set - 1, (lua_Integer)i + 1);
+    }
+    free(names);
+    lua_pop(L, 1);
+    return 1;
 }
 static int l_exists_file(lua_State *L) {
     lua_pushboolean(L, mvl_vfs_exists(&eng(L)->vfs, luaL_checkstring(L, 1)));
@@ -620,7 +739,8 @@ static const luaL_Reg mvl_funcs[] = {
     {"ui_size", l_ui_size}, {"rect", l_rect}, {"image", l_image}, {"text", l_text}, {"text_width", l_text_width},
     {"wrap", l_wrap},
     {"config", l_config}, {"save_get", l_save_get}, {"save_set", l_save_set}, {"save_write", l_save_write},
-    {"save_clear", l_save_clear}, {"file_exists", l_exists_file}, {"read", l_read}, {"mods", l_mods},
+    {"save_clear", l_save_clear}, {"record_write", l_record_write}, {"record_read", l_record_read},
+    {"record_delete", l_record_delete}, {"record_list", l_record_list}, {"file_exists", l_exists_file}, {"read", l_read}, {"mods", l_mods},
     {"run_mod", l_run_mod},
     {"log", l_log}, {"time", l_time}, {"ticks", l_ticks}, {"quit", l_quit}, {"platform", l_platform},
     {"headless", l_headless}, {"xr", l_xr}, {"xr_request", l_xr_request}, {"xr_head", l_xr_head},
