@@ -1,0 +1,11 @@
+-- The title screen offers a new journey; choosing it starts night 1 on the farm.
+test.eq(game.state, "title", "starts on the title screen")
+test.wait(10)
+test.expect(test.ui_quads() > 10, "title menu is drawn")
+local menu = game.debug.title_menu()
+test.expect(menu.items[1].enabled == false, "continue is disabled without a save")
+H.choose(menu, "New journey")
+test.eq(game.state, "play", "playing")
+test.eq(H.current(), "home", "starts at home")
+test.eq(game.debug.progress.night(), 1, "night 1")
+test.expect(game.debug.hud.card ~= nil, "night title card shown")

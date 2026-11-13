@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- Multiversal Van Life - web shell (MIT License) -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Multiversal Van Life</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #05060f; overflow: hidden; touch-action: none; }
+    canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; image-rendering: pixelated; outline: none; }
+    #status { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+              color: #f3d9a4; font: 16px monospace; pointer-events: none; text-align: center; }
+    #vr { position: fixed; right: 12px; bottom: 12px; display: none; padding: 10px 16px; font: bold 14px monospace;
+          color: #05060f; background: #f3b04a; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="status">Loading the van&hellip;</div>
+  <button id="vr" type="button">Enter VR</button>
+  <script>
+    var statusEl = document.getElementById('status');
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches);
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      // called by the engine once the game is running (see platform/main.c)
+      mvlReady: function () {
+        statusEl.style.display = 'none';
+        if (isTouch) Module._mvl_web_set_touch(1);
+      },
+      setStatus: function (text) { if (text) statusEl.textContent = text; },
+      print: function (t) { console.log(t); },
+      printErr: function (t) { console.warn(t); }
+    };
+    window.addEventListener('mvl-xr-support', function (ev) {
+      if (ev.detail) document.getElementById('vr').style.display = 'block';
+    });
+    document.getElementById('vr').addEventListener('click', function () {
+      if (Module.mvlEnterXR) Module.mvlEnterXR();
+    });
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
