@@ -24,7 +24,9 @@ local function render(v, indent, out, depth)
   end
   for _, k in ipairs(util.sorted_keys(v)) do
     local x = v[k]
-    if type(x) == "table" and #x > 32 then
+    if type(x) == "table" and #x > 8 and type(x[1]) == "table" then
+      out[#out + 1] = indent .. "- **" .. scalar(k) .. "**: " .. #x .. " entries"
+    elseif type(x) == "table" and #x > 32 then
       -- per-cell fields and other long lists: summarised, not listed
       local lo, hi, num = math.huge, -math.huge, true
       for i = 1, #x do

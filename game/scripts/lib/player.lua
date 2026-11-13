@@ -8,6 +8,7 @@ local player = {
   ground = nil,                     -- function(x, z) -> terrain height of a streamed land
   indoors = false,                  -- inside the van: the floor is base_y
   eye = 1.6, radius = 0.3,
+  wade = 1.0,                       -- deepest sea (below sea level 0) the player walks into
   walk_speed = 3.0, run_speed = 5.0, turn_speed = 2.4,
   bob = 0, step_dist = 0, enabled = true, moved = 0,
 }
@@ -53,6 +54,12 @@ function player.update(dt)
     if dx ~= 0 or dz ~= 0 then
       local ox, oz = player.x, player.z
       local nx, _, nz = mvl.move(player.x, player.floor(), player.z, dx, dz, player.radius)
+      -- the sea stops the player once it is deeper than wading depth (but
+      -- never stops them walking back out of it)
+      if player.ground and not player.indoors then
+        local h = player.ground(nx, nz)
+        if h < -player.wade and h < player.ground(ox, oz) then nx, nz = ox, oz end
+      end
       player.x, player.z = nx, nz
       local d = util.dist2(ox, oz, nx, nz)
       player.moved = player.moved + d

@@ -106,12 +106,13 @@ end
 
 -- A settlement around a square near the landing spot, its villagers and
 -- its trouble (land-local coordinates; the van lands at d.spots.van).
-function P.settlement(ctx, d, style_name, height)
+function P.settlement(ctx, d, style_name, height, ax, az)
   local rng = ctx:rng()
   local style = P.style(style_name)
+  ax, az = ax or 0, az or 0
   d.name = P.settlement_name(ctx.node.seed)
-  local vx, vz, vyaw = 0, 14, dm.round(-dm.pi / 2 + rng:float(-0.3, 0.3), 4)
-  local sx, sz = dm.round(rng:float(-6, 6), 2), dm.round(rng:float(-22, -14), 2)
+  local vx, vz, vyaw = ax, az + 14, dm.round(-dm.pi / 2 + rng:float(-0.3, 0.3), 4)
+  local sx, sz = dm.round(ax + rng:float(-6, 6), 2), dm.round(az + rng:float(-22, -14), 2)
   d.spots = { van = { x = vx, z = vz, yaw = vyaw }, square = { x = sx, z = sz } }
   local h0 = height(sx, sz)
   d.flats[#d.flats + 1] = { x = sx, z = sz, radius = 18, falloff = 12, height = dm.round(h0, 3) }

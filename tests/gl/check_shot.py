@@ -5,8 +5,8 @@ usage: check_shot.py SHOT_DIR CHECKS.json
 CHECKS.json is a list of checks:
   {"file": "decal.tga", "region": [x0, y0, x1, y1],   # fractions of the image
    "min": {"red": 0.9}, "max": {"green": 0.001}}
-Colour classes: red, green, blue (channel dominates the others by 40) and
-dark (all channels below 40).
+Colour classes: red, green, blue (channel dominates the others by 40), dark
+(all channels below 40) and cool (blue above red by 25, like water).
 """
 import json
 import os
@@ -42,6 +42,8 @@ def classify(r, g, b):
         out.add("blue")
     if r < 40 and g < 40 and b < 40:
         out.add("dark")
+    if b > r + 25:
+        out.add("cool")
     return out
 
 
@@ -57,7 +59,7 @@ def main():
                 total += 1
                 for k in classify(*pixel(x, y)):
                     counts[k] = counts.get(k, 0) + 1
-        fr = {k: counts.get(k, 0) / float(total) for k in ("red", "green", "blue", "dark")}
+        fr = {k: counts.get(k, 0) / float(total) for k in ("red", "green", "blue", "dark", "cool")}
         ok = all(fr[k] >= v for k, v in c.get("min", {}).items()) and all(fr[k] <= v for k, v in c.get("max", {}).items())
         print("%s %s region=%s fractions=%s" % ("ok  " if ok else "FAIL", c["file"], c.get("region"),
                                                {k: round(v, 4) for k, v in fr.items()}))

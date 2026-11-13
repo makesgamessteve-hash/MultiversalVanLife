@@ -192,12 +192,166 @@ static int l_planet_tectonics(lua_State *L) {
     return 1;
 }
 
+static void read_vec3(lua_State *L, int t, const char *k, float *out, float x, float y, float z) {
+    out[0] = x, out[1] = y, out[2] = z;
+    lua_getfield(L, t, k);
+    if (lua_istable(L, -1))
+        for (int i = 0; i < 3; ++i) {
+            lua_rawgeti(L, -1, i + 1);
+            out[i] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+    lua_pop(L, 1);
+}
+
+static const mvl_planet_grid *table_grid(lua_State *L, int t) {
+    const mvl_planet_grid *g = mvl_planet_grid_get(table_int(L, t, "level", 5));
+    if (!g) luaL_error(L, "planet grid level must be 0..%d", MVL_PLANET_MAX_LEVEL);
+    return g;
+}
+
+/* planet_climate{ level, elevation, axis, tilt_sin, locked, sub, mean, span,
+ * lapse, water, iterations } -> { temp, tmin, tmax, precip, wind } */
+static int l_planet_climate(lua_State *L) {
+    const mvl_planet_grid *g;
+    mvl_climate_params p;
+    float *elev, *tm, *tn, *tx, *pr;
+    int *wind;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    g = table_grid(L, 1);
+    memset(&p, 0, sizeof p);
+    read_vec3(L, 1, "axis", p.axis, 0, 1, 0);
+    read_vec3(L, 1, "sub", p.sub, 1, 0, 0);
+    p.sin_tilt = table_num(L, 1, "tilt_sin", 0.4f);
+    lua_getfield(L, 1, "locked");
+    p.locked = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    p.mean = table_num(L, 1, "mean", 288.0f);
+    p.span = table_num(L, 1, "span", 60.0f);
+    p.lapse = table_num(L, 1, "lapse", 6.5f);
+    p.water = table_num(L, 1, "water", 0.7f);
+    p.iterations = table_int(L, 1, "iterations", 80);
+    lua_getfield(L, 1, "elevation");
+    elev = read_floats(L, lua_gettop(L), g->count);
+    lua_pop(L, 1);
+    tm = (float *)malloc(sizeof(float) * (size_t)g->count * 4);
+    wind = (int *)malloc(sizeof(int) * (size_t)g->count);
+    if (!tm || !wind) {
+        free(elev), free(tm), free(wind);
+        return luaL_error(L, "out of memory");
+    }
+    tn = tm + g->count, tx = tn + g->count, pr = tx + g->count;
+    mvl_planet_climate(g, elev, &p, tm, tn, tx, pr, wind);
+    lua_createtable(L, 0, 5);
+    push_floats(L, tm, g->count);
+    lua_setfield(L, -2, "temp");
+    push_floats(L, tn, g->count);
+    lua_setfield(L, -2, "tmin");
+    push_floats(L, tx, g->count);
+    lua_setfield(L, -2, "tmax");
+    push_floats(L, pr, g->count);
+    lua_setfield(L, -2, "precip");
+    push_ints(L, wind, g->count, 1);
+    lua_setfield(L, -2, "wind");
+    free(elev), free(tm), free(wind);
+    return 1;
+}
+
+/* planet_rivers{ level, elevation, precip } -> { filled, flow_to (0 at the
+ * sea), flow, lake (booleans) } */
+static int l_planet_rivers(lua_State *L) {
+    const mvl_planet_grid *g;
+    float *elev, *prec, *filled, *flow;
+    int *to;
+    uint8_t *lake;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    g = table_grid(L, 1);
+    lua_getfield(L, 1, "elevation");
+    elev = read_floats(L, lua_gettop(L), g->count);
+    lua_pop(L, 1);
+    lua_getfield(L, 1, "precip");
+    prec = read_floats(L, lua_gettop(L), g->count);
+    lua_pop(L, 1);
+    filled = (float *)malloc(sizeof(float) * (size_t)g->count * 2);
+    to = (int *)malloc(sizeof(int) * (size_t)g->count);
+    lake = (uint8_t *)malloc((size_t)g->count);
+    if (!filled || !to || !lake) {
+        free(elev), free(prec), free(filled), free(to), free(lake);
+        return luaL_error(L, "out of memory");
+    }
+    flow = filled + g->count;
+    mvl_planet_rivers(g, elev, prec, filled, to, flow, lake);
+    lua_createtable(L, 0, 4);
+    push_floats(L, filled, g->count);
+    lua_setfield(L, -2, "filled");
+    push_ints(L, to, g->count, 1);
+    lua_setfield(L, -2, "flow_to");
+    push_floats(L, flow, g->count);
+    lua_setfield(L, -2, "flow");
+    lua_createtable(L, g->count, 0);
+    for (int i = 0; i < g->count; ++i) {
+        lua_pushboolean(L, lake[i]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    lua_setfield(L, -2, "lake");
+    free(elev), free(prec), free(filled), free(to), free(lake);
+    return 1;
+}
+
+/* planet_territory(level, seeds, cost) -> { owner (seed number or 0) } */
+static int l_planet_territory(lua_State *L) {
+    const mvl_planet_grid *g = check_grid(L, 1);
+    int n, *seeds, *owner;
+    float *cost;
+    luaL_checktype(L, 2, LUA_TTABLE);
+    n = (int)lua_rawlen(L, 2);
+    seeds = (int *)malloc(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    owner = (int *)malloc(sizeof(int) * (size_t)g->count);
+    if (!seeds || !owner) {
+        free(seeds), free(owner);
+        return luaL_error(L, "out of memory");
+    }
+    for (int i = 0; i < n; ++i) {
+        lua_rawgeti(L, 2, i + 1);
+        seeds[i] = (int)lua_tointeger(L, -1) - 1;
+        lua_pop(L, 1);
+    }
+    cost = read_floats(L, 3, g->count);
+    mvl_planet_territory(g, seeds, n, cost, owner);
+    push_ints(L, owner, g->count, 1);
+    free(seeds), free(owner), free(cost);
+    return 1;
+}
+
+/* planet_components(level, mask) -> ids (1.., 0 for masked out), count */
+static int l_planet_components(lua_State *L) {
+    const mvl_planet_grid *g = check_grid(L, 1);
+    uint8_t *mask = (uint8_t *)malloc((size_t)g->count);
+    int *id = (int *)malloc(sizeof(int) * (size_t)g->count), n;
+    if (!mask || !id) {
+        free(mask), free(id);
+        return luaL_error(L, "out of memory");
+    }
+    luaL_checktype(L, 2, LUA_TTABLE);
+    for (int i = 0; i < g->count; ++i) {
+        lua_rawgeti(L, 2, i + 1);
+        mask[i] = (uint8_t)lua_toboolean(L, -1);
+        lua_pop(L, 1);
+    }
+    n = mvl_planet_components(g, mask, id);
+    push_ints(L, id, g->count, 1);
+    lua_pushinteger(L, n);
+    free(mask), free(id);
+    return 2;
+}
+
 void mvl_script_open_planet(lua_State *L) {
     static const luaL_Reg funcs[] = {{"planet_grid", l_planet_grid},       {"planet_cell", l_planet_cell},
                                      {"planet_neighbours", l_planet_neighbours},
                                      {"planet_nearest", l_planet_nearest}, {"planet_sample", l_planet_sample},
                                      {"planet_plates", l_planet_plates},   {"planet_tectonics", l_planet_tectonics},
-                                     {NULL, NULL}};
+                                     {"planet_climate", l_planet_climate}, {"planet_rivers", l_planet_rivers},
+                                     {"planet_territory", l_planet_territory},
+                                     {"planet_components", l_planet_components}, {NULL, NULL}};
     luaL_setfuncs(L, funcs, 0);
-    (void)read_floats;
 }

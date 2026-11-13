@@ -436,3 +436,208 @@ int mvl_planet_tectonics(const mvl_planet_grid *g, uint32_t seed, int nplates, f
     free(h.a);
     return n;
 }
+
+/* --------------------------------------------------------------- climate */
+int mvl_planet_climate(const mvl_planet_grid *g, const float *elevation, const mvl_climate_params *p,
+                       float *t_mean, float *t_min, float *t_max, float *precip, int *wind_to) {
+    int n = g->count, iters = p->iterations > 0 ? p->iterations : 80;
+    float *out = (float *)calloc((size_t)n, sizeof(float)), *in = (float *)calloc((size_t)n, sizeof(float));
+    float *evap = (float *)calloc((size_t)n, sizeof(float)), *rate = (float *)calloc((size_t)n, sizeof(float));
+    float k = 0.5f * (1.0f - 1.2f * p->sin_tilt * p->sin_tilt); /* insolation contrast by latitude */
+    if (!out || !in || !evap || !rate) {
+        free(out), free(in), free(evap), free(rate);
+        return 0;
+    }
+    for (int i = 0; i < n; ++i) {
+        const float *q = g->pos + 3 * i;
+        float s = dot3(q, p->axis), s2 = s * s, sea = elevation[i] < 0.0f, h = sea ? 0.0f : elevation[i];
+        float wind[3], east[3], north[3], best = -2.0f;
+        int to = i;
+        if (p->locked) {
+            /* day side hot, night side cold; fourth root of the light */
+            float light = dot3(q, p->sub), f = light > 0.0f ? sqrtf(sqrtf(light)) : 0.0f;
+            t_mean[i] = p->mean - p->span * 0.5f + p->span * f;
+            for (int c = 0; c < 3; ++c) wind[c] = p->sub[c] - light * q[c]; /* surface flow towards the star */
+        } else {
+            float f = 1.0f - k * (3.0f * s2 - 1.0f) * 0.5f, band, poleward;
+            t_mean[i] = p->mean + p->span * (f - 1.0f) * 1.4f;
+            cross3(p->axis, q, east);
+            normalize3(east);
+            cross3(q, east, north);
+            /* trade winds, westerlies, polar easterlies */
+            if (s2 < 0.25f) band = -1.0f, poleward = -0.4f;
+            else if (s2 < 0.75f) band = 1.0f, poleward = 0.4f;
+            else band = -1.0f, poleward = -0.3f;
+            if (s < 0.0f) poleward = -poleward;
+            for (int c = 0; c < 3; ++c) wind[c] = band * east[c] + poleward * north[c];
+        }
+        t_mean[i] -= p->lapse * h;
+        {
+            /* seasons: stronger with tilt and latitude, milder over the sea */
+            float amp = p->locked ? 2.0f : (5.0f + 45.0f * p->sin_tilt * sqrtf(s2)) * (sea ? 0.3f : 1.0f);
+            t_min[i] = t_mean[i] - amp;
+            t_max[i] = t_mean[i] + amp;
+        }
+        for (int j = g->nbr_start[i]; j < g->nbr_start[i + 1]; ++j) {
+            const float *r = g->pos + 3 * g->nbr[j];
+            float d[3] = {r[0] - q[0], r[1] - q[1], r[2] - q[2]}, dl = sqrtf(dot3(d, d)), v = dot3(d, wind) / dl;
+            if (v > best) best = v, to = g->nbr[j];
+        }
+        wind_to[i] = to;
+        {
+            float warm = (t_mean[i] - 250.0f) / 50.0f;
+            if (warm < 0.0f) warm = 0.0f;
+            if (warm > 1.5f) warm = 1.5f;
+            evap[i] = sea ? 0.2f * warm * p->water : 0.02f * warm * p->water;
+        }
+    }
+    /* rain: a base rate, more where air rises over higher ground (the
+     * windward side drains the clouds; the lee stays dry), more at the
+     * equatorial convergence */
+    for (int i = 0; i < n; ++i) {
+        float s = dot3(g->pos + 3 * i, p->axis), up = 0.0f;
+        int from_count = 0;
+        for (int j = g->nbr_start[i]; j < g->nbr_start[i + 1]; ++j) {
+            int nb = g->nbr[j];
+            if (wind_to[nb] == i) {
+                float a = elevation[nb] > 0 ? elevation[nb] : 0, b = elevation[i] > 0 ? elevation[i] : 0;
+                up += b - a;
+                ++from_count;
+            }
+        }
+        if (from_count) up /= (float)from_count;
+        rate[i] = 0.08f + (up > 0.0f ? up * 0.35f : 0.0f) + (!p->locked && s * s < 0.02f ? 0.08f : 0.0f);
+        if (rate[i] > 0.9f) rate[i] = 0.9f;
+    }
+    for (int it = 0; it < iters; ++it) {
+        memset(in, 0, sizeof(float) * (size_t)n);
+        for (int i = 0; i < n; ++i)
+            if (wind_to[i] != i) in[wind_to[i]] += out[i];
+        for (int i = 0; i < n; ++i) {
+            float total = in[i] + evap[i];
+            precip[i] = total * rate[i];
+            out[i] = total - precip[i];
+        }
+    }
+    {
+        /* scale so that a wet world averages about 1 */
+        double sum = 0;
+        for (int i = 0; i < n; ++i) sum += precip[i];
+        if (sum > 0)
+            for (int i = 0; i < n; ++i) precip[i] = (float)(precip[i] * (double)n / sum) * (0.2f + 0.8f * p->water);
+    }
+    free(out), free(in), free(evap), free(rate);
+    return 1;
+}
+
+/* ---------------------------------------------------------------- rivers */
+int mvl_planet_rivers(const mvl_planet_grid *g, const float *elevation, const float *precip, float *filled,
+                      int *flow_to, float *flow, uint8_t *lake) {
+    int n = g->count, done = 0, any_sea = 0, lowest = 0;
+    int *order = (int *)malloc(sizeof(int) * (size_t)n);
+    uint8_t *seen = (uint8_t *)calloc((size_t)n, 1);
+    heap h = {0};
+    const float eps = 1e-4f;
+    if (!order || !seen) {
+        free(order), free(seen);
+        return 0;
+    }
+    for (int i = 0; i < n; ++i) {
+        flow_to[i] = -1;
+        lake[i] = 0;
+        filled[i] = elevation[i];
+        if (elevation[i] < 0.0f) {
+            any_sea = 1;
+            seen[i] = 1;
+            heap_push(&h, elevation[i], i, 0);
+        }
+        if (elevation[i] < elevation[lowest]) lowest = i;
+    }
+    if (!any_sea) {
+        seen[lowest] = 1;
+        heap_push(&h, elevation[lowest], lowest, 0);
+    }
+    /* priority flood: water climbs out of the sea (or the final sink) */
+    while (h.n > 0) {
+        heap_item it = heap_pop(&h);
+        int c = it.cell;
+        order[done++] = c;
+        for (int j = g->nbr_start[c]; j < g->nbr_start[c + 1]; ++j) {
+            int nb = g->nbr[j];
+            if (seen[nb]) continue;
+            seen[nb] = 1;
+            if (elevation[nb] <= filled[c] + eps) {
+                filled[nb] = filled[c] + eps; /* a basin: the lake surface rises just above its outlet */
+                lake[nb] = elevation[nb] < filled[c];
+            } else {
+                filled[nb] = elevation[nb];
+            }
+            flow_to[nb] = c;
+            heap_push(&h, filled[nb], nb, 0);
+        }
+    }
+    for (int i = 0; i < n; ++i)
+        if (elevation[i] < 0.0f) flow_to[i] = -1, lake[i] = 0;
+    /* accumulate from the highest cells down */
+    for (int i = 0; i < n; ++i) flow[i] = precip[i] > 0.0f ? precip[i] : 0.0f;
+    for (int k = done - 1; k >= 0; --k) {
+        int c = order[k];
+        if (flow_to[c] >= 0) flow[flow_to[c]] += flow[c];
+    }
+    free(order), free(seen), free(h.a);
+    return 1;
+}
+
+/* ----------------------------------------------------------- territories */
+int mvl_planet_territory(const mvl_planet_grid *g, const int *seeds, int nseeds, const float *cost, int *owner) {
+    float *best = (float *)malloc(sizeof(float) * (size_t)g->count);
+    heap h = {0};
+    int reached = 0;
+    if (!best) return 0;
+    for (int i = 0; i < g->count; ++i) owner[i] = -1, best[i] = 1e30f;
+    for (int k = 0; k < nseeds; ++k)
+        if (seeds[k] >= 0 && seeds[k] < g->count && cost[seeds[k]] >= 0.0f) heap_push(&h, 0.0f, seeds[k], k);
+    while (h.n > 0) {
+        heap_item it = heap_pop(&h);
+        if (owner[it.cell] >= 0) continue;
+        owner[it.cell] = it.tag;
+        ++reached;
+        for (int j = g->nbr_start[it.cell]; j < g->nbr_start[it.cell + 1]; ++j) {
+            int nb = g->nbr[j];
+            float c;
+            if (owner[nb] >= 0 || cost[nb] < 0.0f) continue;
+            c = it.cost + chord(g, it.cell, nb) * (cost[it.cell] + cost[nb]) * 0.5f;
+            if (c < best[nb]) {
+                best[nb] = c;
+                heap_push(&h, c, nb, it.tag);
+            }
+        }
+    }
+    free(best), free(h.a);
+    return reached;
+}
+
+int mvl_planet_components(const mvl_planet_grid *g, const uint8_t *mask, int *id) {
+    int *queue = (int *)malloc(sizeof(int) * (size_t)g->count), count = 0;
+    if (!queue) return 0;
+    for (int i = 0; i < g->count; ++i) id[i] = -1;
+    for (int i = 0; i < g->count; ++i) {
+        int head = 0, tail = 0;
+        if (!mask[i] || id[i] >= 0) continue;
+        id[i] = count;
+        queue[tail++] = i;
+        while (head < tail) {
+            int c = queue[head++];
+            for (int j = g->nbr_start[c]; j < g->nbr_start[c + 1]; ++j) {
+                int nb = g->nbr[j];
+                if (mask[nb] && id[nb] < 0) {
+                    id[nb] = count;
+                    queue[tail++] = nb;
+                }
+            }
+        }
+        ++count;
+    }
+    free(queue);
+    return count;
+}

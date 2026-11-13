@@ -105,7 +105,7 @@ local function physics(ctx)
                     max = dm.round(mean + swing, 2) }
   -- seas need air and the right warmth: liquid, frozen or boiled away
   if not d.surface or water == 0 then d.water = "none"
-  elseif pressure < 0.01 or mean > 400 then d.water = "none"
+  elseif pressure < 0.05 or mean > 400 then d.water = "none"
   elseif mean < 245 then d.water = "ice"
   else d.water = "liquid" end
   d.light = util.copy(P.STAR_LIGHT[star.class] or P.STAR_LIGHT.G)

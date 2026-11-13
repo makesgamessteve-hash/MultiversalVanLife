@@ -30,7 +30,7 @@ gen.cosmos = gen.registry.new({
     { "galaxy", "g", caps = { facts = 2048 } },
     { "cluster", "c", caps = { children = 4096, facts = 1024 } },
     { "system", "s", caps = { children = 64, facts = 1024 } },
-    { "planet", "p", caps = { children = 32, facts = 2048 } },
+    { "planet", "p", caps = { children = 64, facts = 2048 } },
     { "continent", "k", caps = { children = 64, facts = 1024 } },
     { "country", "n", caps = { children = 256, facts = 1024 } },
     { "land", "l", caps = { children = 0, facts = 1024 } },
@@ -49,6 +49,8 @@ gen.planet = require("gen.levels.planet")
 gen.planet.register(gen.cosmos)
 gen.quests = require("gen.quests")
 gen.quests.register(gen.cosmos)
+gen.geography = require("gen.levels.geography")
+gen.geography.register(gen.cosmos)
 gen.land = require("gen.levels.land")
 gen.land.register(gen.cosmos)
 gen.signals = require("gen.signals")
@@ -60,6 +62,7 @@ for _, level in ipairs({ "continent", "country", "land" }) do
   gen.cosmos:skeleton(level, function(parent, index)
     local addr = gen.address.child(gen.cosmos.scheme, parent.address, index)
     if gen.prime.inside(addr) and not gen.prime.allowed(addr) then return nil end
+    if parent.listed_children then return nil end -- the parent named its children
     return index < gen.cosmos.levels[parent.level].caps.children and {} or nil
   end)
 end

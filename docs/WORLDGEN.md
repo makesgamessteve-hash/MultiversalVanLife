@@ -19,7 +19,6 @@ index on each level below the multiverse:
 | star system | `s` | `u3.g12.c4.s1` |
 | planet | `p` | `u3.g12.c4.s1.p2` |
 | continent | `k` | `u3.g12.c4.s1.p2.k0` |
-| planet | Physics from star and orbit (radius, gravity, composition, air, seas, temperatures, day, tilt, year, tidal locking, starlight); on solid worlds a geodesic grid of 10,242 cells (`mvl.planet_*` kernels in `planet.c`) with tectonic plates, elevation (mountains where plates collide, trenches and island arcs at subduction, ridges and rifts where they part), geological settings, rocks, deposits (metal, fuel, gem, magical minerals) and a magic map following the universe's source. |
 | country | `n` | `u3.g12.c4.s1.p2.k0.n5` |
 | land | `l` | `u3.g12.c4.s1.p2.k0.n5.l7` |
 
@@ -173,13 +172,35 @@ the last bit between platforms). Generators use `gen.dmath` instead:
 | galaxy | Shape (spiral, barred, elliptical, ring, irregular) with arms, bar, bulge; fields of density, age and metallicity (arms young and metal-rich, the old core metal-poor); its formation in one of the universe's eras; a habitable band; star clusters placed by density. |
 | star cluster | Kind (open, globular, nursery) from position and age; stars from a mass function cut off by age, with classes, luminosities and companions; travel lanes as a relative neighbourhood graph, only with faster-than-light travel (jump lanes within the jump range). |
 | star system | The star, its habitable zone and frost line; planets on spaced orbits with Kepler periods (rocky and dwarf inside the frost line, giants outside, more planets and rocky worlds around metal-rich stars), their moons, belts. |
+| planet | Physics from star and orbit (radius, gravity, composition, air, seas, temperatures, day, tilt, year, tidal locking, starlight); on solid worlds a geodesic grid of 10,242 cells (`mvl.planet_*` kernels in `planet.c`) with tectonic plates, elevation (mountains where plates collide, trenches and island arcs at subduction, ridges and rifts where they part), geological settings, rocks, deposits (metal, fuel, gem, magical minerals) and a magic map following the universe's source. |
+| planet (surface) | Climate per cell: temperature (annual mean, coldest and warmest season) from latitude, tilt (or the substellar point of a tidally locked world), height and the sea's moderation; prevailing winds (trade winds, westerlies, polar easterlies) carrying moisture from the sea, raining it out on windward slopes and leaving rain shadows behind mountains. Hydrology: depressions filled into lakes, every cell draining downhill to the sea, flow accumulated from rainfall, rivers where the flow is in the top 7%, the 12 largest named. A biome per cell (below). Continents (connected land), countries grown from capitals across each continent (mountains and rivers are slower to cross). |
+| continent | Its name, size and its countries (name, capital). |
+| country | The explored district: a window of the planet's surface about 37 km across, centred on the country's shore, else a river, else its capital. Its terrain follows the planet's elevation (sampled every 1024 m, heights near the sea steepened five-fold so shores are walkable) with local detail on top, the biome's palette, a river along the planet's river with its water level falling downstream, and the direction of the open sea. Lands lie on a 16 × 16 grid of 2048 m squares. Without a planet (Prime) a provisional terrain and road network. |
+| land | A description, not geometry: its place on the planet (cell, latitude, longitude, climate, biome, continent, country, coast), style, terrain, features (buildings, props) with positions, fields, roads, rivers clipped from the country (beds carved under their water), flat areas under them, flora, spots (spawn, van, gate) and people. |
 
-| country | One continuous terrain (seed, height, palette) shared by its lands, and its road network. Lands lie on a 16 × 16 grid of 2048 m squares. |
-| land | A description, not geometry: style, terrain, features (buildings, props) with positions, fields, roads clipped from the country with graded heights, flat areas under them, flora, spots (spawn, van, gate) and people. |
+### Biomes
+
+`gen/levels/geography.lua` classifies each cell from its temperature,
+precipitation, height, lakes, coasts, geology, air and magic:
+
+| Group | Biomes |
+|---|---|
+| Water | ocean, sea ice, reef (warm shallows), lake |
+| Cold | ice sheet, tundra, taiga, cold desert, alpine (high and cold) |
+| Temperate | temperate forest, grassland |
+| Warm | hot desert, savanna, seasonal forest, rainforest, wetland (wet lowlands on large rivers), coast |
+| Alien | barren (airless, or scorched above 60 °C where it is dry or the air thin), ash fields (volcanic arcs), crystal forest and arcane meadow (forests and grasslands where magic is strong) |
+
+Thin air turns cold places with less than 900 mm of rain into alpine scrub; dry
+worlds get no rain at all, frozen seas become sea ice. Each biome gives
+lands their ground texture, terrain palette, trees and the family of words
+and buildings their settlements use. Under red dwarf stars foliage darkens
+(`dark_foliage`).
 
 Checks registered by these levels: consistent laws, arm clusters richer in
 heavy elements than the core, lanes only with faster-than-light travel,
-distinct spaced orbits, Kepler periods and rocky worlds inside the frost line.
+distinct spaced orbits, Kepler periods, rocky worlds inside the frost line,
+planet physics and geology on every cell, and water that never flows uphill.
 
 ## Prime
 
@@ -212,6 +233,11 @@ multiples of 2048 m (`provider(gx, gz)` generates them on approach).
   (`tests/gl/test_gl_chunk_seams.lua`).
 - **Roads** are draped ribbons (`mvl.ribbon_mesh`) drawn as decals on their
   graded flats.
+- **Water**: wherever a chunk's ground dips below sea level (0 m) a sea
+  surface is drawn over it; the player wades in up to 1 m deep and no
+  further. Rivers are ribbons of water at their own falling level, drawn in
+  every chunk they cross, over beds carved into the terrain (graded
+  segments 2 m below the water); no flora grows in water or on river beds.
 - The player and every object stand on `mvl.height(x, z)`; while the player
   is inside the van, the land streams around the parked van so its windows
   look out at a complete world.
@@ -227,12 +253,14 @@ country are open countryside along the old road.
 
 ## Signals, provisional worlds and quests
 
-Until the deep generators exist (planned for phases 11 to 22), places
-outside Prime are filled by provisional rules (`gen/levels/provisional.lua`):
+Until the deep generators exist (planned for phases 13 to 22), parts of
+places outside Prime are filled by provisional rules
+(`gen/levels/provisional.lua`):
 
-- A **planet's style** (temperate, marsh, desert, snow, crystal, fungal)
-  follows from its temperature, its star and its universe's magic, and sets
-  the terrain, sky, sounds, buildings, people and the words its quests use.
+- A **land's style** (temperate, marsh, desert, snow, crystal, fungal)
+  follows from its biome's family (before phase 12: from the planet's
+  temperature, star and magic) and sets the sky, sounds, buildings, people
+  and the words its quests use.
 - Every **land** gets a named settlement around a square near the landing
   spot, villagers with generated names, a lane to the van, and one trouble.
 - A land's **trouble** is a quest template picked from the land's seed alone
@@ -243,7 +271,10 @@ outside Prime are filled by provisional rules (`gen/levels/provisional.lua`):
 - **Signals** (`gen/signals.lua`): each night candidates are drawn from the
   save's seed and the night number in universes 1 to 24 (never Prime): a
   galaxy, a cluster in its habitable band, a star and one of its rocky
-  worlds are generated down to the star system; the land is only named.
+  worlds are generated down to the planet's surface, and a land on dry
+  ground of one of its countries is chosen (planets without dry land send
+  no signal); the land itself is only named. Tonight's planets are
+  generated ahead, in the background, when a day starts.
   Three are chosen by severity plus novelty (an unvisited galaxy, a trouble
   not offered last time), never two from the same galaxy. Choosing one
   requests the land; the van stays in the vortex until it is generated

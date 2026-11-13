@@ -47,6 +47,7 @@ local function start_play(new_game)
   -- every session begins inside the van unless the van has not been met yet
   if progress.flag("van_met") then story.van.enter(player, world) end
   hud.title_card("Night " .. progress.night(), 2.5)
+  story.prefetch_signals()
   if progress.flag("van_met") and loc ~= "home" then
     hud.notify("Juniper is parked at " .. world.place_name())
   end

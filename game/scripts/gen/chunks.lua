@@ -101,7 +101,13 @@ local function cleared(d, lx, lz)
     local dx, dz = lx - c.x, lz - c.z
     if dx * dx + dz * dz < c.r * c.r then return false end
   end
-  for _, road in ipairs(d.roads) do
+  local ways = d.roads
+  if d.rivers and #d.rivers > 0 then
+    ways = {}
+    for _, r in ipairs(d.roads) do ways[#ways + 1] = r end
+    for _, r in ipairs(d.rivers) do ways[#ways + 1] = r end
+  end
+  for _, road in ipairs(ways) do
     local r = road.width / 2 + 2
     for i = 1, #road.points - 1 do
       local a, b = road.points[i], road.points[i + 1]
@@ -203,6 +209,53 @@ function S:build(cx, cz, rec)
       end
     end
   end
+  -- water: the sea wherever the ground dips below sea level, and rivers
+  local _, ylo = mvl.mesh_bounds(mesh)
+  if ylo and ylo < 0 then
+    if not self.sea_mesh then self.sea_mesh = mvl.plane_mesh(size, size, size / 8, size / 8, 4) end
+    c.sea = true
+    c.entities[#c.entities + 1] = mvl.spawn({ mesh = self.sea_mesh, texture = mvl.texture("textures/water.tga"),
+                                              pos = { x0 + size / 2, 0, z0 + size / 2 }, uv_scroll = { 0.01, 0.006 },
+                                              color = { 0.55, 0.75, 0.9, 1 } })
+  end
+  -- each chunk draws the part of a river inside its square, so the water
+  -- is there wherever the player is and pieces meet at chunk borders
+  for _, river in ipairs(d.rivers or {}) do
+    for i = 1, #river.points - 1 do
+      local a, b = river.points[i], river.points[i + 1]
+      local ax, az, bx, bz = a[1] + rec.ox, a[2] + rec.oz, b[1] + rec.ox, b[2] + rec.oz
+      local t0, t1 = 0, 1
+      for axis = 1, 2 do
+        local p0, dp = axis == 1 and ax or az, axis == 1 and (bx - ax) or (bz - az)
+        local lo, hi = axis == 1 and x0 or z0, (axis == 1 and x0 or z0) + size
+        if dp == 0 then
+          if p0 < lo or p0 > hi then t0 = 2 end
+        else
+          local ta, tb = (lo - p0) / dp, (hi - p0) / dp
+          if ta > tb then ta, tb = tb, ta end
+          t0, t1 = math.max(t0, ta), math.min(t1, tb)
+        end
+      end
+      if t1 - t0 > 1e-6 then
+        local mx, mz = x0 + size / 2, z0 + size / 2
+        local len = math.sqrt((bx - ax) * (bx - ax) + (bz - az) * (bz - az)) * (t1 - t0)
+        local n = math.max(1, math.floor(len / 8))
+        local pts = {}
+        for k = 0, n do
+          local t = t0 + (t1 - t0) * k / n
+          pts[#pts + 1] = ax + (bx - ax) * t - mx
+          pts[#pts + 1] = a[3] + (b[3] - a[3]) * t - 0.6
+          pts[#pts + 1] = az + (bz - az) * t - mz
+        end
+        local m = mvl.ribbon_mesh(pts, river.width, 8)
+        c.river = true
+        c.meshes[#c.meshes + 1] = m
+        c.entities[#c.entities + 1] = mvl.spawn({ mesh = m, texture = mvl.texture("textures/water.tga"),
+                                                  pos = { mx, 0, mz }, uv_scroll = { 0.0, 0.05 },
+                                                  color = { 0.55, 0.75, 0.9, 1 } })
+      end
+    end
+  end
   -- flora, seeded by the land and the chunk's place in it
   local flora = d.flora
   local lcx, lcz = cx - math.floor(rec.ox / size), cz - math.floor(rec.oz / size)
@@ -215,6 +268,7 @@ function S:build(cx, cz, rec)
     -- stable id: the chunk's place in the land and the plant's number
     local id = "flora/" .. lcx .. "," .. lcz .. "/" .. planted
     if not cleared(d, lx, lz) or (rec.memory and rec.memory:taken(id)) then return end
+    if mvl.height(lx + rec.ox, lz + rec.oz) < 0.3 then return end -- nothing grows under water
     local wx, wz = lx + rec.ox, lz + rec.oz
     c.entities[#c.entities + 1] = mvl.spawn({
       kind = "sprite", texture = mvl.texture("textures/" .. texture .. ".tga"),
@@ -279,6 +333,10 @@ function S:fill(px, pz) return self:update(px, pz, math.huge) end
 -- Destroys every chunk.
 function S:clear()
   for k in pairs(self.loaded) do self:unload(k) end
+  if self.sea_mesh then
+    mvl.release_mesh(self.sea_mesh)
+    self.sea_mesh = nil
+  end
 end
 
 -- Spawns a feature added at runtime (e.g. a dropped item) if its chunk is

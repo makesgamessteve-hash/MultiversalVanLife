@@ -110,6 +110,14 @@ function story.signals()
   return list
 end
 
+-- Starts generating tonight's candidate planets in the background, so the
+-- console has its signals ready when the player reaches it.
+function story.prefetch_signals()
+  local G = gen().world
+  if not G then return end
+  for _, o in ipairs(gen().signals.planets(G, progress.night())) do G:request(o.planet) end
+end
+
 -- "Night 3 - Pandor, Vesra b" / "Night 3 - Home"
 local function location_label()
   local addr = progress.land_address()
@@ -194,6 +202,9 @@ local function arrive(trip)
   if trip.to == "home" then
     progress.set_location("home")
     progress.end_night()
+    -- a new night: forget last night's planets, prepare tonight's signals
+    G:trim({ require("gen").prime.FARM })
+    story.prefetch_signals()
     hud.title_card("Night " .. (progress.night() - 1) .. " complete", 3)
     local total, reached = progress.helped_total(), tonumber(mvl.save_get("story.milestones", "0")) or 0
     if total >= (reached + 1) * 3 then

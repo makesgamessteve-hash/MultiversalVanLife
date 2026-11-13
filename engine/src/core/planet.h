@@ -52,4 +52,41 @@ int mvl_planet_tectonics(const mvl_planet_grid *g, uint32_t seed, int nplates, f
                          int *plate, float *elevation, uint8_t *boundary, float *boundary_dist,
                          mvl_plate_info *info);
 
+/* ------------------------------------------------------------- climate */
+typedef struct {
+    float axis[3];      /* rotation axis (unit) */
+    float sin_tilt;     /* sine of the axial tilt */
+    int locked;         /* tidally locked: temperatures follow the substellar point */
+    float sub[3];       /* direction of the star for locked worlds */
+    float mean;         /* global mean temperature (K) */
+    float span;         /* equator to pole (or day to night) difference (K) */
+    float lapse;        /* cooling with height (K per km) */
+    float water;        /* 0 dry world .. 1 water world (scales evaporation) */
+    int iterations;     /* moisture transport steps (default 80) */
+} mvl_climate_params;
+
+/* Temperature (annual mean, coldest and warmest season, K), precipitation
+ * (relative, about 1 on a wet world) and the downwind neighbour of each
+ * cell. elevation: km relative to sea level (below 0 is sea). */
+int mvl_planet_climate(const mvl_planet_grid *g, const float *elevation, const mvl_climate_params *p,
+                       float *t_mean, float *t_min, float *t_max, float *precip, int *wind_to);
+
+/* -------------------------------------------------------------- rivers */
+/* Fills depressions (priority flood from the sea, or from the lowest cell of
+ * a dry world) and routes water downhill: filled is the water surface (km),
+ * flow_to the downstream neighbour (-1 at the sea or the final sink), flow
+ * the water passing through (sum of upstream precipitation), lake 1 where
+ * the surface lies above the ground. Along flow_to, filled never rises. */
+int mvl_planet_rivers(const mvl_planet_grid *g, const float *elevation, const float *precip, float *filled,
+                      int *flow_to, float *flow, uint8_t *lake);
+
+/* ---------------------------------------------------------- territories */
+/* Grows territories from seed cells over cells with cost >= 0 (cost < 0 is
+ * impassable); writes the owning seed's index per cell (-1 unreached). */
+int mvl_planet_territory(const mvl_planet_grid *g, const int *seeds, int nseeds, const float *cost, int *owner);
+
+/* Connected components of cells with mask != 0: ids 0.. by first cell, -1
+ * for masked-out cells. Returns the number of components. */
+int mvl_planet_components(const mvl_planet_grid *g, const uint8_t *mask, int *id);
+
 #endif

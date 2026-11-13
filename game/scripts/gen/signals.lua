@@ -11,10 +11,13 @@
 local address = require("gen.address")
 local quests = require("gen.quests")
 local provisional = require("gen.levels.provisional")
+local landgen = require("gen.levels.land")
 
-local S = { PER_NIGHT = 3, CANDIDATES = 7, UNIVERSES = 24 }
+local S = { PER_NIGHT = 3, CANDIDATES = 5, UNIVERSES = 24 }
 
-local function candidate(G, rng)
+-- The star system and rocky planet a candidate signal comes from (cheap:
+-- the planet itself is not generated here).
+local function origin(G, rng)
   local u = rng:int(1, S.UNIVERSES)
   local gaddr = "u" .. u .. ".g" .. rng:int(0, 999)
   local galaxy = G:generate(gaddr)
@@ -34,15 +37,56 @@ local function candidate(G, rng)
   end
   if #rocky == 0 then return nil end
   local p = rocky[rng:int(1, #rocky)]
-  -- the planet itself is generated only when the van travels there
-  local planet = system.children[p]
-  local paddr = saddr .. ".p" .. p
-  local addr = string.format("%s.k%d.n%d.l%d", paddr, rng:int(0, 3), rng:int(0, 15), rng:int(0, 255))
+  return { planet = saddr .. ".p" .. p, galaxy = galaxy, summary = system.children[p], universe = "u" .. u }
+end
+
+-- The candidate planets of a night, in order (for generating them early).
+function S.planets(G, night)
+  local rng = mvl.rng(mvl.hash(G.seed, "signals", night))
+  local out = {}
+  for _ = 1, S.CANDIDATES * 3 do
+    if #out >= S.CANDIDATES then break end
+    local o = origin(G, rng)
+    if o then out[#out + 1] = o end
+  end
+  return out
+end
+
+-- A land of a planet on dry ground: continent, country and land chosen from
+-- what the planet really has.
+local function dry_land(G, o, rng)
+  local planet = G:generate(o.planet)
+  if not planet.data.continents or planet.data.continents == 0 then return nil end
+  for _ = 1, 4 do
+    local k = rng:int(0, planet.data.continents - 1)
+    local cont = G:generate(o.planet .. ".k" .. k)
+    local list = {}
+    for n in pairs(cont.children) do list[#list + 1] = n end
+    table.sort(list)
+    if #list > 0 then
+      local n = list[rng:int(1, #list)]
+      local country = G:generate(cont.address .. ".n" .. n)
+      if country.data.district then
+        for _ = 1, 24 do
+          local l = rng:int(0, 255)
+          local gx, gz = landgen.grid(l)
+          if landgen.raw_height(country.data.terrain, gx * landgen.SIZE, gz * landgen.SIZE) > 3 then
+            return country.address .. ".l" .. l
+          end
+        end
+      end
+    end
+  end
+end
+
+local function candidate(G, o, rng)
+  local addr = dry_land(G, o, rng)
+  if not addr then return nil end
   local land_seed = address.seed(G.seed, addr)
   local t = quests.pick(G.registry, land_seed)
   return {
-    address = addr, name = provisional.settlement_name(land_seed), planet = planet.name,
-    galaxy = galaxy.address, galaxy_name = galaxy.data.name, universe = "u" .. u,
+    address = addr, name = provisional.settlement_name(land_seed), planet = o.summary.name,
+    galaxy = o.galaxy.address, galaxy_name = o.galaxy.data.name, universe = o.universe,
     trouble = t.id, short = t.short or t.id, severity = quests.severity(land_seed),
   }
 end
@@ -51,16 +95,25 @@ end
 -- true, `recent` maps recently offered trouble ids to true.
 function S.tonight(G, night, visited, recent)
   visited, recent = visited or {}, recent or {}
-  local rng = mvl.rng(mvl.hash(G.seed, "signals", night))
-  local cands = {}
-  local tries = 0
-  while #cands < S.CANDIDATES and tries < S.CANDIDATES * 4 do
-    tries = tries + 1
-    local c = candidate(G, rng)
+  local rng = mvl.rng(mvl.hash(G.seed, "signals", night, "lands"))
+  local cands, galaxies_seen = {}, {}
+  local origins = S.planets(G, night)
+  local extra = mvl.rng(mvl.hash(G.seed, "signals", night, "more"))
+  local i = 0
+  -- planets without dry land give no signal; look further until three
+  -- different galaxies call (or give up)
+  while i < #origins + 12 do
+    i = i + 1
+    local o = origins[i] or origin(G, extra)
+    local c = o and candidate(G, o, rng)
     if c then
       c.score = c.severity + (visited[c.galaxy] and 0 or 0.6) + (recent[c.trouble] and 0 or 0.4)
       cands[#cands + 1] = c
+      galaxies_seen[c.galaxy] = true
     end
+    local distinct = 0
+    for _ in pairs(galaxies_seen) do distinct = distinct + 1 end
+    if i >= #origins and distinct >= S.PER_NIGHT then break end
   end
   table.sort(cands, function(a, b) return a.score > b.score or (a.score == b.score and a.address < b.address) end)
   local out, galaxies, kinds = {}, {}, {}

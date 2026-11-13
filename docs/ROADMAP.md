@@ -24,7 +24,7 @@ Rules for every phase:
 | 9 | `p09-signals-and-generated-lands` | 7 | data-and-mods, generated-quests, land-streaming, quality-and-testing, signals-and-codex, story-and-worlds | done |
 | 10 | `p10-world-memory-basics` | 4 | quality-and-testing, world-memory | done |
 | 11 | `p11-planet-geology` | 6 | planet-generation, scripting-api | done |
-| 12 | `p12-planet-climate-and-lands` | 6 | land-streaming, planet-generation, scripting-api | planned |
+| 12 | `p12-planet-climate-and-lands` | 6 | land-streaming, planet-generation, scripting-api | done |
 | 13 | `p13-planet-skies-and-palettes` | 4 | planet-generation, prime-universe, procedural-visuals | planned |
 | 14 | `p14-life-and-ecosystems` | 5 | land-streaming, life-generation | planned |
 | 15 | `p15-voxel-flora-and-fauna` | 6 | life-generation, procedural-visuals | planned |

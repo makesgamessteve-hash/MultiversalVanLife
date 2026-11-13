@@ -165,6 +165,23 @@ function G:generate(addr)
   return node
 end
 
+-- Drops planets and everything below them from memory, except the paths
+-- to the addresses in `keep` (the levels above are small and stay).
+function G:trim(keep)
+  local keepset = {}
+  for _, a in ipairs(keep or {}) do
+    for _, p in ipairs(address.path(a)) do keepset[p] = true end
+  end
+  local n = 0
+  for a in pairs(self.nodes) do
+    if address.level(a) >= 5 and not keepset[a] then
+      self.nodes[a] = nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
 -- Drops generated places at or below `addr` from memory.
 function G:forget(addr)
   for a in pairs(self.nodes) do
