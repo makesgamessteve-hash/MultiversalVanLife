@@ -274,7 +274,7 @@ void test_engine_test_runner(void) {
                     "test.wait(2); test.seconds(0.05); test.hold('interact', 2); test.press('move_y')\n"
                     "test.look(0.1, 0.2); test.touch('down', 1, 0.1, 0.5); test.touch('move', 1, 0.1, 0.4); test.touch('up', 1)\n"
                     "test.set_xr(true, true, 0.5); local s, a = mvl.xr(); test.expect(s and a, 'xr flags')\n"
-                    "test.eq(test.mixer_voices(), 0, 'no voices'); test.expect(test.ui_quads() >= 0)\n"
+                    "test.eq(test.mixer_voices(), 0, 'no voices'); test.eq(test.mixer_voices(2), 0); test.expect(test.ui_quads() >= 0)\n"
                     "test.until_true(function() return mvl.ticks() > 10 end, 50, 'ticks')\n"
                     "test.expect(mvl.testing(), 'test mode')\n"
                     "test.screenshot('shot.tga'); test.eq(mvl.render_stats(), 0, 'no renderer headless')\n",

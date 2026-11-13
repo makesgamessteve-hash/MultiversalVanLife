@@ -1,10 +1,10 @@
--- Multiversal Van Life - loads dialogue lines from voice/lines.txt (MIT).
+-- Multiversal Van Life - loads dialogue lines from dialogue/lines.txt (MIT).
 local util = require("lib.util")
 local lines = { by_id = {} }
 
 function lines.load()
   lines.by_id = {}
-  local text = mvl.read("voice/lines.txt") or ""
+  local text = mvl.read("dialogue/lines.txt") or ""
   for line in text:gmatch("[^\r\n]+") do
     if not line:match("^%s*#") then
       -- only the first two '|' separate fields; the text may contain more

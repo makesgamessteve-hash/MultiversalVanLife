@@ -7,7 +7,8 @@ file(GLOB MVL_UNIT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.c)
 add_executable(mvl_unit_tests ${MVL_UNIT_SOURCES})
 target_link_libraries(mvl_unit_tests PRIVATE mvl_core)
 target_include_directories(mvl_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/unit)
-target_compile_definitions(mvl_unit_tests PRIVATE MVL_TEST_TMP="${MVL_TEST_TMP}")
+target_compile_definitions(mvl_unit_tests PRIVATE MVL_TEST_TMP="${MVL_TEST_TMP}"
+                                                  MVL_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/unit/data")
 add_test(NAME unit COMMAND mvl_unit_tests)
 
 # Automated game tests: the real Lua game driven by scripted input through

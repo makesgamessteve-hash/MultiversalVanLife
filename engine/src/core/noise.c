@@ -51,7 +51,7 @@ float mvl_rng_float(mvl_rng *r) { return (float)(mvl_rng_u32(r) >> 8) * (1.0f / 
 int32_t mvl_rng_range(mvl_rng *r, int32_t lo, int32_t hi) {
     uint32_t span;
     if (hi <= lo) return lo;
-    span = (uint32_t)(hi - lo) + 1u;
+    span = (uint32_t)hi - (uint32_t)lo + 1u; /* unsigned: no signed overflow */
     if (span == 0u) return (int32_t)mvl_rng_u32(r); /* full 32-bit range */
     return lo + (int32_t)(mvl_rng_u32(r) % span);
 }

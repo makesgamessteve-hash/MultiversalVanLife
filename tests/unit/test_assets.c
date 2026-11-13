@@ -1,6 +1,7 @@
 /* Unit tests: TGA, WAV, OBJ, VOX decoders and mesh builders. MIT License. */
 #include "test.h"
 #include "core/assets.h"
+#include "core/vfs.h"
 #include <stdlib.h>
 
 static size_t make_tga(unsigned char *buf, int type, int bits, int w, int h, int desc) {
@@ -290,4 +291,27 @@ void test_vox(void) {
     n = make_vox(b, 0, 2, 1, 1);
     put32(b + 20 + 4, 100000);
     CHECK(!mvl_voxels_load_vox(b, n, &v));
+}
+
+void test_mp3(void) {
+    char path[1024];
+    size_t n;
+    char *data;
+    mvl_sound s;
+    snprintf(path, sizeof path, "%s/tone.mp3", MVL_TEST_DATA);
+    data = mvl_file_read(path, &n);
+    CHECK(data != NULL);
+    CHECK(mvl_sound_load_mp3(data, n, &s));
+    CHECK_EQ_INT(s.rate, 22050);
+    CHECK(s.frames > 22050 * 0.25 && s.frames < 22050 * 0.4); /* 0.3 s plus encoder padding */
+    {
+        int peak = 0;
+        for (int i = 0; i < s.frames; ++i) peak = abs(s.samples[i]) > peak ? abs(s.samples[i]) : peak;
+        CHECK(peak > 8000); /* the 440 Hz tone is there */
+    }
+    mvl_sound_free(&s);
+    CHECK(!mvl_sound_load_mp3(data, 0, &s));
+    CHECK(!mvl_sound_load_mp3(NULL, 10, &s));
+    CHECK(!mvl_sound_load_mp3("not an mp3 at all, just text", 28, &s));
+    free(data);
 }

@@ -41,13 +41,20 @@ if(UNIX)
   target_link_libraries(mvl_lua PUBLIC m)
 endif()
 
+# dr_mp3 (vendored, public domain / MIT-0): MP3 decoding for music
+add_library(mvl_drmp3 STATIC ${CMAKE_SOURCE_DIR}/third_party/dr_libs/dr_mp3.c)
+target_include_directories(mvl_drmp3 PUBLIC ${CMAKE_SOURCE_DIR}/third_party/dr_libs)
+if(NOT MSVC)
+  target_compile_options(mvl_drmp3 PRIVATE -w)
+endif()
+
 # --------------------------------------------------------------------------
 # Engine core: platform independent, no SDL / OpenGL. Fully unit tested.
 # --------------------------------------------------------------------------
 file(GLOB MVL_CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/engine/src/core/*.c)
 add_library(mvl_core STATIC ${MVL_CORE_SOURCES})
 target_include_directories(mvl_core PUBLIC ${CMAKE_SOURCE_DIR}/engine/src)
-target_link_libraries(mvl_core PUBLIC mvl_lua)
+target_link_libraries(mvl_core PUBLIC mvl_lua mvl_drmp3)
 # Procedural generation must be bit-identical on every platform: forbid
 # fused multiply-add contraction and other value-changing float rewrites.
 if(MSVC)

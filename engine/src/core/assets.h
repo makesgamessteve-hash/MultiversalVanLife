@@ -29,6 +29,8 @@ typedef struct {
 
 /* PCM WAV, 8 or 16 bit, mono or stereo (stereo is downmixed). */
 int mvl_sound_load_wav(const void *data, size_t size, mvl_sound *out);
+/* MP3 (any bitrate, mono or stereo; stereo is downmixed). */
+int mvl_sound_load_mp3(const void *data, size_t size, mvl_sound *out);
 /* Wraps raw signed 16-bit mono PCM. Copies the data. */
 int mvl_sound_from_pcm16(const int16_t *pcm, int frames, int rate, mvl_sound *out);
 void mvl_sound_free(mvl_sound *s);

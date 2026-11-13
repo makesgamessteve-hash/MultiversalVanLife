@@ -77,6 +77,7 @@ local function open_pause()
     story.van.inside = false
     player.base_y = 0
     world.load("home")
+    audio.scape("title")
   end }
   pause_menu = Menu.new("PAUSED", items, { cancel = function() game.state = "play" end })
   game.state = "pause"
@@ -87,7 +88,7 @@ function game.init()
   story.van.build()
   build_title()
   world.load("home")
-  audio.set_ambient("sounds/music_title.wav", 0.5)
+  audio.scape("title")
 end
 
 function game.update(dt)

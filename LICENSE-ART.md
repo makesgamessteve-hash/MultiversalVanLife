@@ -8,8 +8,9 @@ the Creative Commons Attribution 4.0 International License. This covers:
 - `game/textures/` (textures, sprites, font, UI atlas)
 - `game/models/` (OBJ models)
 - `game/voxels/` (MagicaVoxel models)
-- `game/sounds/` (sound effects, ambience, music)
-- `game/voice/` (dialogue text and any generated voice recordings)
+- `game/sounds/` (sound effects and ambience, generated with ElevenLabs)
+- `game/music/` (music, generated with ElevenLabs)
+- `game/dialogue/` (dialogue text)
 
 Full license text: <https://creativecommons.org/licenses/by/4.0/legalcode>
 Summary: <https://creativecommons.org/licenses/by/4.0/>

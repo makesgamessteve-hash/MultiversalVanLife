@@ -125,7 +125,7 @@ function van.enter(player, world)
   player.base_y = van.P[2]
   player.place(van.P[1] + van.ENTRY[1], van.P[3] + van.ENTRY[2], van.ENTRY[3])
   mvl.bounds(van.P[1] - van.BOUNDS, van.P[3] - van.BOUNDS, van.P[1] + van.BOUNDS, van.P[3] + van.BOUNDS)
-  audio.set_ambient("sounds/van_hum.wav", 0.45)
+  audio.scape("van")
 end
 
 -- Puts the player outside at (x, z, yaw).

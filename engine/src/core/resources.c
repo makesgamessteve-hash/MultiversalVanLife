@@ -193,7 +193,7 @@ int mvl_res_sound(mvl_resources *r, const char *path) {
         return 0;
     }
     s = &r->sounds[r->sound_count];
-    if (!mvl_sound_load_wav(data, size, &s->sound)) {
+    if (!(ends_with(path, ".mp3") ? mvl_sound_load_mp3(data, size, &s->sound) : mvl_sound_load_wav(data, size, &s->sound))) {
         MVL_WARN("could not decode sound: %s", path);
         free(data);
         return 0;

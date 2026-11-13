@@ -811,8 +811,30 @@ static int t_screenshot(lua_State *L) {
     return 0;
 }
 
+/* Active mixer voices, optionally only those of one group. */
 static int t_mixer_voices(lua_State *L) {
-    lua_pushinteger(L, mvl_mixer_active_count(&eng(L)->mixer));
+    mvl_mixer *m = &eng(L)->mixer;
+    if (lua_isnoneornil(L, 1)) lua_pushinteger(L, mvl_mixer_active_count(m));
+    else {
+        int g = (int)luaL_checkinteger(L, 1), n = 0;
+        for (int i = 0; i < MVL_MAX_VOICES; ++i) n += m->voices[i].active && m->voices[i].group == g;
+        lua_pushinteger(L, n);
+    }
+    return 1;
+}
+
+/* Reads a file of the test's own folder tree (e.g. a tool's manifest). */
+static int t_read_file(lua_State *L) {
+    size_t n;
+    char *data = mvl_file_read(luaL_checkstring(L, 1), &n);
+    if (!data) return 0;
+    lua_pushlstring(L, data, n);
+    free(data);
+    return 1;
+}
+
+static int t_voice_volume(lua_State *L) {
+    lua_pushnumber(L, mvl_mixer_volume(&eng(L)->mixer, (int)luaL_checkinteger(L, 1)));
     return 1;
 }
 
@@ -833,7 +855,8 @@ int mvl_script_load_test(mvl_engine *e, const char *path) {
     char chunk[MVL_PATH_MAX + 2];
     static const luaL_Reg tfuncs[] = {{"input", t_input}, {"look", t_look}, {"touch", t_touch},
                                       {"ui_quads", t_ui_texts}, {"set_xr", t_set_xr},
-                                      {"mixer_voices", t_mixer_voices}, {"screenshot", t_screenshot}, {NULL, NULL}};
+                                      {"mixer_voices", t_mixer_voices}, {"voice_volume", t_voice_volume}, {"read_file", t_read_file},
+                                      {"screenshot", t_screenshot}, {NULL, NULL}};
     if (!src) {
         snprintf(e->last_error, sizeof e->last_error, "test script '%s' not found", path);
         return 0;

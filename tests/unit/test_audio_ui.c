@@ -33,11 +33,17 @@ void test_mixer(void) {
     CHECK(!mvl_mixer_playing(&m, b));
     b = mvl_mixer_play(&m, &s, 0, 0, 1, 1);
     mvl_mixer_fade(&m, b, 1, 0.5f, 0); /* fade in */
-    mvl_mixer_mix(&m, out, 8);
+    mvl_mixer_mix(&m, out, 2);
+    CHECK_NEAR(mvl_mixer_volume(&m, b), 0.5f, 1e-4);
+    mvl_mixer_mix(&m, out, 6);
     CHECK_NEAR(m.voices[0].volume, 1, 1e-4);
+    CHECK_NEAR(mvl_mixer_volume(&m, 99999), -1, 1e-6);
     mvl_mixer_fade(&m, b, 0.5f, 0, 0);
     CHECK_NEAR(m.voices[0].volume, 0.5f, 1e-4);
     mvl_mixer_fade(&m, b, 0, 0, 1); /* instant stop */
+    CHECK(!mvl_mixer_playing(&m, b));
+    b = mvl_mixer_play(&m, &s, 0, 0, 1, 1);
+    mvl_mixer_fade(&m, b, 0, 1.0f, 1); /* already silent: stops at once */
     CHECK(!mvl_mixer_playing(&m, b));
     mvl_mixer_fade(&m, 12345, 0, 0, 1);
     mvl_mixer_stop(&m, 12345);

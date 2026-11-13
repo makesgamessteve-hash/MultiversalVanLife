@@ -176,9 +176,16 @@ static void draw_touch_controls(mvl_engine *e) {
     }
 }
 
+void mvl_engine_drain_audio(mvl_engine *e, double dt) {
+    static float scratch[2 * 512];
+    for (int left = (int)(dt * e->mixer.rate + 0.5); left > 0; left -= 512)
+        mvl_mixer_mix(&e->mixer, scratch, left < 512 ? left : 512);
+}
+
 int mvl_engine_run_headless(mvl_engine *e, int max_frames) {
     for (int i = 0; i < max_frames && !e->quit_requested; ++i) {
         mvl_engine_frame(e, 1.0 / 60.0);
+        mvl_engine_drain_audio(e, 1.0 / 60.0);
         if (e->test_mode && e->test_done) break;
     }
     if (e->test_mode) {

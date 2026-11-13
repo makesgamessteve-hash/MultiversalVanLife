@@ -82,6 +82,10 @@ void mvl_engine_frame(mvl_engine *e, double dt);
 /* Runs the engine without a window for at most `max_frames` frames at
  * 60 Hz. Returns 0 if a test passed (or no test and no script error). */
 int mvl_engine_run_headless(mvl_engine *e, int max_frames);
+/* Advances the mixer by `dt` seconds of audio and discards it, like a sound
+ * device would consume it: used headless, in automated tests (game time, not
+ * wall-clock time) and when no audio device could be opened. */
+void mvl_engine_drain_audio(mvl_engine *e, double dt);
 void mvl_engine_set_aspect(mvl_engine *e, float aspect);
 /* Writes the save data to disk. Returns 1 on success. */
 int mvl_engine_write_save(mvl_engine *e);

@@ -1,4 +1,6 @@
--- Multiversal Van Life - dialogue box with typewriter text and voices (MIT).
+-- Multiversal Van Life - dialogue box with typewriter text (MIT License).
+-- Dialogue is text only: fixed lines come from dialogue/lines.txt, generated
+-- lines are passed as tables { speaker = name, text = ..., color = {r,g,b} }.
 local lines = require("lib.lines")
 local audio = require("lib.audio")
 
@@ -23,13 +25,23 @@ local function start_line(entry)
   dialogue.current = entry
   dialogue.shown = 0
   dialogue.timer = 0
-  dialogue.voice_len = audio.voice(entry.id)
 end
 
--- Queues one or more line ids. `on_done` runs when the last line closes.
+-- A line is an id from lines.txt or a generated line table. Generated lines
+-- name their speaker directly and may carry their own colour.
+local function resolve(line)
+  if type(line) == "table" then
+    return { id = line.id, speaker = line.speaker or "narrator", name = line.name or line.speaker,
+             text = tostring(line.text or ""), color = line.color, generated = true }
+  end
+  return lines.get(line)
+end
+
+-- Queues one line, a generated line table or a list of them. `on_done` runs
+-- when the last line closes.
 function dialogue.say(ids, on_done)
-  if type(ids) == "string" then ids = { ids } end
-  for _, id in ipairs(ids) do dialogue.queue[#dialogue.queue + 1] = lines.get(id) end
+  if type(ids) == "string" or (type(ids) == "table" and ids.text) then ids = { ids } end
+  for _, id in ipairs(ids) do dialogue.queue[#dialogue.queue + 1] = resolve(id) end
   if on_done then
     local prev = dialogue.on_done
     dialogue.on_done = function() if prev then prev() end on_done() end
@@ -40,7 +52,6 @@ end
 function dialogue.skip_all()
   dialogue.queue = {}
   dialogue.current = nil
-  audio.stop_voice()
   local cb = dialogue.on_done
   dialogue.on_done = nil
   if cb then cb() end
@@ -54,7 +65,7 @@ function dialogue.update(dt)
     dialogue.timer = dialogue.timer + dt
     local before = math.floor(dialogue.shown)
     dialogue.shown = math.min(len, dialogue.timer * CHARS_PER_SECOND)
-    if not dialogue.voice_len and cur.speaker ~= "narrator" and math.floor(dialogue.shown / 4) > math.floor(before / 4) then
+    if cur.speaker ~= "narrator" and math.floor(dialogue.shown / 4) > math.floor(before / 4) then
       audio.sfx("voice_blip", 0.35)
     end
   end
@@ -65,7 +76,6 @@ function dialogue.update(dt)
       start_line(table.remove(dialogue.queue, 1))
     else
       dialogue.current = nil
-      audio.stop_voice()
       local cb = dialogue.on_done
       dialogue.on_done = nil
       if cb then cb() end
@@ -80,7 +90,10 @@ function dialogue.draw(touch)
   local w, h = mvl.ui_size()
   local bw = math.min(w - 16, 400)
   local bx, by, bh = math.floor((w - bw) / 2), h - 70, 62
-  local sp = dialogue.speakers[cur.speaker] or dialogue.speakers.narrator
+  local sp = dialogue.speakers[cur.speaker]
+  if not sp then -- generated speakers
+    sp = cur.generated and { name = cur.name, color = cur.color or { 0.85, 0.9, 1.0 } } or dialogue.speakers.narrator
+  end
   mvl.rect(bx, by, bw, bh, 0.03, 0.04, 0.1, 0.88)
   mvl.rect(bx, by, bw, 1, sp.color[1], sp.color[2], sp.color[3], 1)
   local ty = by + 6

@@ -202,7 +202,8 @@ static void frame(void) {
     SDL_GetWindowSizeInPixels(a->window, &w, &h);
     if (h > 0) mvl_engine_set_aspect(e, (float)w / (float)h);
     mvl_engine_frame(e, dt);
-    pump_audio(a);
+    if (a->audio && !e->test_mode) pump_audio(a);
+    else mvl_engine_drain_audio(e, dt);
     mvl_renderer_draw(a->renderer, e, w, h);
     if (a->max_frames > 0 && (int)e->frame >= a->max_frames && a->screenshot) save_screenshot(a, a->screenshot, w, h);
     if (e->screenshot_request[0]) { /* requested by an automated test */

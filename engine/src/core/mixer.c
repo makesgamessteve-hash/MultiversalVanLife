@@ -41,6 +41,11 @@ int mvl_mixer_play(mvl_mixer *m, const mvl_sound *s, float volume, float pan, in
 
 int mvl_mixer_playing(const mvl_mixer *m, int id) { return find((mvl_mixer *)m, id) != NULL; }
 
+float mvl_mixer_volume(const mvl_mixer *m, int id) {
+    const mvl_voice *v = find((mvl_mixer *)m, id);
+    return v ? v->volume : -1.0f;
+}
+
 void mvl_mixer_stop(mvl_mixer *m, int id) {
     mvl_voice *v = find(m, id);
     if (v) v->active = 0;
@@ -60,7 +65,8 @@ void mvl_mixer_fade(mvl_mixer *m, int id, float volume, float seconds, int stop)
     if (!v) return;
     v->target = volume;
     v->stop_at_zero = stop;
-    if (seconds <= 0.0f) {
+    /* nothing to fade (also a voice that is still silent when replaced) */
+    if (seconds <= 0.0f || v->volume == volume) {
         v->volume = volume;
         v->fade_rate = 0.0f;
         if (stop && volume <= 0.0f) v->active = 0;

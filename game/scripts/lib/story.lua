@@ -31,9 +31,10 @@ function story.update(dt)
   for i = #due, 1, -1 do due[i]() end
   if story.shake > 0 then
     story.shake = math.max(0, story.shake - dt)
-    local s = story.shake * 0.04
+    -- deterministic jitter (game time), so replays and tests look the same
+    local s, t = story.shake * 0.02, mvl.time()
     local x, y, z, yaw, pitch = mvl.camera()
-    mvl.camera(x + (math.random() - 0.5) * s, y + (math.random() - 0.5) * s, z, yaw, pitch + (math.random() - 0.5) * s)
+    mvl.camera(x + math.sin(t * 53.1) * s, y + math.sin(t * 61.7 + 1.3) * s, z, yaw, pitch + math.sin(t * 47.3 + 2.1) * s)
   end
 end
 

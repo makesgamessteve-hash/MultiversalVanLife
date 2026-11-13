@@ -156,7 +156,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   specs-and-tools:
-    name: OpenSpec + voice tool
+    name: OpenSpec + audio tool
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -165,8 +165,8 @@ jobs:
           node-version: 22
       - name: Validate OpenSpec specs
         run: npx -y @fission-ai/openspec@latest validate --specs --strict
-      - name: Voice tool tests
-        working-directory: tools/voicegen
+      - name: Audio tool tests
+        working-directory: tools/audiogen
         run: |
           npm ci
           npm test

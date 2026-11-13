@@ -13,14 +13,15 @@ rebuild) and restart the game.
 | `config/engine.ini` | Render resolution, dithering, UI size, tick rate, main script, VR eye height |
 | `config/input.ini` | Key, mouse and gamepad bindings per action |
 | `scripts/` | Lua 5.4 gameplay. `main.lua` is the entry point |
-| `scripts/worlds/` | One file per world (home, van interior, destinations) |
+| `scripts/worlds/` | One file per world (home and the destinations) |
+| `scripts/lib/van.lua` | Juniper's interior, its window portals and the vortex |
 | `shaders/` | GLSL shaders (written for GLSL 3.30 / GLSL ES 3.00, without `#version`) |
 | `textures/` | TGA images (sprites use alpha cut-out) |
 | `models/` | Wavefront OBJ models |
 | `voxels/` | MagicaVoxel `.vox` models (one voxel = 1/8 m by default) |
-| `sounds/` | 16-bit PCM WAV files |
-| `voice/lines.txt` | Every dialogue line: `id \| speaker \| text` |
-| `voice/<id>.wav` | Optional recorded or generated voice for a line |
+| `sounds/` | Sound effects and ambience loops: 8 or 16-bit PCM WAV, mono or stereo |
+| `music/` | Music: MP3, mono or stereo |
+| `dialogue/lines.txt` | Every fixed dialogue line: `id \| speaker \| text` (shown as text) |
 
 ## Mods
 
@@ -67,8 +68,22 @@ world.register({
 })
 ```
 
-Add your own lines by shipping a `voice/lines.txt` (it replaces the base file,
-so copy the base lines too), or call `dialogue.say` with existing ids.
+Add your own lines by shipping a `dialogue/lines.txt` (it replaces the base
+file, so copy the base lines too), or call `dialogue.say` with existing ids.
+Generated characters can speak without a line id: `dialogue.say({ speaker =
+"Ostra", text = "Mind the eels.", color = { 0.6, 0.9, 1 } })`. Dialogue is
+text only; a soft blip plays while a line types out.
+
+### Soundscapes
+
+Every place has one looping sound. A world names its loop with `ambient` (and
+optionally `ambient_volume`); the title music and the van's hum are in
+`audio.SCAPES` (`lib/audio.lua`), and travelling plays the `travel` sound over
+the hum. Switching places crossfades: the old loop fades out over
+`audio.FADE_OUT` seconds while the new one fades in over `audio.FADE_IN`.
+Call `audio.scape("van")` for a named soundscape or
+`audio.set_ambient("sounds/my_loop.wav", 0.5)` for any file. Loops should be
+seamless (`tools/audiogen` crossfades their ends).
 
 `tests/game/mods/sample_mod` is a complete working example.
 
@@ -254,3 +269,11 @@ Write a game test like `tests/game/test_mods.lua` and run it headless:
 ```bash
 ./build/mvl_headless --data game --mods path/to/mods --save /tmp/save --test my_test.lua
 ```
+
+Tests drive the game through `test.input(action, value)`, `test.press`,
+`test.hold`, `test.look`, `test.touch` and `test.wait(frames)` /
+`test.seconds(s)`, and check it with `test.expect`, `test.eq` and
+`test.until_true`. They can also inspect audio (`test.mixer_voices([group])`,
+`test.voice_volume(voice)`, which is -1 once a voice stopped), count UI quads
+(`test.ui_quads()`) and read files next to the test (`test.read_file(path)`).
+The headless runner mixes audio like a sound device, so fades progress.

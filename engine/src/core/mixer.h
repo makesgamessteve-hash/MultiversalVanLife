@@ -33,6 +33,8 @@ void mvl_mixer_init(mvl_mixer *m, int output_rate);
  * are busy, the quietest non-looping voice is replaced. */
 int mvl_mixer_play(mvl_mixer *m, const mvl_sound *s, float volume, float pan, int loop, int group);
 int mvl_mixer_playing(const mvl_mixer *m, int id);
+/* Current volume of a voice (fades included), or -1 if it is not playing. */
+float mvl_mixer_volume(const mvl_mixer *m, int id);
 void mvl_mixer_stop(mvl_mixer *m, int id);
 void mvl_mixer_stop_group(mvl_mixer *m, int group);
 void mvl_mixer_stop_all(mvl_mixer *m);

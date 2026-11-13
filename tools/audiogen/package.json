@@ -1,0 +1,19 @@
+{
+  "name": "mvl-audiogen",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Generates the sound effects, ambience and music of Multiversal Van Life with ElevenLabs",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "plan": "node generate.mjs --plan",
+    "test": "node --test test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.78.0"
+  }
+}

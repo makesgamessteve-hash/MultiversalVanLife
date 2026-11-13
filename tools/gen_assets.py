@@ -2,8 +2,8 @@
 # -----------------------------------------------------------------------------
 # Multiversal Van Life - procedural asset generator
 #
-# Generates every texture, sprite, model, voxel model and sound used by the game
-# into the game/ folder. Standard library only, fully deterministic (fixed seeds):
+# Generates every texture, sprite, model and voxel model used by the game
+# into the game/ folder (sounds and music come from tools/audiogen). Standard library only, fully deterministic (fixed seeds):
 # running it twice produces byte-identical files.
 #
 #   python3 tools/gen_assets.py              # regenerate everything into <repo>/game
@@ -19,7 +19,6 @@
 #   TGA  uncompressed type 2, 32 bpp BGRA, 18-byte header, descriptor 0x28 (top-left)
 #   OBJ  v / vt / vn, triangle faces "f a/b/c a/b/c a/b/c", Y up, CCW front faces
 #   VOX  MagicaVoxel v150: MAIN{SIZE, XYZI, RGBA}, one model, Z up
-#   WAV  PCM 16-bit mono 22050 Hz, peaks about -3 dBFS
 # -----------------------------------------------------------------------------
 
 import argparse
@@ -27,7 +26,6 @@ import math
 import os
 import random
 import struct
-import wave
 
 ATTRIBUTION = "Multiversal Van Life contributors"
 LICENSE = "CC BY 4.0"
@@ -2109,483 +2107,6 @@ def vox_lantern_post(path):
 
 
 # =============================================================================
-# Sounds (PCM16 mono 22050 Hz)
-# =============================================================================
-
-SR = 22050
-TAU = 2 * math.pi
-PEAK = 10 ** (-3 / 20)  # -3 dBFS
-
-
-def silence(sec):
-    return [0.0] * int(round(sec * SR))
-
-
-def normalise(buf, peak=PEAK):
-    m = max(abs(s) for s in buf) or 1.0
-    g = peak / m
-    return [s * g for s in buf]
-
-
-def fade(buf, fin=0.004, fout=0.01):
-    n = len(buf)
-    a, b = int(fin * SR), int(fout * SR)
-    for i in range(min(a, n)):
-        buf[i] *= i / a
-    for i in range(min(b, n)):
-        buf[n - 1 - i] *= i / b
-    return buf
-
-
-def loop_align(buf):
-    """Rotate a periodic buffer so it starts on an upward zero crossing.
-    (Rotation keeps a periodic signal seamless; the last sample is then just
-    below zero and the first just above, so the wrap is click-free.)"""
-    n = len(buf)
-    best, bi = 1e9, 0
-    for i in range(n):
-        a, b = buf[i - 1], buf[i]
-        if a < 0 <= b:
-            score = abs(a) + abs(b)
-            if score < best:
-                best, bi = score, i
-    return buf[bi:] + buf[:bi]
-
-
-def write_wav(path, buf, loop=False):
-    if loop:
-        buf = loop_align(normalise(buf))
-    else:
-        buf = normalise(fade(buf))
-    data = bytearray()
-    for s in buf:
-        data += struct.pack("<h", int(clamp(round(s * 32767), -32768, 32767)))
-    with wave.open(path, "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes(bytes(data))
-
-
-def white(n, seed):
-    r = random.Random(seed)
-    return [r.uniform(-1, 1) for _ in range(n)]
-
-
-def lowpass(x, fc, state=0.0):
-    a = 1 - math.exp(-TAU * fc / SR)
-    y, out = state, []
-    for s in x:
-        y += a * (s - y)
-        out.append(y)
-    return out
-
-
-def highpass(x, fc):
-    lp = lowpass(x, fc)
-    return [a - b for a, b in zip(x, lp)]
-
-
-def svf(x, fc, q=0.5, mode="band"):
-    """Chamberlin state-variable filter; fc may be a number or a per-sample list."""
-    low = band = 0.0
-    out = []
-    damp = 2 * q
-    for i, s in enumerate(x):
-        f = fc[i] if isinstance(fc, list) else fc
-        f = 2 * math.sin(math.pi * min(f, SR / 6) / SR)
-        low += f * band
-        high = s - low - damp * band
-        band += f * high
-        out.append(band if mode == "band" else low if mode == "low" else high)
-    return out
-
-
-def periodic(x, fn):
-    """Apply a (linear, time-invariant) filter to a periodic signal so that the
-    result is also periodic: filter three periods and keep the last one."""
-    n = len(x)
-    return fn(x + x + x)[2 * n:]
-
-
-def add_at(buf, start, sig, gain=1.0, wrap=False):
-    n = len(buf)
-    for i, s in enumerate(sig):
-        j = start + i
-        if wrap:
-            buf[j % n] += s * gain
-        elif 0 <= j < n:
-            buf[j] += s * gain
-
-
-def tone(freq, dur, harmonics=((1, 1.0),), attack=0.005, decay=None, release=0.02, vib=0.0, glide=None):
-    """Simple additive tone with exp decay envelope; freq may glide to `glide`."""
-    n = int(dur * SR)
-    out = []
-    ph = 0.0
-    for i in range(n):
-        t = i / SR
-        f = freq if glide is None else freq * (glide / freq) ** (i / n)
-        if vib:
-            f *= 1 + vib * math.sin(TAU * 5.0 * t)
-        ph += f / SR
-        s = 0.0
-        for h, a in harmonics:
-            s += a * math.sin(TAU * ph * h)
-        env = min(1.0, t / attack) if attack > 0 else 1.0
-        if decay:
-            env *= math.exp(-t / decay)
-        rem = (n - i) / SR
-        if rem < release:
-            env *= rem / release
-        out.append(s * env)
-    return out
-
-
-def midi(n):
-    return 440.0 * 2 ** ((n - 69) / 12)
-
-
-def snd_step(path):
-    n = int(0.15 * SR)
-    nz = white(n, 5001)
-    body = lowpass(nz, 900)
-    crunch = svf(white(n, 5002), 3200, 0.4)
-    out = []
-    for i in range(n):
-        t = i / SR
-        env = (1 - math.exp(-t / 0.004)) * math.exp(-t / 0.035)
-        thud = math.sin(TAU * (95 - 200 * t) * t) * math.exp(-t / 0.03)
-        rustle = crunch[i] * math.exp(-t / 0.05) * (0.6 + 0.4 * math.sin(TAU * 60 * t))
-        out.append(body[i] * env * 2.0 + thud * 0.5 + rustle * 0.35)
-    write_wav(path, out)
-
-
-def snd_door(path):
-    n = int(0.6 * SR)
-    rng = random.Random(5003)
-    exc = [0.0] * n
-    # stick-slip creak: irregular impulse train with a wandering rate
-    t = 0.0
-    while t < 0.45:
-        rate = 70 + 60 * math.sin(TAU * 2.3 * t) + 40 * t + rng.uniform(-12, 12)
-        i = int(t * SR)
-        exc[i] = rng.uniform(0.7, 1.0) * min(1.0, t / 0.05)
-        t += 1.0 / rate
-    creak = [a * 0.6 + b * 0.4 for a, b in zip(svf(exc, 1150, 0.06), svf(exc, 2350, 0.08))]
-    # final clunk of the latch
-    clunk = silence(0.6)
-    k0 = int(0.47 * SR)
-    nz = lowpass(white(n - k0, 5004), 600)
-    for i in range(n - k0):
-        tt = i / SR
-        clunk[k0 + i] = (math.sin(TAU * 70 * tt) * 0.8 + nz[i] * 2.0) * math.exp(-tt / 0.03)
-    out = [creak[i] * (1.0 if i < k0 else math.exp(-(i - k0) / SR / 0.01)) + clunk[i] * 0.9 for i in range(n)]
-    write_wav(path, out)
-
-
-def snd_interact(path):
-    out = silence(0.2)
-    add_at(out, 0, tone(660, 0.09, ((1, 1), (2, 0.25)), 0.003, 0.04))
-    add_at(out, int(0.06 * SR), tone(990, 0.13, ((1, 1), (2, 0.2)), 0.003, 0.05))
-    write_wav(path, out)
-
-
-def snd_pickup(path):
-    out = silence(0.6)
-    notes = [84, 88, 91, 96]  # C6 E6 G6 C7
-    for k, m in enumerate(notes):
-        add_at(out, int(k * 0.065 * SR), tone(midi(m), 0.4, ((1, 1), (2, 0.3), (3, 0.15)), 0.002, 0.09), 0.8)
-    rng = random.Random(5005)
-    for _ in range(14):  # sparkles
-        st = rng.uniform(0.05, 0.45)
-        add_at(out, int(st * SR), tone(rng.uniform(3000, 5200), 0.05, ((1, 1),), 0.001, 0.012), 0.25)
-    write_wav(path, out)
-
-
-def snd_quest_done(path):
-    out = silence(1.25)
-    brass = ((1, 1.0), (2, 0.5), (3, 0.3), (4, 0.15), (5, 0.08))
-    seq = [(0.0, 67, 0.3), (0.18, 72, 0.3), (0.36, 76, 0.85)]
-    for st, m, d in seq:
-        add_at(out, int(st * SR), tone(midi(m), d, brass, 0.02, 0.5 if d > 0.5 else 0.25, 0.15, vib=0.004), 0.7)
-    for m in (60, 64, 67):  # warm held chord under the last note
-        add_at(out, int(0.36 * SR), tone(midi(m), 0.85, ((1, 1), (2, 0.2)), 0.06, 0.6, 0.2), 0.3)
-    add_at(out, 0, tone(midi(48), 1.2, ((1, 1), (2, 0.3)), 0.02, 0.6, 0.2), 0.4)
-    write_wav(path, lowpass(out, 5000))
-
-
-def snd_travel(path):
-    dur = 4.0
-    n = int(dur * SR)
-    # rising band-passed noise sweep
-    fc = [200 * (16 ** ((i / n) ** 1.4)) for i in range(n)]
-    sweep = svf(white(n, 5006), fc, 0.18)
-    out = []
-    ph = [0.0] * 4
-    det = [1.0, 1.007, 0.993, 1.5]
-    for i in range(n):
-        t = i / SR
-        p = t / dur
-        # swirl: an LFO that speeds up, used for amplitude + pitch (doppler-ish)
-        swirl_rate = 1.5 + 9 * p * p
-        sw = math.sin(TAU * (1.5 * t + 3 * t * p * p))
-        base = 110 * (2 ** (2.2 * p)) * (1 + 0.035 * sw)
-        s = 0.0
-        for k in range(4):
-            ph[k] += base * det[k] / SR
-            # soft saw-ish: three harmonics
-            x = ph[k] % 1.0
-            s += math.sin(TAU * x) + 0.4 * math.sin(2 * TAU * x) + 0.18 * math.sin(3 * TAU * x)
-        env = min(1.0, t / 0.6) * (1.0 if t < 3.35 else max(0.0, 1 - (t - 3.35) / 0.25))
-        trem = 0.7 + 0.3 * math.sin(TAU * swirl_rate * t)
-        out.append((s * 0.12 * trem + sweep[i] * 1.1 * (0.4 + 0.6 * p)) * env)
-    # soft arrival thump + air release
-    k0 = int(3.55 * SR)
-    air = lowpass(white(n - k0, 5007), 1500)
-    for i in range(n - k0):
-        t = i / SR
-        out[k0 + i] += math.sin(TAU * (60 - 25 * t) * t) * math.exp(-t / 0.12) * 0.9
-        out[k0 + i] += air[i] * math.exp(-t / 0.08) * 0.5
-    write_wav(path, out)
-
-
-def snd_voice_blip(path):
-    dur = 0.14
-    n = int(dur * SR)
-    exc, ph = [], 0.0
-    for i in range(n):
-        t = i / SR
-        f0 = 170 * (1 + 0.35 * (i / n)) * (1 + 0.02 * math.sin(TAU * 30 * t))
-        ph += f0 / SR
-        if ph >= 1.0:
-            ph -= 1.0
-            exc.append(1.0)
-        else:
-            exc.append(0.0)
-    # vowel morph "o" -> "a" via two formant resonators
-    f1 = [450 + 300 * (i / n) for i in range(n)]
-    f2 = [800 + 450 * (i / n) for i in range(n)]
-    a = svf(exc, f1, 0.08)
-    b = svf(exc, f2, 0.1)
-    out = []
-    for i in range(n):
-        t = i / SR
-        env = min(1.0, t / 0.012) * min(1.0, (dur - t) / 0.04)
-        out.append((a[i] + 0.6 * b[i]) * env)
-    write_wav(path, lowpass(out, 3500))
-
-
-def snd_ui_move(path):
-    out = silence(0.07)
-    add_at(out, 0, tone(1250, 0.05, ((1, 1), (3, 0.15)), 0.001, 0.015))
-    write_wav(path, out)
-
-
-def snd_ui_select(path):
-    out = silence(0.16)
-    add_at(out, 0, tone(700, 0.06, ((1, 1), (3, 0.2)), 0.002, 0.03))
-    add_at(out, int(0.05 * SR), tone(1050, 0.1, ((1, 1), (3, 0.2)), 0.002, 0.04))
-    write_wav(path, out)
-
-
-# --- seamless ambient loops ---------------------------------------------------
-
-def wind(n, seed, fc=350, cycles=1, depth=0.5):
-    """Seamless filtered-noise wind with slow swells (integer cycles per loop)."""
-    nz = periodic(white(n, seed), lambda x: lowpass(lowpass(x, fc), fc))
-    out = []
-    for i in range(n):
-        p = i / n
-        sw = 1 - depth + depth * (0.5 + 0.5 * math.sin(TAU * cycles * p)) * (0.7 + 0.3 * math.sin(TAU * (cycles + 2) * p + 1.3))
-        out.append(nz[i] * sw)
-    return out
-
-
-def chirp_cricket(carrier, pulses=3):
-    sig = []
-    for k in range(pulses):
-        seg = int(0.016 * SR)
-        for i in range(seg):
-            t = i / SR
-            env = math.sin(math.pi * i / seg) ** 2
-            sig.append(math.sin(TAU * carrier * t) * env)
-        sig += [0.0] * int(0.014 * SR)
-    return sig
-
-
-def snd_ambient_night(path):
-    L = 8.0
-    n = int(L * SR)
-    rng = random.Random(5101)
-    out = [s * 3.0 for s in wind(n, 5102, 300, 1, 0.6)]
-    for carrier, gain, period in ((4300, 0.30, 0.62), (4750, 0.18, 0.81), (5150, 0.12, 0.53)):
-        t = rng.uniform(0, 0.5)
-        ch = chirp_cricket(carrier, 3)
-        while t < L:
-            add_at(out, int(t * SR), ch, gain * rng.uniform(0.7, 1.0), wrap=True)
-            t += period * rng.uniform(0.9, 1.1)
-    write_wav(path, out, loop=True)
-
-
-def snd_ambient_fen(path):
-    L = 8.0
-    n = int(L * SR)
-    rng = random.Random(5201)
-    out = [s * 2.5 for s in wind(n, 5202, 250, 1, 0.5)]
-    # frogs: buzzy two-part "rib-bit" croaks
-    for _ in range(9):
-        st = rng.uniform(0, L)
-        f = rng.uniform(260, 420)
-        croak = []
-        for part in range(2):
-            seg = int(rng.uniform(0.06, 0.1) * SR)
-            for i in range(seg):
-                t = i / SR
-                pulse = 1.0 if (t * 38) % 1.0 < 0.35 else 0.15
-                env = math.sin(math.pi * i / seg)
-                croak.append(math.sin(TAU * f * t) * pulse * env + 0.4 * math.sin(TAU * 2 * f * t) * pulse * env)
-            croak += [0.0] * int(0.05 * SR)
-        add_at(out, int(st * SR), croak, rng.uniform(0.25, 0.5), wrap=True)
-    # bubbles: quick rising sine blips
-    for _ in range(26):
-        st = rng.uniform(0, L)
-        f0 = rng.uniform(300, 600)
-        add_at(out, int(st * SR), tone(f0, 0.05, ((1, 1),), 0.002, 0.015, 0.005, glide=f0 * 2.2),
-               rng.uniform(0.1, 0.25), wrap=True)
-    write_wav(path, out, loop=True)
-
-
-def bell(freq, dur, decay):
-    return tone(freq, dur, ((1, 1.0), (2.76, 0.5), (5.4, 0.25), (8.93, 0.12)), 0.002, decay, 0.05)
-
-
-def snd_ambient_market(path):
-    L = 8.0
-    n = int(L * SR)
-    rng = random.Random(5301)
-    # distant murmur: band-passed noise with slow movement
-    murmur = periodic(white(n, 5302), lambda x: svf(x, 450, 0.7))
-    out = [m * 0.5 * (0.7 + 0.3 * math.sin(TAU * 3 * i / n)) for i, m in enumerate(murmur)]
-    # clockwork: tick-tock every 0.25 s plus a little ratchet
-    tick_src = white(int(0.012 * SR), 5303)
-    tick = [s * math.exp(-i / (0.002 * SR)) for i, s in enumerate(svf(tick_src, 3200, 0.15))]
-    tock = [s * math.exp(-i / (0.003 * SR)) for i, s in enumerate(svf(tick_src, 1900, 0.15))]
-    for k in range(int(L / 0.25)):
-        add_at(out, int(k * 0.25 * SR), tick if k % 2 == 0 else tock, 0.6, wrap=True)
-    for k in range(int(L / 2)):
-        for j in range(5):
-            add_at(out, int((k * 2 + 1.1 + j * 0.03) * SR), tick, 0.25, wrap=True)
-    # distant chimes (pentatonic), low-passed for distance
-    chimes = [0.0] * n
-    scale_notes = [72, 74, 76, 79, 81, 84]
-    for _ in range(7):
-        st = rng.uniform(0, L)
-        add_at(chimes, int(st * SR), bell(midi(rng.choice(scale_notes)), 2.5, 0.8), rng.uniform(0.3, 0.5), wrap=True)
-    chimes = periodic(chimes, lambda x: lowpass(x, 2500))
-    out = [a + b for a, b in zip(out, chimes)]
-    write_wav(path, out, loop=True)
-
-
-def snd_ambient_library(path):
-    L = 8.0
-    n = int(L * SR)
-    rng = random.Random(5401)
-    out = []
-    for i in range(n):  # low hum: all partials are integer cycles per 8 s loop
-        t = i / SR
-        p = i / n
-        mod = 0.75 + 0.25 * math.sin(TAU * 2 * p)
-        out.append((math.sin(TAU * 55 * t) * 0.5 + math.sin(TAU * 82.5 * t) * 0.25 +
-                    math.sin(TAU * 110.125 * t) * 0.15) * mod * 0.6)
-    rumble = periodic(white(n, 5402), lambda x: lowpass(lowpass(x, 120), 120))
-    out = [a + r * 3.0 for a, r in zip(out, rumble)]
-    drips = [0.0] * n
-    for _ in range(7):
-        st = rng.uniform(0, L)
-        f = rng.uniform(900, 1400)
-        add_at(drips, int(st * SR), tone(f, 0.12, ((1, 1),), 0.001, 0.03, 0.01, glide=f * 1.6), rng.uniform(0.4, 0.7), wrap=True)
-    # cavernous echoes (circular, so still seamless)
-    echo = list(drips)
-    for k, g in ((1, 0.45), (2, 0.22), (3, 0.1)):
-        d = int(0.29 * k * SR)
-        for i in range(n):
-            echo[i] += drips[(i - d) % n] * g
-    echo = periodic(echo, lambda x: lowpass(x, 3000))
-    out = [a + b * 0.8 for a, b in zip(out, echo)]
-    write_wav(path, out, loop=True)
-
-
-def snd_van_hum(path):
-    L = 4.0
-    n = int(L * SR)
-    noise = periodic(white(n, 5501), lambda x: lowpass(lowpass(x, 200), 200))
-    out = []
-    for i in range(n):
-        t = i / SR
-        p = i / n
-        pulse = 0.72 + 0.28 * (0.5 + 0.5 * math.sin(TAU * 2 * p - math.pi / 2)) ** 2  # slow 0.5 Hz breath
-        drift = 1 + 0.004 * math.sin(TAU * 1 * p)
-        s = (math.sin(TAU * 55 * t) * 0.55 + math.sin(TAU * 110 * t) * 0.3 +
-             math.sin(TAU * 165 * t) * 0.14 + math.sin(TAU * 220.25 * t) * 0.06 +
-             math.sin(TAU * 330.5 * t) * 0.04 * pulse)
-        out.append(s * pulse * drift + noise[i] * 2.0)
-    write_wav(path, out, loop=True)
-
-
-def snd_music_title(path):
-    beat = 0.5
-    bars = 8
-    L = bars * 4 * beat
-    n = int(L * SR)
-    out = [0.0] * n
-    chords = [(57, 60, 64), (53, 57, 60), (50, 53, 57), (52, 56, 59),   # Am F Dm E
-              (53, 57, 60), (55, 59, 62), (55, 60, 64), (55, 60, 64)]   # F G C C
-    roots = [45, 41, 38, 40, 41, 43, 48, 48]
-    # pad: detuned soft partials, overlapping into the next bar (wraps at the loop)
-    for b, ch in enumerate(chords):
-        st = int(b * 4 * beat * SR)
-        for m in ch:
-            for det in (0.997, 1.0, 1.003):
-                add_at(out, st, tone(midi(m) * det, 4 * beat + 0.35, ((1, 1), (2, 0.18)), 0.35, None, 0.5), 0.05, wrap=True)
-    # bass: root on beats 1 and 3, fifth on beat 4 'and'
-    for b, r in enumerate(roots):
-        for (bt, m, d) in ((0, r, 1.6), (2, r, 1.0), (3.5, r + 7, 0.45)):
-            add_at(out, int((b * 4 + bt) * beat * SR), tone(midi(m), d * beat, ((1, 1), (2, 0.25), (3, 0.08)), 0.01, 0.6, 0.06), 0.22, wrap=True)
-    # arpeggio: soft plucks of chord tones an octave up
-    for b, ch in enumerate(chords):
-        pattern = [ch[0], ch[1], ch[2], ch[1] + 12, ch[2], ch[1], ch[0] + 12, ch[2]]
-        for k, m in enumerate(pattern):
-            add_at(out, int((b * 4 + k * 0.5) * beat * SR), tone(midi(m + 12), 0.3, ((1, 1), (2, 0.1)), 0.003, 0.12, 0.05), 0.07, wrap=True)
-    # melody (original): (beats, midi) per bar, None = rest
-    melody = [
-        [(1, 76), (0.5, 72), (0.5, 74), (1, 76), (1, 69)],
-        [(1.5, 77), (0.5, 76), (1, 72), (1, 69)],
-        [(1, 74), (1, 77), (1.5, 81), (0.5, 79)],
-        [(1, 71), (1, 68), (1, 71), (1, 76)],
-        [(1.5, 81), (0.5, 79), (1, 77), (1, 72)],
-        [(1, 74), (1, 71), (1, 74), (1, 79)],
-        [(1.5, 76), (0.5, 79), (1, 84), (1, 79)],
-        [(2, 76), (2, None)],
-    ]
-    mel = [0.0] * n
-    for b, bar in enumerate(melody):
-        t = b * 4
-        for d, m in bar:
-            if m is not None:
-                add_at(mel, int(t * beat * SR),
-                       tone(midi(m), d * beat + 0.12, ((1, 1), (2, 0.3), (3, 0.1)), 0.015, 0.9, 0.1, vib=0.003),
-                       0.2, wrap=True)
-            t += d
-    # gentle circular echo on the melody (dotted eighth)
-    d = int(0.75 * beat * SR)
-    mel = [mel[i] + 0.3 * mel[(i - d) % n] + 0.1 * mel[(i - 2 * d) % n] for i in range(n)]
-    out = [a + b for a, b in zip(out, mel)]
-    out = periodic(out, lambda x: lowpass(x, 4500))
-    write_wav(path, out, loop=True)
-
-
-# =============================================================================
 # Asset table
 # =============================================================================
 
@@ -2636,21 +2157,6 @@ ASSETS = [
     ("voxels/bookshelf.vox", vox_bookshelf),
     ("voxels/well.vox", vox_well),
     ("voxels/lantern_post.vox", vox_lantern_post),
-    ("sounds/step.wav", snd_step),
-    ("sounds/door.wav", snd_door),
-    ("sounds/interact.wav", snd_interact),
-    ("sounds/pickup.wav", snd_pickup),
-    ("sounds/quest_done.wav", snd_quest_done),
-    ("sounds/travel.wav", snd_travel),
-    ("sounds/voice_blip.wav", snd_voice_blip),
-    ("sounds/ui_move.wav", snd_ui_move),
-    ("sounds/ui_select.wav", snd_ui_select),
-    ("sounds/ambient_night.wav", snd_ambient_night),
-    ("sounds/ambient_fen.wav", snd_ambient_fen),
-    ("sounds/ambient_market.wav", snd_ambient_market),
-    ("sounds/ambient_library.wav", snd_ambient_library),
-    ("sounds/van_hum.wav", snd_van_hum),
-    ("sounds/music_title.wav", snd_music_title),
 ]
 
 # expected TGA dimensions (checked in --check mode)
@@ -2668,8 +2174,6 @@ GROUNDED = {"tree_pine.tga", "tree_oak.tga", "bush.tga", "flowers.tga", "npc_far
 # opaque, seamlessly tiling textures
 TILEABLE = {"grass.tga", "dirt.tga", "cobble.tga", "wood_planks.tga", "house_wall.tga", "roof.tga", "stone.tga",
             "water.tga", "sand.tga", "metal_panel.tga", "crystal.tga", "carpet.tga", "sky_stars.tga"}
-LOOPS = {"ambient_night.wav", "ambient_fen.wav", "ambient_market.wav", "ambient_library.wav", "van_hum.wav",
-         "music_title.wav"}
 
 
 # =============================================================================
@@ -2732,27 +2236,6 @@ def check_vox(path, errs):
     return "%dx%dx%d, %d voxels" % (sx, sy, sz, cnt)
 
 
-def check_wav(path, errs):
-    name = os.path.basename(path)
-    with wave.open(path, "rb") as w:
-        ch, sw, fr, nf = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
-        raw = w.readframes(nf)
-    if (ch, sw, fr) != (1, 2, SR):
-        errs.append("%s: format %r" % (name, (ch, sw, fr)))
-        return ""
-    s = struct.unpack("<%dh" % nf, raw)
-    peak = max(abs(v) for v in s) / 32768.0
-    db = 20 * math.log10(peak) if peak > 0 else -99
-    if not -4.0 <= db <= -2.0:
-        errs.append("%s: peak %.1f dBFS" % (name, db))
-    if name in LOOPS:
-        if abs(s[0]) > 600 or abs(s[-1]) > 600 or abs(s[0] - s[-1]) > 900:
-            errs.append("%s: loop seam %d -> %d" % (name, s[-1], s[0]))
-    elif abs(s[0]) > 200 or abs(s[-1]) > 200:
-        errs.append("%s: no fade (%d, %d)" % (name, s[0], s[-1]))
-    return "%.2fs, peak %.1f dBFS" % (nf / fr, db)
-
-
 def check_obj(path, errs):
     name = os.path.basename(path)
     nv = nt = nn = nf = 0
@@ -2799,7 +2282,7 @@ def run_check(out):
         size = os.path.getsize(path)
         total += size
         ext = rel.rsplit(".", 1)[1]
-        info = {"tga": check_tga, "vox": check_vox, "wav": check_wav, "obj": check_obj}[ext](path, errs)
+        info = {"tga": check_tga, "vox": check_vox, "obj": check_obj}[ext](path, errs)
         print("  %-30s %8d bytes  %s" % (rel, size, info))
     print("total: %d files, %d bytes (%.2f MB)" % (len(ASSETS), total, total / 1048576))
     if errs:

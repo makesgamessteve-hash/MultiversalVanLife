@@ -1,5 +1,6 @@
-/* Multiversal Van Life - WAV decoder. MIT License. */
+/* Multiversal Van Life - WAV and MP3 decoding. MIT License. */
 #include "core/assets.h"
+#include "dr_mp3.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -49,6 +50,35 @@ int mvl_sound_load_wav(const void *data, size_t size, mvl_sound *out) {
         out->frames = frames;
         out->samples = s;
     }
+    return 1;
+}
+
+int mvl_sound_load_mp3(const void *data, size_t size, mvl_sound *out) {
+    drmp3_config cfg;
+    drmp3_uint64 frames = 0;
+    drmp3_int16 *pcm;
+    int16_t *mono;
+    memset(out, 0, sizeof *out);
+    if (!data || size == 0) return 0;
+    pcm = drmp3_open_memory_and_read_pcm_frames_s16(data, size, &cfg, &frames, NULL);
+    if (!pcm || frames == 0 || cfg.channels < 1 || frames > 0x7fffffff) {
+        drmp3_free(pcm, NULL);
+        return 0;
+    }
+    mono = (int16_t *)malloc(sizeof(int16_t) * (size_t)frames);
+    if (!mono) {
+        drmp3_free(pcm, NULL);
+        return 0;
+    }
+    for (drmp3_uint64 i = 0; i < frames; ++i) {
+        int acc = 0;
+        for (drmp3_uint32 c = 0; c < cfg.channels; ++c) acc += pcm[i * cfg.channels + c];
+        mono[i] = (int16_t)(acc / (int)cfg.channels);
+    }
+    drmp3_free(pcm, NULL);
+    out->samples = mono;
+    out->frames = (int)frames;
+    out->rate = (int)cfg.sampleRate;
     return 1;
 }
 
