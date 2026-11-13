@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <direct.h>
@@ -13,6 +12,7 @@
 #include <windows.h>
 #else
 #include <dirent.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -197,8 +197,13 @@ int mvl_file_write_atomic(const char *path, const void *data, size_t size) {
 }
 
 int mvl_is_dir(const char *path) {
+#if defined(_WIN32)
+    DWORD a = GetFileAttributesA(path);
+    return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
     struct stat st;
-    return stat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFDIR;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+#endif
 }
 
 int mvl_mkdirs(const char *dir) {

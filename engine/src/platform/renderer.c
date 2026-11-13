@@ -529,9 +529,9 @@ static void draw_world(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, flo
 /* Near/far planes: far follows the fog so depth precision is not wasted. */
 static mvl_camera pass_camera(const mvl_engine *e) {
     mvl_camera c = e->scene.camera;
-    float far = e->scene.env.fog_far + 30.0f;
+    float far_plane = e->scene.env.fog_far + 30.0f;
     if (c.znear < 0.1f) c.znear = 0.1f;
-    if (far < c.zfar) c.zfar = far;
+    if (far_plane < c.zfar) c.zfar = far_plane;
     if (c.zfar < c.znear + 10.0f) c.zfar = c.znear + 10.0f;
     return c;
 }
