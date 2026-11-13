@@ -33,12 +33,21 @@ foreach(test_file ${MVL_GAME_TESTS})
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
 endforeach()
 
+# The world bible exporter (mvl_headless --bible ADDRESS --out FILE).
+add_test(NAME tools.bible
+  COMMAND ${CMAKE_COMMAND}
+    -DRUNNER=$<TARGET_FILE:mvl_headless>
+    -DDATA=${CMAKE_SOURCE_DIR}/game
+    -DSAVE=${MVL_TEST_TMP}/save_bible
+    -DOUT=${MVL_TEST_TMP}/bible.md
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/run_bible_test.cmake)
+
 # Documented Lua examples (docs/*.md blocks marked <!-- example -->) must run.
 if(Python3_FOUND)
   add_test(NAME docs.examples
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc_examples.py
       $<TARGET_FILE:mvl_headless> ${CMAKE_SOURCE_DIR}/game ${MVL_TEST_TMP}/docs
-      ${CMAKE_SOURCE_DIR}/docs/MODDING.md)
+      ${CMAKE_SOURCE_DIR}/docs/MODDING.md ${CMAKE_SOURCE_DIR}/docs/WORLDGEN.md)
 endif()
 
 # Optional: run the same game tests through the real SDL3/OpenGL game

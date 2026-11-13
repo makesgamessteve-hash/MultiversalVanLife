@@ -130,6 +130,17 @@ int mvl_engine_init(mvl_engine *e, const mvl_engine_desc *d) {
     if (d->mods_dir) mvl_vfs_add_mods(&e->vfs, d->mods_dir);
 
     mvl_kv_init(&e->config);
+    mvl_kv_init(&e->options);
+    if (d->options) {
+        /* "a=1;b=x" -> kv lines */
+        char *text = (char *)malloc(strlen(d->options) + 1);
+        if (text) {
+            for (size_t i = 0; (text[i] = d->options[i]) != 0; ++i)
+                if (text[i] == ';') text[i] = '\n';
+            mvl_kv_parse(&e->options, text);
+            free(text);
+        }
+    }
     text = mvl_vfs_read(&e->vfs, "config/engine.ini", NULL);
     if (text) {
         mvl_kv_parse(&e->config, text);
@@ -174,6 +185,7 @@ void mvl_engine_shutdown(mvl_engine *e) {
     mvl_res_shutdown(&e->res);
     mvl_terrain_free(&e->terrain);
     mvl_kv_free(&e->config);
+    mvl_kv_free(&e->options);
     mvl_kv_free(&e->save);
 }
 

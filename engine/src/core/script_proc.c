@@ -41,8 +41,11 @@ static int l_hash(lua_State *L) {
     uint32_t h = 0x811c9dc5u;
     int n = lua_gettop(L);
     for (int i = 1; i <= n; ++i) {
-        if (lua_type(L, i) == LUA_TSTRING) h = mvl_hash_combine(h, mvl_hash_str(lua_tostring(L, i), 0));
-        else {
+        if (lua_type(L, i) == LUA_TSTRING) {
+            size_t len;
+            const char *s = lua_tolstring(L, i, &len);
+            h = mvl_hash_combine(h, mvl_hash_bytes(s, len, 0));
+        } else {
             lua_Integer v = luaL_checkinteger(L, i);
             h = mvl_hash_combine(mvl_hash_combine(h, (uint32_t)v), (uint32_t)((uint64_t)v >> 32));
         }

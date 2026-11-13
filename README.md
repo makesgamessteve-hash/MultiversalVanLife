@@ -14,6 +14,10 @@ night the two of you visit a strange place and help the people who live there.
   to the executable (Lua scripts, shaders, textures, models, voxels, sounds,
   dialogue). Mods in `mods/` can override or add anything, including new
   worlds. See [docs/MODDING.md](docs/MODDING.md).
+- **Generated multiverse**: every place, from universes down to single lands,
+  is generated lazily and deterministically from the save's seed, with causes
+  for every fact. See [docs/WORLDGEN.md](docs/WORLDGEN.md) and the roadmap in
+  [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Layout
 

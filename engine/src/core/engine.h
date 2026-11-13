@@ -22,6 +22,7 @@ typedef struct {
     const char *save_dir;      /* optional writable folder for saves */
     const char *platform;      /* "linux", "windows", "macos", "web", "headless" */
     const char *test_script;   /* optional automated game test (file path) */
+    const char *options;       /* optional tool options "key=value;key=value" from the command line */
     mvl_gfx_backend gfx;
     mvl_key_resolver key_resolver;
     void *key_resolver_user;
@@ -40,6 +41,7 @@ typedef struct mvl_engine {
     mvl_ui ui;
     mvl_kv config;
     mvl_kv save;
+    mvl_kv options;          /* command line tool options (mvl.option) */
     mvl_terrain terrain;     /* height field configured by scripts */
     char save_dir[MVL_PATH_MAX];  /* save folder: index file + records/ */
     char save_path[MVL_PATH_MAX]; /* the index file */

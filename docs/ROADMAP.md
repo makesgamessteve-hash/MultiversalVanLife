@@ -18,7 +18,7 @@ Rules for every phase:
 | 3 | `p03-van-windows` | 5 | story-and-worlds, van-windows | done |
 | 4 | `p04-text-dialogue-and-audio` | 6 | audio-and-voice, data-and-mods | done |
 | 5 | `p05-save-records` | 5 | save-games, scripting-api | done |
-| 6 | `p06-worldgen-framework` | 9 | multiverse-generation, quality-and-testing | planned |
+| 6 | `p06-worldgen-framework` | 9 | multiverse-generation, quality-and-testing | done |
 | 7 | `p07-cosmos-and-prime` | 7 | multiverse-generation, prime-universe | planned |
 | 8 | `p08-land-streaming-and-farm` | 5 | land-streaming, prime-universe, rendering, story-and-worlds | planned |
 | 9 | `p09-signals-and-generated-lands` | 7 | data-and-mods, generated-quests, land-streaming, quality-and-testing, signals-and-codex, story-and-worlds | planned |

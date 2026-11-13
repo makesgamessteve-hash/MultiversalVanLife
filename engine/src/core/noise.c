@@ -1,6 +1,7 @@
 /* Multiversal Van Life - deterministic hashing, random streams and noise.
  * MIT License. */
 #include "core/noise.h"
+#include <string.h>
 #include <math.h>
 
 uint32_t mvl_hash_u32(uint32_t x) {
@@ -20,14 +21,17 @@ uint32_t mvl_hash3(uint32_t a, uint32_t b, uint32_t c) {
     return mvl_hash_combine(mvl_hash_combine(mvl_hash_u32(a ^ 0x27d4eb2fu), b), c);
 }
 
-uint32_t mvl_hash_str(const char *s, uint32_t seed) {
+uint32_t mvl_hash_bytes(const void *data, size_t len, uint32_t seed) {
     uint32_t h = 2166136261u ^ seed;
-    for (const unsigned char *p = (const unsigned char *)s; p && *p; ++p) {
-        h ^= *p;
+    const unsigned char *p = (const unsigned char *)data;
+    for (size_t i = 0; i < len; ++i) {
+        h ^= p[i];
         h *= 16777619u;
     }
     return mvl_hash_u32(h);
 }
+
+uint32_t mvl_hash_str(const char *s, uint32_t seed) { return mvl_hash_bytes(s, s ? strlen(s) : 0, seed); }
 
 void mvl_rng_seed(mvl_rng *r, uint32_t seed, uint32_t stream) {
     r->state = 0u;

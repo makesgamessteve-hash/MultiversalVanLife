@@ -4,11 +4,27 @@ local progress = {}
 
 function progress.has_save() return mvl.save_get("story.started") == "1" end
 
-function progress.reset()
+-- A fresh multiverse seed (the save's root seed; every place derives from it).
+function progress.new_seed()
+  return mvl.hash(os.time(), math.floor(os.clock() * 1e6), mvl.ticks()) % 2147483647
+end
+
+function progress.reset(seed)
   mvl.save_clear()
   mvl.save_set("story.started", "1")
+  mvl.save_set("story.seed", seed or progress.new_seed())
   mvl.save_set("story.night", 1)
   mvl.save_set("story.location", "home")
+end
+
+-- The save's multiverse seed (saves from before seeds get one now).
+function progress.seed()
+  local s = tonumber(mvl.save_get("story.seed", ""))
+  if not s then
+    s = progress.new_seed()
+    mvl.save_set("story.seed", s)
+  end
+  return math.floor(s)
 end
 
 function progress.night() return tonumber(mvl.save_get("story.night", "1")) or 1 end

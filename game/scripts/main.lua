@@ -11,6 +11,7 @@ local lines = require("lib.lines")
 local progress = require("lib.progress")
 local story = require("lib.story")
 local Menu = require("lib.menu")
+local gen = require("gen")
 
 require("worlds.home")
 require("worlds.fen")
@@ -32,6 +33,7 @@ local function start_play(new_game)
   if new_game then progress.reset() progress.save() end
   story.reset()
   dialogue.skip_all()
+  gen.start(progress.seed())
   game.state = "play"
   player.enabled = true
   local loc = progress.location()
@@ -84,6 +86,8 @@ local function open_pause()
 end
 
 function game.init()
+  -- tool mode: mvl_headless --bible ADDRESS --out FILE [--seed N]
+  if mvl.option("bible") then return gen.bible.cli(gen.cosmos, gen.run) end
   lines.load()
   story.van.build()
   build_title()
@@ -92,6 +96,7 @@ function game.init()
 end
 
 function game.update(dt)
+  if not title_menu then return end -- tool mode
   hud.update(dt)
   if game.state == "title" then
     player.enabled = false
@@ -109,6 +114,7 @@ function game.update(dt)
     open_pause()
     return
   end
+  gen.update()
   local talking = dialogue.update(dt)
   local blocked = talking or story.busy or story.menu ~= nil
   player.enabled = not blocked
@@ -120,6 +126,7 @@ function game.update(dt)
 end
 
 function game.draw_ui()
+  if not title_menu then return end -- tool mode
   local t = touch()
   if game.state == "title" then
     title_menu:draw()
@@ -138,7 +145,7 @@ end
 -- Hooks used by automated game tests and the debug console.
 game.debug = {
   world = world, player = player, dialogue = dialogue, story = story, progress = progress, hud = hud,
-  van = story.van,
+  van = story.van, gen = gen,
   start = start_play,
   open_pause = open_pause,
   title_menu = function() return title_menu end,

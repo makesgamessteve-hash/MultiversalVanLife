@@ -8,6 +8,7 @@
 #ifndef MVL_NOISE_H
 #define MVL_NOISE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* ----------------------------------------------------------- hashing */
@@ -16,6 +17,8 @@ uint32_t mvl_hash_u32(uint32_t x);
 uint32_t mvl_hash_combine(uint32_t h, uint32_t v);
 uint32_t mvl_hash3(uint32_t a, uint32_t b, uint32_t c);
 uint32_t mvl_hash_str(const char *s, uint32_t seed);
+/* Like mvl_hash_str for `len` bytes (may contain NUL bytes). */
+uint32_t mvl_hash_bytes(const void *data, size_t len, uint32_t seed);
 
 /* ------------------------------------------------- random streams (PCG32) */
 typedef struct {

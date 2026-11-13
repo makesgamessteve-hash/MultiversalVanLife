@@ -689,6 +689,22 @@ static int l_ticks(lua_State *L) {
     lua_pushinteger(L, (lua_Integer)eng(L)->ticks);
     return 1;
 }
+/* Command line tool options (e.g. --bible ADDR --out FILE). */
+static int l_option(lua_State *L) {
+    const char *v = mvl_kv_get(&eng(L)->options, luaL_checkstring(L, 1));
+    if (v) lua_pushstring(L, v);
+    else lua_pushnil(L);
+    return 1;
+}
+/* Writes text to the file named by a command line option: scripts can only
+ * write where the person running the tool asked them to. */
+static int l_write_option_file(lua_State *L) {
+    size_t n;
+    const char *path = mvl_kv_get(&eng(L)->options, luaL_checkstring(L, 1));
+    const char *text = luaL_checklstring(L, 2, &n);
+    lua_pushboolean(L, path && *path && mvl_file_write(path, text, n));
+    return 1;
+}
 static int l_quit(lua_State *L) {
     eng(L)->quit_requested = 1;
     return 0;
@@ -744,7 +760,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"run_mod", l_run_mod},
     {"log", l_log}, {"time", l_time}, {"ticks", l_ticks}, {"quit", l_quit}, {"platform", l_platform},
     {"headless", l_headless}, {"xr", l_xr}, {"xr_request", l_xr_request}, {"xr_head", l_xr_head},
-    {"testing", l_testing},
+    {"testing", l_testing}, {"option", l_option}, {"write_option_file", l_write_option_file},
     {NULL, NULL}};
 
 /* --------------------------------------------- module loading via VFS */
