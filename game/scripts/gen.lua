@@ -37,6 +37,42 @@ gen.cosmos = gen.registry.new({
   },
 })
 
+-- The levels of this phase: multiverse down to star systems.
+require("gen.levels.multiverse")(gen.cosmos)
+require("gen.levels.universe")(gen.cosmos)
+require("gen.levels.galaxy").register(gen.cosmos)
+require("gen.levels.cluster").register(gen.cosmos)
+require("gen.levels.system").register(gen.cosmos)
+
+-- Inside Prime nothing is generated below the planets except the path to
+-- the farm; elsewhere places exist up to their parent's cap.
+gen.prime = require("gen.prime")
+for _, level in ipairs({ "continent", "country", "land" }) do
+  gen.cosmos:skeleton(level, function(parent, index)
+    local addr = gen.address.child(gen.cosmos.scheme, parent.address, index)
+    if gen.prime.inside(addr) and not gen.prime.allowed(addr) then return nil end
+    return index < gen.cosmos.levels[parent.level].caps.children and {} or nil
+  end)
+end
+
+-- Lore (eras, history, factions, religions, species, cultures, events) of a
+-- place and its ancestors. Prime has none: Earth is never simulated.
+gen.LORE = { era = true, history = true, event = true, faction = true, religion = true, species = true,
+             culture = true, war = true, notable_galaxy = true }
+function gen.lore(G, addr, kind)
+  if gen.prime.inside(addr) then return gen.prime.lore() end
+  local out = {}
+  G:generate(addr)
+  for _, a in ipairs(gen.address.path(addr)) do
+    local node = G.nodes[a]
+    for _, id in ipairs(node.fact_order) do
+      local f = node.facts[id]
+      if (kind and f.kind == kind) or (not kind and gen.LORE[f.kind]) then out[#out + 1] = f end
+    end
+  end
+  return out
+end
+
 gen.world = nil
 
 -- Starts the runner of the current save.

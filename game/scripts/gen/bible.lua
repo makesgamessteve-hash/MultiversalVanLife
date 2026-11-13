@@ -67,6 +67,11 @@ function bible.export(G, addr)
     out[#out + 1] = ""
     out[#out + 1] = string.format("Seed %d · version %d", node.seed, node.version)
     out[#out + 1] = ""
+    local describe = G.registry.levels[node.level].describe
+    if describe then
+      out[#out + 1] = describe(node)
+      out[#out + 1] = ""
+    end
     if next(node.summary) then
       out[#out + 1] = "### Summary"
       render(node.summary, "", out, 0)

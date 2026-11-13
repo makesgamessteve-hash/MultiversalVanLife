@@ -153,12 +153,47 @@ writes a Markdown document with one section per place on the path: its
 summary, generated fields, children, facts with linked causes and the
 promises it kept.
 
+## Deterministic numbers
+
+Generators must produce bit-identical results on Windows, Linux, macOS and
+the web. Integer hashing, the random streams and `mvl.noise` are exact; so
+are `+ - * /`, `math.sqrt` and `math.floor`. The C library's `math.sin`,
+`math.exp`, `math.log` and Lua's `^` operator are **not** (they may differ in
+the last bit between platforms). Generators use `gen.dmath` instead:
+`dmath.sin/cos/exp/log/pow/atan`, plus `round`, `clamp`, `normal` and
+`weighted` (pick from `{ id, w }` tables).
+
+## The cosmos, top down
+
+| Level | Generated (`gen/levels/*.lua`) |
+|---|---|
+| multiverse | Tendencies of its universes (weights for magic sources and FTL modes). Universes are endless; index 0 is Prime. |
+| universe | Laws: magic source (none, life, stellar, tectonic, belief) and strength, psionics, faster-than-light travel (none, gates, jumps with a range), real or silent gods; age; cosmic eras (names and spans); a 3D galaxy density field and notable galaxies (cradle, crown, wound, ...). Galaxy summaries are computed on demand. |
+| galaxy | Shape (spiral, barred, elliptical, ring, irregular) with arms, bar, bulge; fields of density, age and metallicity (arms young and metal-rich, the old core metal-poor); its formation in one of the universe's eras; a habitable band; star clusters placed by density. |
+| star cluster | Kind (open, globular, nursery) from position and age; stars from a mass function cut off by age, with classes, luminosities and companions; travel lanes as a relative neighbourhood graph, only with faster-than-light travel (jump lanes within the jump range). |
+| star system | The star, its habitable zone and frost line; planets on spaced orbits with Kepler periods (rocky and dwarf inside the frost line, giants outside, more planets and rocky worlds around metal-rich stars), their moons, belts. |
+
+Checks registered by these levels: consistent laws, arm clusters richer in
+heavy elements than the core, lanes only with faster-than-light travel,
+distinct spaced orbits, Kepler periods and rocky worlds inside the frost line.
+
+## Prime
+
+Universe `u0` is ours and is never generated: `gen/prime.lua` holds the Milky
+Way, the Sun, the eight planets with their real orbits and periods, their
+major moons and the belts. Prime has no magic, psionics or faster-than-light
+travel and no generated lore: `gen.lore(G, address)` returns nothing for any
+place in Prime, and nothing exists below its planets except the way to the
+farm (`gen.prime.FARM`), where the story begins.
+
 ## Fingerprints
 
 `tests/game/test_gen_fingerprint.lua` compares fingerprints (hashes of the
-exact bytes of generated places) of reference addresses with stored values on
-every CI platform, so a platform that generates a different multiverse from
-the same seed fails CI.
+exact bytes of generated places) of reference addresses, of the test
+hierarchy and of the cosmos from the multiverse to star systems, with stored
+values on every CI platform, so a platform that generates a different
+multiverse from the same seed fails CI. When a generator change is intended,
+update the stored values in the same commit.
 
 ## Example
 

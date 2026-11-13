@@ -112,6 +112,9 @@ end
 -- such child.
 function R:skeleton(level, fn) self:level(level).skeleton = fn end
 
+-- Overview text of a place for the world bible: fn(node) -> string.
+function R:describe(level, fn) self:level(level).describe = fn end
+
 -- Consistency checks run by gen.check: fn(node, report, G).
 function R:check(name, fn) self.checks[name] = fn end
 

@@ -22,5 +22,24 @@ for _, a in ipairs(addrs) do
   local fp = gen.util.fingerprint(G:generate(a))
   test.eq(fp, EXPECTED[a], "fingerprint of '" .. a .. "'")
 end
+-- the cosmos (multiverse to star systems, including Prime): laws, galaxy
+-- fields, cluster placement, stellar masses and orbits
+local COSMOS = {
+  [""] = "b8bfa3a08d62209d",
+  ["u1"] = "7147fa3c43960518",
+  ["u1.g2"] = "d3131223bc62a780",
+  ["u1.g2.c3"] = "adb113330f368849",
+  ["u1.g2.c3.s1"] = "948bc3ac9f9d7c7e",
+  ["u0.g0.c0.s0"] = "eebc898325d8a267",
+  ["u7.g40.c2.s0"] = "8a344d56d65fb15a",
+}
+local C = gen.run.new(gen.cosmos, { seed = 20261113, mods = {} })
+addrs = {}
+for a in pairs(COSMOS) do addrs[#addrs + 1] = a end
+table.sort(addrs)
+for _, a in ipairs(addrs) do
+  test.eq(gen.util.fingerprint(C:generate(a)), COSMOS[a], "cosmos fingerprint of '" .. a .. "'")
+end
+
 -- and the cosmos seeds of reference addresses
 test.eq(gen.address.seed(20261113, "u3.g12.c4.s1.p2.k0.n5.l7", gen.address.COSMOS), 4178881845, "deep cosmos seed")
