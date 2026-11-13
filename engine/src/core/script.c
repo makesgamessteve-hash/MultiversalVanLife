@@ -122,6 +122,7 @@ static void apply_entity_fields(lua_State *L, mvl_entity *en, int t) {
     set_flag(&en->flags, MVL_ENT_NOFOG, opt_field_bool(L, t, "nofog", (en->flags & MVL_ENT_NOFOG) != 0));
     set_flag(&en->flags, MVL_ENT_SOLID, opt_field_bool(L, t, "solid", (en->flags & MVL_ENT_SOLID) != 0));
     set_flag(&en->flags, MVL_ENT_DECAL, opt_field_bool(L, t, "decal", (en->flags & MVL_ENT_DECAL) != 0));
+    set_flag(&en->flags, MVL_ENT_PERSISTENT, opt_field_bool(L, t, "persistent", (en->flags & MVL_ENT_PERSISTENT) != 0));
     {
         float layer = opt_field_num(L, t, "layer", (float)en->layer);
         en->layer = layer < 0 ? 0 : (layer > 7 ? 7 : (int)layer);
@@ -269,8 +270,11 @@ static int l_exists(lua_State *L) {
     return 1;
 }
 
+/* mvl.clear_scene() removes the world but keeps persistent entities;
+ * mvl.clear_scene(true) removes everything. */
 static int l_clear_scene(lua_State *L) {
-    mvl_scene_clear(&eng(L)->scene);
+    if (lua_toboolean(L, 1)) mvl_scene_clear(&eng(L)->scene);
+    else mvl_scene_clear_world(&eng(L)->scene);
     return 0;
 }
 
@@ -355,7 +359,7 @@ static int l_move(lua_State *L) {
 }
 
 static int l_overlaps(lua_State *L) {
-    vec3 p = v3((float)luaL_checknumber(L, 1), 0, (float)luaL_checknumber(L, 2));
+    vec3 p = v3((float)luaL_checknumber(L, 1), (float)luaL_optnumber(L, 4, 0), (float)luaL_checknumber(L, 2));
     lua_pushboolean(L, mvl_scene_overlaps(&eng(L)->scene, p, (float)luaL_optnumber(L, 3, 0.3)));
     return 1;
 }

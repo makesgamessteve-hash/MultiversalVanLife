@@ -1,0 +1,2 @@
+[{"file": "window.tga", "region": [0.47, 0.47, 0.53, 0.53], "min": {"blue": 0.9}},
+ {"file": "travel.tga", "region": [0.4, 0.4, 0.6, 0.6], "max": {"dark": 0.3, "blue": 0.6}}]

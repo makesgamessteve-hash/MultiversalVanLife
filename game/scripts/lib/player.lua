@@ -4,6 +4,7 @@ local audio = require("lib.audio")
 
 local player = {
   x = 0, z = 0, yaw = 0, pitch = 0,
+  base_y = 0,                       -- floor height (the van pocket lies far below the world)
   eye = 1.6, radius = 0.3,
   walk_speed = 3.0, run_speed = 5.0, turn_speed = 2.4,
   bob = 0, step_dist = 0, enabled = true, moved = 0,
@@ -43,7 +44,7 @@ function player.update(dt)
     local dz = (fz * my + rz * mx) * speed * dt
     if dx ~= 0 or dz ~= 0 then
       local ox, oz = player.x, player.z
-      local nx, _, nz = mvl.move(player.x, 0, player.z, dx, dz, player.radius)
+      local nx, _, nz = mvl.move(player.x, player.base_y, player.z, dx, dz, player.radius)
       player.x, player.z = nx, nz
       local d = util.dist2(ox, oz, nx, nz)
       player.moved = player.moved + d
@@ -56,7 +57,7 @@ function player.update(dt)
     end
   end
   local bob = math.sin(player.bob * 3.1) * 0.03
-  mvl.camera(player.x, player.eye + bob, player.z, player.yaw, player.pitch)
+  mvl.camera(player.x, player.base_y + player.eye + bob, player.z, player.yaw, player.pitch)
 end
 
 return player

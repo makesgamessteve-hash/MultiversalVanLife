@@ -4,6 +4,7 @@
 A rural person finds an old sentient van, Juniper, that travels between worlds. Every night they visit a place and help the people who live there.
 
 ## Requirements
+
 ### Requirement: Night one introduction
 A new game SHALL start on the farm at night with the van parked at the gate; shortly after, the van SHALL call the player, and entering it the first time SHALL play Juniper's introduction and remember that the van was met.
 
@@ -16,7 +17,7 @@ The van interior SHALL be much larger than the exterior and contain a console th
 
 #### Scenario: Travelling
 - **WHEN** the player chooses a destination at the console
-- **THEN** the travel sound and camera shake play inside the van, the location is saved, and stepping outside loads the destination next to the van's rear door facing the scene
+- **THEN** the travel sound and camera shake play inside the van, the outside world is replaced by the destination while the player stays inside, the location is saved, and stepping outside puts the player next to the van's rear door
 
 ### Requirement: Ending a night
 Travelling home SHALL end the night, increase the night counter, save, show a title card and, once every destination was helped, play Juniper's thank-you line.

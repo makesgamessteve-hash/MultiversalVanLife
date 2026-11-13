@@ -29,8 +29,12 @@ end
 
 -- Finds an interactable whose prompt matches `pattern`.
 function H.find(pattern)
-  for _, it in ipairs(D().world.interactables) do
-    if it.prompt and it.prompt:find(pattern) and (not it.enabled or it.enabled()) then return it end
+  local level = D().player.base_y or 0
+  for _, list in ipairs({ D().world.interactables, D().world.fixed }) do
+    for _, it in ipairs(list) do
+      if it.prompt and it.prompt:find(pattern) and (not it.enabled or it.enabled())
+         and math.abs((it.y or 0) - level) < 3 then return it end
+    end
   end
 end
 
@@ -67,7 +71,8 @@ function H.choose(menu, pattern)
   test.press("interact")
 end
 
-function H.current() return D().world.current.def.id end
+-- "van" while the player is inside the van, otherwise the world's id.
+function H.current() return D().van.inside and "van" or D().world.current.def.id end
 
 -- Starts a fresh game and skips the intro on the farm.
 function H.new_game()
@@ -79,7 +84,7 @@ end
 function H.new_game_in_van()
   D().start(true)
   D().progress.set_flag("van_met")
-  D().world.load("van")
+  D().van.enter(D().player, D().world)
   test.wait(5)
 end
 

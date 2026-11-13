@@ -13,7 +13,6 @@ local story = require("lib.story")
 local Menu = require("lib.menu")
 
 require("worlds.home")
-require("worlds.van")
 require("worlds.fen")
 require("worlds.market")
 require("worlds.library")
@@ -36,8 +35,13 @@ local function start_play(new_game)
   game.state = "play"
   player.enabled = true
   local loc = progress.location()
+  if not world.get(loc) then loc = "home" end
+  story.van.build()
+  story.van.inside = false
+  player.base_y = 0
+  world.load(loc)
   -- every session begins inside the van unless the van has not been met yet
-  if progress.flag("van_met") then world.load("van") else world.load("home") end
+  if progress.flag("van_met") then story.van.enter(player, world) end
   hud.title_card("Night " .. progress.night(), 2.5)
   if progress.flag("van_met") and loc ~= "home" then
     hud.notify("Juniper is parked at " .. world.get(loc).name)
@@ -70,6 +74,8 @@ local function open_pause()
     progress.save()
     game.state = "title"
     build_title()
+    story.van.inside = false
+    player.base_y = 0
     world.load("home")
   end }
   pause_menu = Menu.new("PAUSED", items, { cancel = function() game.state = "play" end })
@@ -78,6 +84,7 @@ end
 
 function game.init()
   lines.load()
+  story.van.build()
   build_title()
   world.load("home")
   audio.set_ambient("sounds/music_title.wav", 0.5)
@@ -130,6 +137,7 @@ end
 -- Hooks used by automated game tests and the debug console.
 game.debug = {
   world = world, player = player, dialogue = dialogue, story = story, progress = progress, hud = hud,
+  van = story.van,
   start = start_play,
   open_pause = open_pause,
   title_menu = function() return title_menu end,

@@ -18,7 +18,8 @@ enum {
     MVL_ENT_UNLIT = 1 << 1,   /* ignores lighting (glowing things) */
     MVL_ENT_NOFOG = 1 << 2,   /* ignores fog (sky objects) */
     MVL_ENT_SOLID = 1 << 3,   /* blocks movement (see collider) */
-    MVL_ENT_DECAL = 1 << 4    /* lies on a surface: drawn after it, never z-fights */
+    MVL_ENT_DECAL = 1 << 4,   /* lies on a surface: drawn after it, never z-fights */
+    MVL_ENT_PERSISTENT = 1 << 5 /* survives mvl_scene_clear_world (e.g. the van interior) */
 };
 
 typedef struct {
@@ -92,6 +93,13 @@ typedef struct {
 void mvl_scene_init(mvl_scene *s);
 /* Removes all entities and lights; keeps camera. */
 void mvl_scene_clear(mvl_scene *s);
+/* Removes all entities except PERSISTENT ones (and their children); lights,
+ * portals and the camera are kept. */
+void mvl_scene_clear_world(mvl_scene *s);
+
+/* Colliders only block movers whose height is within this distance, so
+ * places stacked far above each other (the van pocket) do not interfere. */
+#define MVL_COLLIDE_HEIGHT 6.0f
 void mvl_env_default(mvl_environment *e);
 
 /* Entity handles encode slot + generation so stale handles are detected. */
@@ -124,7 +132,8 @@ mat4 mvl_camera_view(const mvl_camera *c);
 mat4 mvl_camera_proj(const mvl_camera *c, float aspect);
 
 /* Moves a circle of `radius` from `pos` by `delta` on the XZ plane, sliding
- * along SOLID entity colliders and the scene bounds. Returns the new pos. */
+ * along SOLID entity colliders at a similar height (see MVL_COLLIDE_HEIGHT)
+ * and the scene bounds. Returns the new pos. */
 vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius);
 /* 1 if a circle at pos overlaps any SOLID collider. */
 int mvl_scene_overlaps(const mvl_scene *s, vec3 pos, float radius);

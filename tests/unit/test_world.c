@@ -333,3 +333,41 @@ void test_scene_parenting(void) {
     CHECK(mvl_scene_get(&s, other) != NULL);
     CHECK_EQ_INT(mvl_scene_count(&s), 1);
 }
+
+void test_scene_persistent_and_heights(void) {
+    static mvl_scene s;
+    int keep, child, gone, gone_child;
+    mvl_entity *k;
+    vec3 p;
+    mvl_scene_init(&s);
+    keep = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    child = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    gone = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    gone_child = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    k = mvl_scene_get(&s, keep);
+    k->flags |= MVL_ENT_PERSISTENT;
+    mvl_scene_attach(&s, child, keep);
+    mvl_scene_attach(&s, gone_child, gone);
+    s.lights[2].enabled = 1;
+    mvl_scene_clear_world(&s);
+    CHECK(mvl_scene_get(&s, keep) && mvl_scene_get(&s, child));
+    CHECK(!mvl_scene_get(&s, gone) && !mvl_scene_get(&s, gone_child));
+    CHECK_EQ_INT(k->child_count, 1);
+    CHECK(s.lights[2].enabled); /* lights are kept */
+    CHECK_EQ_INT(mvl_scene_count(&s), 2);
+    mvl_scene_clear(&s);
+    CHECK_EQ_INT(mvl_scene_count(&s), 0);
+    mvl_scene_clear_world(&s); /* empty scene */
+    /* colliders far above or below the mover are ignored */
+    keep = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    k = mvl_scene_get(&s, keep);
+    k->flags |= MVL_ENT_SOLID;
+    k->radius = 1;
+    k->pos = v3(0, -400, 0);
+    p = mvl_scene_move(&s, v3(-2, 0, 0), v3(2, 0, 0), 0.3f);
+    CHECK_NEAR(p.x, 0, 1e-5);                   /* world level: passes through */
+    p = mvl_scene_move(&s, v3(-2, -400, 0), v3(1, 0, 0), 0.3f);
+    CHECK(p.x < -1.2f);                          /* pocket level: blocked */
+    CHECK(!mvl_scene_overlaps(&s, v3(0, 0, 0), 0.3f));
+    CHECK(mvl_scene_overlaps(&s, v3(0, -401, 0), 0.3f));
+}

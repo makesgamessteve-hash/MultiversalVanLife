@@ -1961,6 +1961,17 @@ def vox_van_interior(path):
         v.box(x, y, 19, x, y, 22, brass_d)
         v.box(x - 1, y - 1, 17, x + 1, y + 1, 18, warm)
         v.set(x, y, 16, warm_hi)
+    # windows (portals in the game show the outside through them), framed in
+    # brass. The engine's van script uses the same openings:
+    #   A: -Y wall x 13..24 z 10..16 (above the couch)   B: -Y wall x 38..51 z 7..15
+    #   C: +X wall y 26..37 z 6..14 (front)               D: +Y wall x 28..36 z 6..14
+    for (x0, x1, z0, z1) in ((13, 24, 10, 16), (38, 51, 7, 15)):
+        v.box(x0 - 1, 0, z0 - 1, x1 + 1, 0, z1 + 1, brass)
+        v.clear(x0, 0, z0, x1, 0, z1)
+    v.box(63, 25, 5, 63, 38, 15, brass)
+    v.clear(63, 26, 6, 63, 37, 14)
+    v.box(27, 63, 5, 37, 63, 15, brass)
+    v.clear(28, 63, 6, 36, 63, 14)
     # sanity: keep a clear 6-voxel-wide walkway from the door to the console
     v.clear(1, 29, 1, 25, 34, H - 1)
     v.save(path)

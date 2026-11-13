@@ -98,7 +98,7 @@ static const char *API_SCRIPT =
     "  mvl.environment{ ambient = 0.5 }\n"
     "  mvl.bounds(-5, -5, 5, 5)\n"
     "  local nx, ny, nz = mvl.move(0, 0, 0, 100, 0, 0.5); assert(nx == 4.5)\n"
-    "  assert(mvl.overlaps(7, 9, 0.6) and not mvl.overlaps(-3, -3))\n"
+    "  assert(mvl.overlaps(7, 9, 0.6, 8) and not mvl.overlaps(7, 9, 0.6) and not mvl.overlaps(-3, -3))\n"
     "  assert(mvl.value('nothing') == 0 and not mvl.down('x') and not mvl.pressed('x') and not mvl.released('x'))\n"
     "  local lx, ly = mvl.look(); assert(lx == 0)\n"
     "  assert(mvl.touch(true) and not mvl.touch(false) and not mvl.touch())\n"

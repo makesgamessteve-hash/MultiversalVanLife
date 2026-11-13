@@ -5,7 +5,8 @@ local util = require("lib.util")
 local player = require("lib.player")
 local audio = require("lib.audio")
 
-local world = { current = nil, interactables = {}, updaters = {}, focus = nil, registry = {}, order = {} }
+local world = { current = nil, interactables = {}, updaters = {}, focus = nil, registry = {}, order = {},
+                fixed = {}, inside = function() return false end }
 
 -- ---------------------------------------------------------- registry
 function world.register(def)
@@ -87,7 +88,18 @@ end
 
 function W:light(i, x, y, z, r, g, b, range) mvl.light(i, x, y, z, r, g, b, range) end
 function W:env(t) mvl.environment(t) end
-function W:bounds(x0, z0, x1, z1) mvl.bounds(x0, z0, x1, z1) end
+-- Walkable area of the world (applied unless the player is inside the van).
+function W:bounds(x0, z0, x1, z1)
+  self.bounds_rect = { x0, z0, x1, z1 }
+  world.apply_bounds()
+end
+
+function world.apply_bounds()
+  local w = world.current
+  if world.inside() or not w then return end
+  local b = w.bounds_rect or { -60, -60, 60, 60 }
+  mvl.bounds(b[1], b[2], b[3], b[4])
+end
 
 -- Something the player can use. t = { x, z, name, prompt, range, use = fn,
 -- entity = handle (optional, its position is followed), enabled = fn }
@@ -113,20 +125,26 @@ function W:npc(t)
 end
 
 -- --------------------------------------------------------- lifecycle
+-- Builds a world around the player. Persistent entities (the van interior)
+-- survive. While the player is inside the van they stay where they are and
+-- hear the van, not the world.
 function world.load(id, spawn)
   local def = world.registry[id]
   assert(def, "unknown world " .. tostring(id))
   mvl.clear_scene()
   world.interactables, world.updaters, world.focus = {}, {}, nil
   mvl.environment({ reset = true })
-  mvl.bounds(-60, -60, 60, 60)
   for i = 0, 7 do mvl.light(i) end
   local w = setmetatable({ def = def, state = {} }, W)
   world.current = w
+  world.apply_bounds()
   local sx, sz, syaw = def.build(w, spawn)
   if spawn and spawn.x then sx, sz, syaw = spawn.x, spawn.z, spawn.yaw end
-  player.place(sx or 0, sz or 0, syaw or 0)
-  audio.set_ambient(def.ambient, def.ambient_volume)
+  w.spawn = { x = sx or 0, z = sz or 0, yaw = syaw or 0 }
+  if not world.inside() then
+    player.place(w.spawn.x, w.spawn.z, w.spawn.yaw)
+    audio.set_ambient(def.ambient, def.ambient_volume)
+  end
   return w
 end
 
@@ -143,8 +161,11 @@ function world.find_focus()
   local best, best_score = nil, -1
   local face = player.facing()
   local fx, fz = util.forward(face)
-  for _, it in ipairs(world.interactables) do
-    if not it.enabled or it.enabled() then
+  local lists = { world.interactables, world.fixed }
+  for _, list in ipairs(lists) do
+  for _, it in ipairs(list) do
+    -- only things on the player's level (the van pocket lies far below)
+    if (not it.enabled or it.enabled()) and math.abs((it.y or 0) - (player.base_y or 0)) < 3 then
       local x, z = it_pos(it)
       local dx, dz = x - player.x, z - player.z
       local d = math.sqrt(dx * dx + dz * dz)
@@ -154,6 +175,7 @@ function world.find_focus()
         if dot > 0.45 and score > best_score then best, best_score = it, score end
       end
     end
+  end
   end
   return best
 end

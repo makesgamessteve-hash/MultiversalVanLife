@@ -40,6 +40,29 @@ void mvl_scene_clear(mvl_scene *s) {
     memset(s->lights, 0, sizeof s->lights);
 }
 
+static int persistent_root(mvl_scene *s, const mvl_entity *e) {
+    for (int depth = 0; depth <= MVL_MAX_PARENT_DEPTH && e; ++depth) {
+        if (e->flags & MVL_ENT_PERSISTENT) return 1;
+        e = e->parent ? mvl_scene_get(s, e->parent) : NULL;
+    }
+    return 0;
+}
+
+void mvl_scene_clear_world(mvl_scene *s) {
+    for (int i = 0; i < s->high_water; ++i) {
+        mvl_entity *e = &s->entities[i];
+        if (e->alive && !persistent_root(s, e)) e->alive = 0;
+    }
+    /* fix child counts of survivors and the high water mark */
+    for (int i = 0; i < s->high_water; ++i) s->entities[i].child_count = 0;
+    for (int i = 0; i < s->high_water; ++i) {
+        mvl_entity *e = &s->entities[i];
+        mvl_entity *p = (e->alive && e->parent) ? mvl_scene_get(s, e->parent) : NULL;
+        if (p) p->child_count++;
+    }
+    while (s->high_water > 0 && !s->entities[s->high_water - 1].alive) s->high_water--;
+}
+
 int mvl_scene_spawn(mvl_scene *s, mvl_entity_kind kind) {
     for (int i = 0; i < MVL_MAX_ENTITIES; ++i) {
         mvl_entity *e = &s->entities[i];
@@ -225,8 +248,9 @@ static int resolve(const mvl_entity *e, vec3 *p, float r) {
     }
 }
 
-static int collides(const mvl_entity *e) {
-    return e->alive && !e->parent && (e->flags & MVL_ENT_SOLID) && (e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f));
+static int collides(const mvl_entity *e, float y) {
+    return e->alive && !e->parent && (e->flags & MVL_ENT_SOLID) && (e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f)) &&
+           fabsf(e->pos.y - y) <= MVL_COLLIDE_HEIGHT;
 }
 
 vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius) {
@@ -234,7 +258,7 @@ vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius) {
     for (int iter = 0; iter < 4; ++iter) {
         int any = 0;
         for (int i = 0; i < s->high_water; ++i)
-            if (collides(&s->entities[i])) any |= resolve(&s->entities[i], &p, radius);
+            if (collides(&s->entities[i], pos.y)) any |= resolve(&s->entities[i], &p, radius);
         if (!any) break;
     }
     p.x = mvl_clampf(p.x, s->bounds_min[0] + radius, s->bounds_max[0] - radius);
@@ -245,7 +269,7 @@ vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius) {
 int mvl_scene_overlaps(const mvl_scene *s, vec3 pos, float radius) {
     for (int i = 0; i < s->high_water; ++i) {
         vec3 p = pos;
-        if (collides(&s->entities[i]) && resolve(&s->entities[i], &p, radius - 1e-4f)) return 1;
+        if (collides(&s->entities[i], pos.y) && resolve(&s->entities[i], &p, radius - 1e-4f)) return 1;
     }
     return 0;
 }
