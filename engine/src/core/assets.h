@@ -70,6 +70,24 @@ int mvl_voxels_load_vox(const void *data, size_t size, mvl_voxels *out);
 void mvl_voxels_free(mvl_voxels *v);
 uint8_t mvl_voxels_get(const mvl_voxels *v, int x, int y, int z);
 int mvl_voxels_mesh(const mvl_voxels *v, float voxel_size, mvl_mesh *out);
+void mvl_voxels_default_palette(uint32_t *palette);
+
+/* Runtime voxel modelling (voxgrid.c). Coordinates are voxel space (Z up),
+ * colours are palette indices 1..255 (0 clears). Shapes are clipped to the
+ * grid. Grids are at most MVL_VOXGRID_MAX on each axis. */
+#define MVL_VOXGRID_MAX 128
+int mvl_voxels_alloc(mvl_voxels *v, int sx, int sy, int sz);
+void mvl_voxels_set(mvl_voxels *v, int x, int y, int z, uint8_t c);
+void mvl_voxels_fill_box(mvl_voxels *v, int x0, int y0, int z0, int x1, int y1, int z1, uint8_t c);
+void mvl_voxels_fill_ellipsoid(mvl_voxels *v, float cx, float cy, float cz, float rx, float ry, float rz, uint8_t c);
+/* Vertical (Z) cylinder from z0 to z1 inclusive. */
+void mvl_voxels_fill_cylinder(mvl_voxels *v, float cx, float cy, int z0, int z1, float r, uint8_t c);
+void mvl_voxels_fill_line(mvl_voxels *v, float x0, float y0, float z0, float x1, float y1, float z1, float radius, uint8_t c);
+/* Copies the low-X half onto the high-X half (bilateral symmetry). */
+void mvl_voxels_mirror_x(mvl_voxels *v);
+int mvl_voxels_replace(mvl_voxels *v, uint8_t from, uint8_t to);
+void mvl_voxels_set_color(mvl_voxels *v, int index, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+int mvl_voxels_count(const mvl_voxels *v);
 
 /* Builders */
 void mvl_mesh_add_quad(mvl_mesh *m, const float p[4][3], const float n[3],

@@ -35,6 +35,10 @@ typedef struct {
     /* collider: axis aligned box half extents around pos (y ignored), or
      * radius > 0 for a circle collider */
     float half_x, half_z, radius;
+    /* parenting: when parent != 0, pos/yaw/pitch/roll/scale are local to the
+       parent. Children are destroyed with their parent and never collide. */
+    int parent;
+    int child_count;
 } mvl_entity;
 
 typedef struct {
@@ -82,6 +86,15 @@ int mvl_scene_destroy(mvl_scene *s, int handle);
 int mvl_scene_count(const mvl_scene *s);
 
 mat4 mvl_entity_model_matrix(const mvl_entity *e);
+
+#define MVL_MAX_PARENT_DEPTH 8
+/* Attaches child to parent (0 detaches). The child's current transform
+ * becomes its local transform. Fails for cycles, invalid handles or a
+ * hierarchy deeper than MVL_MAX_PARENT_DEPTH. Returns 1 on success. */
+int mvl_scene_attach(mvl_scene *s, int child, int parent);
+/* Local transform composed with all ancestors. */
+mat4 mvl_scene_world_matrix(mvl_scene *s, const mvl_entity *e);
+vec3 mvl_scene_world_pos(mvl_scene *s, const mvl_entity *e);
 mat4 mvl_camera_view(const mvl_camera *c);
 mat4 mvl_camera_proj(const mvl_camera *c, float aspect);
 

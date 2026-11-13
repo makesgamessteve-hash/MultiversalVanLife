@@ -5,7 +5,7 @@
 
 static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24); }
 
-static void default_palette(uint32_t *pal) {
+void mvl_voxels_default_palette(uint32_t *pal) {
     /* Simple fallback: a 6x6x6 colour cube followed by greys. */
     pal[0] = 0;
     for (int i = 1; i < 256; ++i) {
@@ -26,7 +26,7 @@ int mvl_voxels_load_vox(const void *data, size_t size, mvl_voxels *out) {
     const uint8_t *d = (const uint8_t *)data, *p, *end;
     int have_size = 0, have_xyzi = 0;
     memset(out, 0, sizeof *out);
-    default_palette(out->palette);
+    mvl_voxels_default_palette(out->palette);
     if (!d || size < 20 || memcmp(d, "VOX ", 4)) return 0;
     if (memcmp(d + 8, "MAIN", 4)) return 0;
     p = d + 20; /* skip MAIN header (id, content, children) */

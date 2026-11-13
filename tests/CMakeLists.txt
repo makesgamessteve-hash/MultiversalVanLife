@@ -29,6 +29,15 @@ foreach(test_file ${MVL_GAME_TESTS})
       -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
 endforeach()
 
+# Documented Lua examples (docs/*.md blocks marked <!-- example -->) must run.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+  add_test(NAME docs.examples
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc_examples.py
+      $<TARGET_FILE:mvl_headless> ${CMAKE_SOURCE_DIR}/game ${MVL_TEST_TMP}/docs
+      ${CMAKE_SOURCE_DIR}/docs/MODDING.md)
+endif()
+
 # Optional: run the same game tests through the real SDL3/OpenGL game
 # (needs a display, e.g. `xvfb-run ctest -L gl` on Linux CI with Mesa).
 option(MVL_GL_TESTS "Also run game tests with the real OpenGL renderer" OFF)

@@ -6,6 +6,7 @@
  */
 #include "core/engine.h"
 #include "core/log.h"
+#include "core/script_internal.h"
 #include "lauxlib.h"
 #include "lua.h"
 #include "lualib.h"
@@ -21,6 +22,8 @@ static mvl_engine *eng(lua_State *L) {
     lua_pop(L, 1);
     return e;
 }
+
+mvl_engine *mvl_script_engine(lua_State *L) { return eng(L); }
 
 static void report_error(mvl_engine *e, const char *where, const char *msg) {
     snprintf(e->last_error, sizeof e->last_error, "%s: %s", where, msg ? msg : "?");
@@ -183,6 +186,12 @@ static int l_spawn(lua_State *L) {
     en = mvl_scene_get(&e->scene, h);
     if (!en) return luaL_error(L, "too many entities");
     apply_entity_fields(L, en, 1);
+    lua_getfield(L, 1, "parent");
+    if (lua_isinteger(L, -1) && !mvl_scene_attach(&e->scene, h, (int)lua_tointeger(L, -1))) {
+        mvl_scene_destroy(&e->scene, h);
+        return luaL_error(L, "invalid parent entity");
+    }
+    lua_pop(L, 1);
     lua_pushinteger(L, h);
     return 1;
 }
@@ -701,6 +710,7 @@ int mvl_script_init(mvl_engine *e) {
     luaL_newlib(L, mvl_funcs);
     lua_pushstring(L, "0.1.0");
     lua_setfield(L, -2, "version");
+    mvl_script_open_procedural(L);
     lua_setglobal(L, "mvl");
     lua_newtable(L);
     lua_setglobal(L, "game");

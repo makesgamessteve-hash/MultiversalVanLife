@@ -205,3 +205,131 @@ void test_scene_collision(void) {
     CHECK_NEAR(p.x, 9.5f, 1e-5);
     CHECK_NEAR(p.z, 9.5f, 1e-5);
 }
+
+static int g_live;
+static unsigned live_create_tex(void *u, const mvl_image *img, int lin, int rep) { return (unsigned)++g_live + 1000000u; }
+static unsigned live_create_mesh(void *u, const mvl_mesh *m) { return (unsigned)++g_live + 2000000u; }
+static void live_destroy(void *u, unsigned h) { g_live--; }
+
+void test_resources_release(void) {
+    static mvl_resources r;
+    mvl_vfs vfs;
+    mvl_gfx_backend b = {0, live_create_tex, live_destroy, live_create_mesh, live_destroy};
+    mvl_image img;
+    mvl_mesh m;
+    int first_mesh = 0, first_tex = 0;
+    mvl_vfs_init(&vfs);
+    g_live = 0;
+    mvl_res_init(&r, &vfs, b);
+    mvl_image_alloc(&img, 2, 2);
+    mvl_mesh_init(&m);
+    mvl_mesh_build_box(&m, 1, 1, 1);
+    for (int i = 0; i < 10000; ++i) {
+        int mid = mvl_res_mesh_from_data(&r, "chunk", &m);
+        int tid = mvl_res_texture_from_image(&r, "gen", &img, 0);
+        if (i == 0) {
+            first_mesh = mid;
+            first_tex = tid;
+        }
+        if (mid != first_mesh || tid != first_tex) { /* slots are reused */
+            CHECK(0);
+            break;
+        }
+        CHECK(mvl_res_get_mesh(&r, mid) != NULL);
+        CHECK(mvl_res_release_mesh(&r, mid));
+        CHECK(mvl_res_release_texture(&r, tid));
+        if (mvl_res_get_mesh(&r, mid) || mvl_res_get_texture(&r, tid)) {
+            CHECK(0);
+            break;
+        }
+    }
+    CHECK_EQ_INT(g_live, 1); /* only the built-in white texture is left */
+    CHECK_EQ_INT(r.mesh_count, 2);
+    CHECK(!mvl_res_release_mesh(&r, first_mesh)); /* already released */
+    CHECK(!mvl_res_release_mesh(&r, 0));
+    CHECK(!mvl_res_release_mesh(&r, 5000));
+    CHECK(!mvl_res_release_texture(&r, 0)); /* white texture stays */
+    CHECK(!mvl_res_release_texture(&r, -1));
+    /* a released slot never matches a cached path lookup */
+    CHECK_EQ_INT(mvl_res_texture(&r, ""), 0);
+    mvl_mesh_free(&m);
+    mvl_image_free(&img);
+    mvl_res_shutdown(&r);
+    CHECK_EQ_INT(g_live, 0);
+}
+
+void test_scene_parenting(void) {
+    static mvl_scene s;
+    int root, arm, hand, other;
+    mvl_entity *r, *a, *h;
+    vec3 p;
+    mvl_scene_init(&s);
+    root = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    arm = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    hand = mvl_scene_spawn(&s, MVL_ENT_SPRITE);
+    other = mvl_scene_spawn(&s, MVL_ENT_MESH);
+    r = mvl_scene_get(&s, root);
+    a = mvl_scene_get(&s, arm);
+    h = mvl_scene_get(&s, hand);
+    r->pos = v3(10, 0, 0);
+    a->pos = v3(0, 0, -2); /* 2 m in front of the root */
+    h->pos = v3(0, 1, 0);
+    CHECK(mvl_scene_attach(&s, arm, root));
+    CHECK(mvl_scene_attach(&s, hand, arm));
+    CHECK_EQ_INT(r->child_count, 1);
+    p = mvl_scene_world_pos(&s, h);
+    CHECK_NEAR(p.x, 10, 1e-5);
+    CHECK_NEAR(p.y, 1, 1e-5);
+    CHECK_NEAR(p.z, -2, 1e-5);
+    /* turning the parent turns the children (yaw 90 deg: forward -Z becomes -X) */
+    r->yaw = MVL_PI / 2;
+    p = mvl_scene_world_pos(&s, h);
+    CHECK_NEAR(p.x, 8, 1e-4);
+    CHECK_NEAR(p.z, 0, 1e-4);
+    r->scale = v3(2, 2, 2);
+    p = mvl_scene_world_pos(&s, a);
+    CHECK_NEAR(p.x, 6, 1e-4);
+    p = mvl_scene_world_pos(&s, r); /* roots: world pos is pos */
+    CHECK_NEAR(p.x, 10, 1e-6);
+    /* cycles, invalid handles and depth are refused */
+    CHECK(!mvl_scene_attach(&s, root, hand));
+    CHECK(!mvl_scene_attach(&s, root, root));
+    CHECK(!mvl_scene_attach(&s, 0, root));
+    CHECK(!mvl_scene_attach(&s, other, 123456));
+    {
+        int chain[MVL_MAX_PARENT_DEPTH + 2];
+        int ok = 1;
+        chain[0] = mvl_scene_spawn(&s, MVL_ENT_MESH);
+        for (int i = 1; i < MVL_MAX_PARENT_DEPTH; ++i) {
+            chain[i] = mvl_scene_spawn(&s, MVL_ENT_MESH);
+            ok &= mvl_scene_attach(&s, chain[i], chain[i - 1]);
+        }
+        CHECK(ok);
+        chain[MVL_MAX_PARENT_DEPTH] = mvl_scene_spawn(&s, MVL_ENT_MESH);
+        CHECK(!mvl_scene_attach(&s, chain[MVL_MAX_PARENT_DEPTH], chain[MVL_MAX_PARENT_DEPTH - 1]));
+        CHECK(mvl_scene_destroy(&s, chain[0]));
+        CHECK(mvl_scene_get(&s, chain[MVL_MAX_PARENT_DEPTH - 1]) == NULL);
+        mvl_scene_destroy(&s, chain[MVL_MAX_PARENT_DEPTH]);
+    }
+    /* re-parenting and detaching update child counts */
+    CHECK(mvl_scene_attach(&s, hand, other));
+    CHECK_EQ_INT(a->child_count, 0);
+    CHECK_EQ_INT(mvl_scene_get(&s, other)->child_count, 1);
+    CHECK(mvl_scene_attach(&s, hand, 0));
+    CHECK_EQ_INT(mvl_scene_get(&s, other)->child_count, 0);
+    CHECK(mvl_scene_attach(&s, hand, arm));
+    /* children never collide */
+    a->flags |= MVL_ENT_SOLID;
+    a->radius = 5;
+    CHECK(!mvl_scene_overlaps(&s, v3(10, 0, -2), 0.5f));
+    /* destroying a child decrements its parent; destroying the root cascades */
+    CHECK(mvl_scene_destroy(&s, hand));
+    CHECK_EQ_INT(a->child_count, 0);
+    hand = mvl_scene_spawn(&s, MVL_ENT_SPRITE);
+    CHECK(mvl_scene_attach(&s, hand, arm));
+    CHECK(mvl_scene_destroy(&s, root));
+    CHECK(mvl_scene_get(&s, arm) == NULL);
+    CHECK(mvl_scene_get(&s, hand) == NULL);
+    CHECK(mvl_scene_get(&s, other) != NULL);
+    CHECK_EQ_INT(mvl_scene_count(&s), 1);
+}

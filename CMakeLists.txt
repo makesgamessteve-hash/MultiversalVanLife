@@ -44,10 +44,17 @@ endif()
 # --------------------------------------------------------------------------
 # Engine core: platform independent, no SDL / OpenGL. Fully unit tested.
 # --------------------------------------------------------------------------
-file(GLOB MVL_CORE_SOURCES ${CMAKE_SOURCE_DIR}/engine/src/core/*.c)
+file(GLOB MVL_CORE_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/engine/src/core/*.c)
 add_library(mvl_core STATIC ${MVL_CORE_SOURCES})
 target_include_directories(mvl_core PUBLIC ${CMAKE_SOURCE_DIR}/engine/src)
 target_link_libraries(mvl_core PUBLIC mvl_lua)
+# Procedural generation must be bit-identical on every platform: forbid
+# fused multiply-add contraction and other value-changing float rewrites.
+if(MSVC)
+  target_compile_options(mvl_core PRIVATE /fp:precise)
+else()
+  target_compile_options(mvl_core PRIVATE -ffp-contract=off -fno-fast-math)
+endif()
 if(MVL_COVERAGE AND NOT MSVC)
   target_compile_options(mvl_core PRIVATE --coverage -O0 -g)
   target_link_options(mvl_core PUBLIC --coverage)

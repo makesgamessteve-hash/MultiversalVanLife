@@ -10,8 +10,8 @@
 #include "core/assets.h"
 #include "core/vfs.h"
 
-#define MVL_MAX_TEXTURES 256
-#define MVL_MAX_MESHES 256
+#define MVL_MAX_TEXTURES 512
+#define MVL_MAX_MESHES 1024
 #define MVL_MAX_SOUNDS 256
 
 typedef struct mvl_gfx_backend {
@@ -67,6 +67,12 @@ int mvl_res_mesh(mvl_resources *r, const char *path, float voxel_size);
 int mvl_res_mesh_from_data(mvl_resources *r, const char *name, const mvl_mesh *mesh);
 int mvl_res_sound(mvl_resources *r, const char *path);
 const mvl_sound *mvl_res_get_sound(const mvl_resources *r, int id);
+/* Destroys a runtime resource; its id becomes invalid and the slot reusable.
+ * The built-in white texture (id 0) cannot be released. Returns 1 on success. */
+int mvl_res_release_mesh(mvl_resources *r, int id);
+/* Id of a live texture created under `name`, or 0. */
+int mvl_res_find_texture(const mvl_resources *r, const char *name);
+int mvl_res_release_texture(mvl_resources *r, int id);
 const mvl_mesh_res *mvl_res_get_mesh(const mvl_resources *r, int id);
 const mvl_texture_res *mvl_res_get_texture(const mvl_resources *r, int id);
 

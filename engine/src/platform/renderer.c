@@ -65,7 +65,13 @@ static void be_texture_destroy(void *user, unsigned h) {
 
 static int add_mesh(mvl_renderer *r, const mvl_mesh *m) {
     gpu_mesh g;
-    if (r->mesh_count == r->mesh_cap) {
+    int slot = -1;
+    for (int i = 0; i < r->mesh_count; ++i)
+        if (!r->meshes[i].vao) { /* reuse slots of released meshes */
+            slot = i;
+            break;
+        }
+    if (slot < 0 && r->mesh_count == r->mesh_cap) {
         int ncap = r->mesh_cap ? r->mesh_cap * 2 : 64;
         gpu_mesh *n = (gpu_mesh *)realloc(r->meshes, sizeof(gpu_mesh) * (size_t)ncap);
         if (!n) return -1;
@@ -87,6 +93,10 @@ static int add_mesh(mvl_renderer *r, const mvl_mesh *m) {
     glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(mvl_vertex), (void *)offsetof(mvl_vertex, color));
     glBindVertexArray(0);
     g.count = m->count;
+    if (slot >= 0) {
+        r->meshes[slot] = g;
+        return slot;
+    }
     r->meshes[r->mesh_count] = g;
     return r->mesh_count++;
 }
@@ -356,7 +366,7 @@ static void draw_entity(mvl_renderer *r, mvl_engine *e, const mvl_entity *en, fl
     mat4 model;
     if (en->kind == MVL_ENT_SPRITE) {
         g = &r->meshes[r->sprite_mesh];
-        model = m4_mul(m4_translate(en->pos), m4_rotate_y(face_yaw));
+        model = m4_mul(m4_translate(mvl_scene_world_pos(&e->scene, en)), m4_rotate_y(face_yaw));
         if (en->roll != 0.0f) model = m4_mul(model, m4_mul(m4_translate(v3(0, 0.5f * en->scale.y, 0)),
                                                          m4_mul(m4_rotate_z(en->roll), m4_translate(v3(0, -0.5f * en->scale.y, 0)))));
         model = m4_mul(model, m4_scale(v3(en->scale.x, en->scale.y, 1.0f)));
@@ -364,7 +374,7 @@ static void draw_entity(mvl_renderer *r, mvl_engine *e, const mvl_entity *en, fl
         const mvl_mesh_res *mr = mvl_res_get_mesh(&e->res, en->mesh);
         if (!mr || mr->handle == 0 || (int)mr->handle > r->mesh_count) return;
         g = &r->meshes[mr->handle - 1];
-        model = mvl_entity_model_matrix(en);
+        model = mvl_scene_world_matrix(&e->scene, en);
     }
     if (!g->vao) return;
     glUniformMatrix4fv(w->model, 1, GL_FALSE, model.m);

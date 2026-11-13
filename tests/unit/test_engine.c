@@ -313,3 +313,71 @@ void test_engine_test_runner(void) {
         mvl_engine_shutdown(&e);
     }
 }
+
+static const char *PROC_SCRIPT =
+    "function game.init()\n"
+    "  local h = mvl.hash(1, 'two', 3); assert(h == mvl.hash(1, 'two', 3) and h ~= mvl.hash(3, 'two', 1))\n"
+    "  assert(mvl.hash() >= 0 and mvl.hash(2^40) ~= mvl.hash(0))\n"
+    "  assert(not pcall(mvl.hash, 1.5))\n"
+    "  local r, r2 = mvl.rng(42, 1), mvl.rng(42, 1)\n"
+    "  assert(r:next() == r2:next() and r:u32() == r2:u32())\n"
+    "  local n = r:int(3, 5); assert(n >= 3 and n <= 5)\n"
+    "  local f = r:float(10, 20); assert(f >= 10 and f < 20)\n"
+    "  assert(r:float() < 1 and type(r:chance(0.5)) == 'boolean' and r:chance(1) and not r:chance(0))\n"
+    "  assert(r:pick({'a'}) == 'a' and r:pick({}) == nil)\n"
+    "  assert(mvl.rng(1):next() == mvl.rng(1, 0):next())\n"
+    "  local v = mvl.noise(1.5, 2.5, 7, 4, 2, 0.5); assert(v >= -1 and v <= 1 and v == mvl.noise(1.5, 2.5, 7, 4))\n"
+    "  assert(mvl.noise(0.5, 0.5) == mvl.noise(0.5, 0.5, 0, 1))\n"
+    "  local v3 = mvl.noise3(1, 2, 3, 4, 3); assert(v3 >= -1 and v3 <= 1 and mvl.noise3(1, 2, 3) == mvl.noise3(1, 2, 3, 0))\n"
+    "  mvl.terrain{ seed = 5, amp = 4, freq = 0.05, octaves = 3, base = 1, lacunarity = 2, gain = 0.5,\n"
+    "    palette = {{10, 20, 30}, {40, 50, 60, 255}, 'skip'}, slope_color = {90, 80, 70}, slope_start = 0.3,\n"
+    "    color_low = -2, color_high = 5, color_noise = 0.1, uv_scale = 0,\n"
+    "    flats = {{x = 0, z = 0, radius = 5, falloff = 5, height = 2}, 'skip'},\n"
+    "    map = { w = 2, h = 2, x0 = 0, z0 = 0, cell = 100, data = {0, 0, 0, 0} } }\n"
+    "  assert(mvl.height(1, 1) == 2)\n"
+    "  mvl.terrain{ palette = {} }\n"
+    "  assert(not pcall(mvl.terrain, { map = { w = 1, h = 1 } }))\n"
+    "  local many = {}; for i = 1, 17 do many[i] = { x = i } end\n"
+    "  assert(not pcall(mvl.terrain, { flats = many }))\n"
+    "  mvl.terrain{ seed = 1, amp = 2 }\n"
+    "  local m = mvl.terrain_chunk(0, 0, 16, 4); assert(m > 0)\n"
+    "  local x0, y0, z0, x1, y1, z1 = mvl.mesh_bounds(m); assert(x1 == 16 and z1 == 16)\n"
+    "  assert(mvl.terrain_chunk(1, 0) > 0)\n"
+    "  assert(not pcall(mvl.terrain_chunk, 0, 0, 16, 0))\n"
+    "  assert(mvl.release_mesh(m) and not mvl.release_mesh(m) and mvl.mesh_bounds(m) == nil)\n"
+    "  local root = mvl.spawn{ pos = {5, 0, 0} }\n"
+    "  local arm = mvl.spawn{ pos = {0, 1, 0}, parent = root }\n"
+    "  local wx, wy = mvl.world_pos(arm); assert(wx == 5 and wy == 1)\n"
+    "  assert(mvl.world_pos(999999) == nil)\n"
+    "  assert(not pcall(mvl.spawn, { parent = 999999 }))\n"
+    "  assert(mvl.attach(arm) and mvl.world_pos(arm) == 0 and mvl.attach(arm, root))\n"
+    "  assert(not mvl.attach(root, arm))\n"
+    "  mvl.destroy(root); assert(not mvl.exists(arm))\n"
+    "  local g = mvl.voxels(8, 8, 8)\n"
+    "  g:box(0, 0, 0, 1, 1, 1, 1); g:set(7, 7, 7, 2); assert(g:get(7, 7, 7) == 2)\n"
+    "  g:ellipsoid(4, 4, 4, 2, 1, 1, 3); g:sphere(4, 4, 4, 1, 4); g:cylinder(2, 2, 0, 3, 1, 5); g:line(0, 0, 7, 7, 0, 7, 0, 6)\n"
+    "  g:mirror_x(); assert(g:replace(6, 7) > 0); g:color(7, 200, 10, 10); g:color(8, 1, 2, 3, 4)\n"
+    "  local sx, sy, sz = g:size(); assert(sx == 8 and g:count() > 10)\n"
+    "  local vm = g:mesh(0.25); assert(vm > 0 and mvl.release_mesh(vm))\n"
+    "  assert(mvl.voxels(2, 2, 2):mesh() == 0)\n"
+    "  g:free(); assert(not pcall(g.count, g)); g:free()\n"
+    "  assert(not pcall(mvl.voxels, 0, 1, 1))\n"
+    "  local t1 = mvl.texture_gen{ kind = 'stone', seed = 3, size = 32, scale = 4, octaves = 2, contrast = 1.2,\n"
+    "    colors = {{50, 50, 50}, {200, 200, 200}, 'skip'} }\n"
+    "  assert(t1 > 0 and mvl.texture_gen{ kind = 'stone', seed = 3, size = 32, scale = 4, octaves = 2, contrast = 1.2,\n"
+    "    colors = {{50, 50, 50}, {200, 200, 200}} } == t1)\n"
+    "  assert(mvl.texture_gen{ colors = {} } > 0)\n"
+    "  assert(not pcall(mvl.texture_gen, { size = 33 }))\n"
+    "  assert(mvl.release_texture(t1) and not mvl.release_texture(t1) and not mvl.release_texture(0))\n"
+    "end\n";
+
+void test_engine_procedural_api(void) {
+    static mvl_engine e;
+    char data[512];
+    mvl_engine_desc d = desc_for("eng_proc", data, NULL, NULL);
+    write_base(data, PROC_SCRIPT);
+    CHECK(mvl_engine_init(&e, &d));
+    CHECK_EQ_INT(e.script_errors, 0);
+    if (e.script_errors) fprintf(stderr, "%s\n", e.last_error);
+    mvl_engine_shutdown(&e);
+}

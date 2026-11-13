@@ -53,16 +53,55 @@ static int ends_with(const char *s, const char *suffix) {
     return a >= b && strcasecmp(s + a - b, suffix) == 0;
 }
 
+/* Finds a released slot in [1, count) or appends one. Returns -1 if full. */
+static int free_texture_slot(mvl_resources *r) {
+    for (int i = 1; i < r->texture_count; ++i)
+        if (!r->textures[i].handle) return i;
+    return r->texture_count < MVL_MAX_TEXTURES ? r->texture_count : -1;
+}
+
+static int free_mesh_slot(mvl_resources *r) {
+    for (int i = 1; i < r->mesh_count; ++i)
+        if (!r->meshes[i].handle) return i;
+    return r->mesh_count < MVL_MAX_MESHES ? r->mesh_count : -1;
+}
+
 int mvl_res_texture_from_image(mvl_resources *r, const char *name, const mvl_image *img, int linear) {
     mvl_texture_res *t;
-    if (r->texture_count >= MVL_MAX_TEXTURES) return 0;
-    t = &r->textures[r->texture_count];
+    int id = free_texture_slot(r);
+    if (id < 0) return 0;
+    t = &r->textures[id];
+    t->handle = r->gfx.texture_create(r->gfx.user, img, linear, 1);
+    if (!t->handle) return 0;
     snprintf(t->path, MVL_PATH_MAX, "%s", name);
     t->w = img->w;
     t->h = img->h;
-    t->handle = r->gfx.texture_create(r->gfx.user, img, linear, 1);
-    if (!t->handle) return 0;
-    return r->texture_count++;
+    if (id == r->texture_count) r->texture_count++;
+    return id;
+}
+
+int mvl_res_release_texture(mvl_resources *r, int id) {
+    mvl_texture_res *t;
+    if (id <= 0 || id >= r->texture_count || !r->textures[id].handle) return 0;
+    t = &r->textures[id];
+    r->gfx.texture_destroy(r->gfx.user, t->handle);
+    memset(t, 0, sizeof *t);
+    return 1;
+}
+
+int mvl_res_find_texture(const mvl_resources *r, const char *name) {
+    for (int i = 1; i < r->texture_count; ++i)
+        if (r->textures[i].handle && !strcmp(r->textures[i].path, name)) return i;
+    return 0;
+}
+
+int mvl_res_release_mesh(mvl_resources *r, int id) {
+    mvl_mesh_res *m;
+    if (id <= 0 || id >= r->mesh_count || !r->meshes[id].handle) return 0;
+    m = &r->meshes[id];
+    r->gfx.mesh_destroy(r->gfx.user, m->handle);
+    memset(m, 0, sizeof *m);
+    return 1;
 }
 
 int mvl_res_texture(mvl_resources *r, const char *path) {
@@ -72,7 +111,7 @@ int mvl_res_texture(mvl_resources *r, const char *path) {
     int id;
     if (!path) return 0;
     for (int i = 1; i < r->texture_count; ++i)
-        if (!strcmp(r->textures[i].path, path)) return i;
+        if (r->textures[i].handle && !strcmp(r->textures[i].path, path)) return i;
     data = mvl_vfs_read(r->vfs, path, &size);
     if (!data) {
         MVL_WARN("texture not found: %s", path);
@@ -91,15 +130,17 @@ int mvl_res_texture(mvl_resources *r, const char *path) {
 
 int mvl_res_mesh_from_data(mvl_resources *r, const char *name, const mvl_mesh *mesh) {
     mvl_mesh_res *m;
-    if (r->mesh_count >= MVL_MAX_MESHES || mesh->count == 0) return 0;
-    m = &r->meshes[r->mesh_count];
-    snprintf(m->path, MVL_PATH_MAX, "%s", name);
+    int id = free_mesh_slot(r);
+    if (id < 0 || mesh->count == 0) return 0;
+    m = &r->meshes[id];
     m->handle = r->gfx.mesh_create(r->gfx.user, mesh);
     if (!m->handle) return 0;
+    snprintf(m->path, MVL_PATH_MAX, "%s", name);
     m->vertex_count = mesh->count;
     memcpy(m->min, mesh->min, sizeof m->min);
     memcpy(m->max, mesh->max, sizeof m->max);
-    return r->mesh_count++;
+    if (id == r->mesh_count) r->mesh_count++;
+    return id;
 }
 
 int mvl_res_mesh(mvl_resources *r, const char *path, float voxel_size) {
@@ -112,7 +153,7 @@ int mvl_res_mesh(mvl_resources *r, const char *path, float voxel_size) {
     if (ends_with(path, ".vox")) snprintf(key, sizeof key, "%s@%g", path, voxel_size);
     else snprintf(key, sizeof key, "%s", path);
     for (int i = 1; i < r->mesh_count; ++i)
-        if (!strcmp(r->meshes[i].path, key)) return i;
+        if (r->meshes[i].handle && !strcmp(r->meshes[i].path, key)) return i;
     data = mvl_vfs_read(r->vfs, path, &size);
     if (!data) {
         MVL_WARN("mesh not found: %s", path);
@@ -167,9 +208,9 @@ const mvl_sound *mvl_res_get_sound(const mvl_resources *r, int id) {
 }
 
 const mvl_mesh_res *mvl_res_get_mesh(const mvl_resources *r, int id) {
-    return (id > 0 && id < r->mesh_count) ? &r->meshes[id] : NULL;
+    return (id > 0 && id < r->mesh_count && r->meshes[id].handle) ? &r->meshes[id] : NULL;
 }
 
 const mvl_texture_res *mvl_res_get_texture(const mvl_resources *r, int id) {
-    return (id >= 0 && id < r->texture_count) ? &r->textures[id] : NULL;
+    return (id >= 0 && id < r->texture_count && r->textures[id].handle) ? &r->textures[id] : NULL;
 }

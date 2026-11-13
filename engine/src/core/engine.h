@@ -9,6 +9,7 @@
 #include "core/mixer.h"
 #include "core/resources.h"
 #include "core/scene.h"
+#include "core/terrain.h"
 #include "core/touch.h"
 #include "core/ui.h"
 #include "core/vfs.h"
@@ -39,6 +40,7 @@ typedef struct mvl_engine {
     mvl_ui ui;
     mvl_kv config;
     mvl_kv save;
+    mvl_terrain terrain;     /* height field configured by scripts */
     char save_path[MVL_PATH_MAX];
     char platform[16];
     struct lua_State *L;

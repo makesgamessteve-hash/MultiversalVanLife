@@ -68,12 +68,64 @@ mvl_entity *mvl_scene_get(mvl_scene *s, int handle) {
     return (e->alive && e->generation == gen) ? e : NULL;
 }
 
+static int handle_of(const mvl_scene *s, const mvl_entity *e) {
+    int slot = (int)(e - s->entities);
+    return (e->generation << SLOT_BITS) | slot;
+}
+
 int mvl_scene_destroy(mvl_scene *s, int handle) {
     mvl_entity *e = mvl_scene_get(s, handle);
+    mvl_entity *p;
     if (!e) return 0;
+    if (e->child_count > 0)
+        for (int i = 0; i < s->high_water; ++i)
+            if (s->entities[i].alive && s->entities[i].parent == handle)
+                mvl_scene_destroy(s, handle_of(s, &s->entities[i]));
+    p = e->parent ? mvl_scene_get(s, e->parent) : NULL;
+    if (p && p->child_count > 0) p->child_count--;
     e->alive = 0;
     while (s->high_water > 0 && !s->entities[s->high_water - 1].alive) s->high_water--;
     return 1;
+}
+
+int mvl_scene_attach(mvl_scene *s, int child, int parent) {
+    mvl_entity *c = mvl_scene_get(s, child), *p = NULL, *old;
+    int depth = 1;
+    if (!c) return 0;
+    if (parent) {
+        int a = parent;
+        p = mvl_scene_get(s, parent);
+        if (!p) return 0;
+        while (a) { /* refuse cycles and too deep hierarchies */
+            mvl_entity *ae = mvl_scene_get(s, a);
+            if (a == child || !ae || ++depth > MVL_MAX_PARENT_DEPTH) return 0;
+            a = ae->parent;
+        }
+    }
+    old = c->parent ? mvl_scene_get(s, c->parent) : NULL;
+    if (old && old->child_count > 0) old->child_count--;
+    c->parent = parent;
+    if (p) p->child_count++;
+    return 1;
+}
+
+mat4 mvl_scene_world_matrix(mvl_scene *s, const mvl_entity *e) {
+    mat4 m = mvl_entity_model_matrix(e);
+    int p = e->parent;
+    for (int depth = 0; p && depth < MVL_MAX_PARENT_DEPTH; ++depth) {
+        const mvl_entity *pe = mvl_scene_get(s, p);
+        if (!pe) break;
+        m = m4_mul(mvl_entity_model_matrix(pe), m);
+        p = pe->parent;
+    }
+    return m;
+}
+
+vec3 mvl_scene_world_pos(mvl_scene *s, const mvl_entity *e) {
+    mat4 m;
+    if (!e->parent) return e->pos;
+    m = mvl_scene_world_matrix(s, e);
+    return v3(m.m[12], m.m[13], m.m[14]);
 }
 
 int mvl_scene_count(const mvl_scene *s) {
@@ -141,7 +193,7 @@ static int resolve(const mvl_entity *e, vec3 *p, float r) {
 }
 
 static int collides(const mvl_entity *e) {
-    return e->alive && (e->flags & MVL_ENT_SOLID) && (e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f));
+    return e->alive && !e->parent && (e->flags & MVL_ENT_SOLID) && (e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f));
 }
 
 vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius) {
