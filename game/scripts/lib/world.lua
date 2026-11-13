@@ -48,6 +48,7 @@ function W:prop(t)
     mesh = resolve_mesh(t), texture = tex(t.texture), pos = { t.x or 0, t.y or 0, t.z or 0 },
     yaw = t.yaw or 0, scale = s, solid = solid, box = t.box, radius = t.radius,
     color = t.color, unlit = t.unlit, nofog = t.nofog, uv_scroll = t.uv_scroll,
+    decal = t.decal, layer = t.layer,
   })
 end
 
@@ -60,8 +61,11 @@ function W:sprite(t)
   })
 end
 
+-- Large surfaces are tessellated (4 m cells): retro vertex snapping would
+-- otherwise bend huge triangles and make decals on them flicker.
 function W:ground(texture, size, tiles, y)
-  return mvl.spawn({ mesh = mvl.plane_mesh(size, size, tiles, tiles), texture = tex(texture), pos = { 0, y or 0, 0 } })
+  local seg = math.max(1, math.floor(size / 4))
+  return mvl.spawn({ mesh = mvl.plane_mesh(size, size, tiles, tiles, seg), texture = tex(texture), pos = { 0, y or 0, 0 } })
 end
 
 -- Scatters sprites with a deterministic random generator.

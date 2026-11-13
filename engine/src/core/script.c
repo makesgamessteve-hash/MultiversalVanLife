@@ -121,6 +121,11 @@ static void apply_entity_fields(lua_State *L, mvl_entity *en, int t) {
     set_flag(&en->flags, MVL_ENT_UNLIT, opt_field_bool(L, t, "unlit", (en->flags & MVL_ENT_UNLIT) != 0));
     set_flag(&en->flags, MVL_ENT_NOFOG, opt_field_bool(L, t, "nofog", (en->flags & MVL_ENT_NOFOG) != 0));
     set_flag(&en->flags, MVL_ENT_SOLID, opt_field_bool(L, t, "solid", (en->flags & MVL_ENT_SOLID) != 0));
+    set_flag(&en->flags, MVL_ENT_DECAL, opt_field_bool(L, t, "decal", (en->flags & MVL_ENT_DECAL) != 0));
+    {
+        float layer = opt_field_num(L, t, "layer", (float)en->layer);
+        en->layer = layer < 0 ? 0 : (layer > 7 ? 7 : (int)layer);
+    }
 }
 
 /* ----------------------------------------------------------- resources */
@@ -139,9 +144,10 @@ static int l_plane_mesh(lua_State *L) {
     char name[96];
     float sx = (float)luaL_checknumber(L, 1), sz = (float)luaL_checknumber(L, 2);
     float tx = (float)luaL_optnumber(L, 3, 1), tz = (float)luaL_optnumber(L, 4, 1);
+    int seg = (int)luaL_optinteger(L, 5, 1);
     mvl_mesh_init(&m);
-    mvl_mesh_build_plane(&m, sx, sz, tx, tz);
-    snprintf(name, sizeof name, "<plane %g %g %g %g>", sx, sz, tx, tz);
+    mvl_mesh_build_plane_grid(&m, sx, sz, tx, tz, seg);
+    snprintf(name, sizeof name, "<plane %g %g %g %g %d>", sx, sz, tx, tz, seg);
     lua_pushinteger(L, mvl_res_mesh_from_data(&eng(L)->res, name, &m));
     mvl_mesh_free(&m);
     return 1;
@@ -794,6 +800,13 @@ static int t_set_xr(lua_State *L) {
     e->xr_head_yaw = (float)luaL_optnumber(L, 3, 0);
     return 0;
 }
+/* Asks the platform to save a screenshot of the next rendered frame (ignored headless). */
+static int t_screenshot(lua_State *L) {
+    mvl_engine *e = eng(L);
+    snprintf(e->screenshot_request, sizeof e->screenshot_request, "%s", luaL_checkstring(L, 1));
+    return 0;
+}
+
 static int t_mixer_voices(lua_State *L) {
     lua_pushinteger(L, mvl_mixer_active_count(&eng(L)->mixer));
     return 1;
@@ -816,7 +829,7 @@ int mvl_script_load_test(mvl_engine *e, const char *path) {
     char chunk[MVL_PATH_MAX + 2];
     static const luaL_Reg tfuncs[] = {{"input", t_input}, {"look", t_look}, {"touch", t_touch},
                                       {"ui_quads", t_ui_texts}, {"set_xr", t_set_xr},
-                                      {"mixer_voices", t_mixer_voices}, {NULL, NULL}};
+                                      {"mixer_voices", t_mixer_voices}, {"screenshot", t_screenshot}, {NULL, NULL}};
     if (!src) {
         snprintf(e->last_error, sizeof e->last_error, "test script '%s' not found", path);
         return 0;

@@ -197,6 +197,16 @@ void test_mesh_builders(void) {
     CHECK_NEAR(m.min[0], -2, 1e-6);
     CHECK_NEAR(m.max[2], 1, 1e-6);
     mvl_mesh_free(&m);
+    mvl_mesh_build_plane_grid(&m, 4, 4, 2, 2, 4);
+    CHECK_EQ_INT(m.count, 4 * 4 * 6);
+    CHECK_NEAR(m.max[0], 2, 1e-6);
+    mvl_mesh_free(&m);
+    mvl_mesh_build_plane_grid(&m, 4, 4, 2, 2, 0);
+    CHECK_EQ_INT(m.count, 6);
+    mvl_mesh_free(&m);
+    mvl_mesh_build_plane_grid(&m, 4, 4, 2, 2, 1000);
+    CHECK_EQ_INT(m.count, 256 * 256 * 6);
+    mvl_mesh_free(&m);
     mvl_mesh_build_box(&m, 2, 3, 2);
     CHECK_EQ_INT(m.count, 36);
     CHECK_NEAR(m.max[1], 3, 1e-6);

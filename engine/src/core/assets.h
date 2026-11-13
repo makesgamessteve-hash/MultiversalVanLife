@@ -94,6 +94,10 @@ void mvl_mesh_add_quad(mvl_mesh *m, const float p[4][3], const float n[3],
                        float u0, float v0, float u1, float v1, const uint8_t color[4]);
 /* Ground plane in XZ centred on origin with UVs repeating `tiles` times. */
 void mvl_mesh_build_plane(mvl_mesh *m, float size_x, float size_z, float tiles_x, float tiles_z);
+/* Same plane split into segments x segments quads. Large surfaces should be
+ * tessellated: retro vertex snapping moves vertices by up to half a pixel,
+ * which on huge triangles becomes a large error in world space. */
+void mvl_mesh_build_plane_grid(mvl_mesh *m, float size_x, float size_z, float tiles_x, float tiles_z, int segments);
 /* Axis aligned box centred on origin (x,z) with base at y=0. */
 void mvl_mesh_build_box(mvl_mesh *m, float sx, float sy, float sz);
 

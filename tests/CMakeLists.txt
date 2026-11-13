@@ -1,5 +1,6 @@
 # Multiversal Van Life - unit tests, automated game tests and coverage.
 set(MVL_TEST_TMP ${CMAKE_CURRENT_BINARY_DIR}/tmp)
+find_package(Python3 COMPONENTS Interpreter)
 file(MAKE_DIRECTORY ${MVL_TEST_TMP})
 
 file(GLOB MVL_UNIT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.c)
@@ -30,7 +31,6 @@ foreach(test_file ${MVL_GAME_TESTS})
 endforeach()
 
 # Documented Lua examples (docs/*.md blocks marked <!-- example -->) must run.
-find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
   add_test(NAME docs.examples
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc_examples.py
@@ -56,6 +56,22 @@ if(MVL_GL_TESTS AND TARGET multiversal_van_life)
         -DTEST=${test_file}
         "-DEXTRA=${extra}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/run_game_test.cmake)
+    set_tests_properties(gl.${test_name} PROPERTIES LABELS gl)
+  endforeach()
+  # OpenGL-only tests with screenshot checks (tests/gl)
+  file(GLOB MVL_GL_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/gl/test_*.lua)
+  foreach(test_file ${MVL_GL_TESTS})
+    get_filename_component(test_name ${test_file} NAME_WE)
+    get_filename_component(test_dir ${test_file} DIRECTORY)
+    add_test(NAME gl.${test_name}
+      COMMAND ${CMAKE_COMMAND}
+        -DRUNNER=$<TARGET_FILE:multiversal_van_life>
+        -DDATA=${CMAKE_SOURCE_DIR}/game
+        -DWORK=${MVL_TEST_TMP}/gl_${test_name}
+        -DTEST=${test_file}
+        -DCHECKS=${test_dir}/${test_name}.json
+        -DPYTHON=${Python3_EXECUTABLE}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/gl/run_gl_test.cmake)
     set_tests_properties(gl.${test_name} PROPERTIES LABELS gl)
   endforeach()
   add_test(NAME gl.screenshot

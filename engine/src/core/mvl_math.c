@@ -172,3 +172,67 @@ vec3 mvl_forward(float yaw, float pitch) {
 }
 
 vec3 mvl_right(float yaw) { return v3(cosf(yaw), 0.0f, -sinf(yaw)); }
+
+void mvl_frustum_from_matrix(mvl_frustum *f, mat4 m) {
+    /* rows of the matrix (column-major storage) */
+    float r[4][4];
+    for (int row = 0; row < 4; ++row)
+        for (int col = 0; col < 4; ++col) r[row][col] = m.m[col * 4 + row];
+    for (int i = 0; i < 3; ++i) {
+        for (int s = 0; s < 2; ++s) {
+            vec4 *p = &f->planes[i * 2 + s];
+            float sign = s == 0 ? 1.0f : -1.0f, len;
+            p->x = r[3][0] + sign * r[i][0];
+            p->y = r[3][1] + sign * r[i][1];
+            p->z = r[3][2] + sign * r[i][2];
+            p->w = r[3][3] + sign * r[i][3];
+            len = sqrtf(p->x * p->x + p->y * p->y + p->z * p->z);
+            if (len > 1e-12f) {
+                p->x /= len;
+                p->y /= len;
+                p->z /= len;
+                p->w /= len;
+            }
+        }
+    }
+}
+
+int mvl_frustum_sphere(const mvl_frustum *f, vec3 c, float radius) {
+    for (int i = 0; i < 6; ++i) {
+        const vec4 *p = &f->planes[i];
+        if (p->x * c.x + p->y * c.y + p->z * c.z + p->w < -radius) return 0;
+    }
+    return 1;
+}
+
+void mvl_bounds_sphere(mat4 world, const float mn[3], const float mx[3], vec3 *center, float *radius) {
+    vec3 lc = v3((mn[0] + mx[0]) * 0.5f, (mn[1] + mx[1]) * 0.5f, (mn[2] + mx[2]) * 0.5f);
+    float hx = (mx[0] - mn[0]) * 0.5f, hy = (mx[1] - mn[1]) * 0.5f, hz = (mx[2] - mn[2]) * 0.5f;
+    float sx = v3_len(v3(world.m[0], world.m[1], world.m[2]));
+    float sy = v3_len(v3(world.m[4], world.m[5], world.m[6]));
+    float sz = v3_len(v3(world.m[8], world.m[9], world.m[10]));
+    float s = sx > sy ? sx : sy;
+    if (sz > s) s = sz;
+    *center = m4_transform_point(world, lc);
+    *radius = sqrtf(hx * hx + hy * hy + hz * hz) * s;
+}
+
+static float sgnf(float v) { return v > 0.0f ? 1.0f : (v < 0.0f ? -1.0f : 0.0f); }
+
+mat4 mvl_oblique_projection(mat4 p, vec4 c) {
+    /* Lengyel, "Oblique View Frustum Depth Projection and Clipping" */
+    vec4 q;
+    float d, k;
+    q.x = (sgnf(c.x) + p.m[8]) / p.m[0];
+    q.y = (sgnf(c.y) + p.m[9]) / p.m[5];
+    q.z = -1.0f;
+    q.w = (1.0f + p.m[10]) / p.m[14];
+    d = c.x * q.x + c.y * q.y + c.z * q.z + c.w * q.w;
+    if (fabsf(d) < 1e-12f) return p;
+    k = 2.0f / d;
+    p.m[2] = c.x * k - p.m[3];
+    p.m[6] = c.y * k - p.m[7];
+    p.m[10] = c.z * k - p.m[11];
+    p.m[14] = c.w * k - p.m[15];
+    return p;
+}

@@ -30,6 +30,7 @@ typedef struct {
     Uint64 last_ticks;
     int max_frames;
     const char *screenshot;
+    const char *shots_dir;
     int running;
     int exit_code;
     int mouse_captured;
@@ -168,13 +169,13 @@ static void handle_event(app_state *a, const SDL_Event *ev) {
 }
 
 /* ----------------------------------------------------------- main loop */
-static void save_screenshot(app_state *a, int w, int h) {
+static void save_screenshot(app_state *a, const char *path, int w, int h) {
     mvl_image img;
     size_t n;
     void *tga;
     if (!mvl_renderer_screenshot(a->renderer, w, h, &img)) return;
     tga = mvl_image_save_tga(&img, &n);
-    if (tga && mvl_file_write(a->screenshot, tga, n)) MVL_INFO("screenshot written to %s", a->screenshot);
+    if (tga && mvl_file_write(path, tga, n)) MVL_INFO("screenshot written to %s", path);
     free(tga);
     mvl_image_free(&img);
 }
@@ -203,7 +204,13 @@ static void frame(void) {
     mvl_engine_frame(e, dt);
     pump_audio(a);
     mvl_renderer_draw(a->renderer, e, w, h);
-    if (a->max_frames > 0 && (int)e->frame >= a->max_frames && a->screenshot) save_screenshot(a, w, h);
+    if (a->max_frames > 0 && (int)e->frame >= a->max_frames && a->screenshot) save_screenshot(a, a->screenshot, w, h);
+    if (e->screenshot_request[0]) { /* requested by an automated test */
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s", a->shots_dir ? a->shots_dir : ".", e->screenshot_request);
+        save_screenshot(a, path, w, h);
+        e->screenshot_request[0] = 0;
+    }
     SDL_GL_SwapWindow(a->window);
     if (e->quit_requested) a->running = 0;
     if (e->test_mode && e->test_done) a->running = 0;
@@ -274,6 +281,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(arg, "--test") && v) d.test_script = argv[++i];
         else if (!strcmp(arg, "--frames") && v) a->max_frames = atoi(argv[++i]);
         else if (!strcmp(arg, "--screenshot") && v) a->screenshot = argv[++i];
+        else if (!strcmp(arg, "--shots") && v) a->shots_dir = argv[++i];
         else if (!strcmp(arg, "--fullscreen")) fullscreen = 1;
         else if (!strcmp(arg, "--mute")) mute = 1;
         else if (!strcmp(arg, "--touch")) force_touch = 1;
@@ -306,6 +314,7 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     a->window = SDL_CreateWindow("Multiversal Van Life", width, height,

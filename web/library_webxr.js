@@ -77,7 +77,7 @@ addToLibrary({
     navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] }).then(function (session) {
       MVLXR.session = session;
       return gl.makeXRCompatible().then(function () {
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, { depth: true, stencil: true }) });
         return session.requestReferenceSpace('local-floor').catch(function () {
           return session.requestReferenceSpace('local');
         });

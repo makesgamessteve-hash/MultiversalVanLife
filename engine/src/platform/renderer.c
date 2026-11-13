@@ -37,6 +37,8 @@ struct mvl_renderer {
     int ui_cap;
     int sprite_mesh;     /* index into meshes */
     int ui_quad_mesh;    /* textured quad used to show the UI in XR */
+    int portal_mesh;     /* unit quad (-0.5..0.5) marking portal rectangles */
+    int draws;           /* draw calls this frame (statistics) */
     target world_rt, ui_rt;
     GLuint stars_tex;
     int dither;
@@ -210,8 +212,9 @@ static void ensure_target(target *t, int w, int h, int depth) {
     if (depth) {
         glGenRenderbuffers(1, &t->depth);
         glBindRenderbuffer(GL_RENDERBUFFER, t->depth);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, t->depth);
+        /* depth + stencil: the stencil masks portal views */
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, t->depth);
     }
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) MVL_ERROR("render target incomplete");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -275,6 +278,14 @@ int mvl_renderer_init(mvl_renderer *r, mvl_engine *e) {
     }
     r->ui_quad_mesh = add_mesh(r, &quad);
     mvl_mesh_free(&quad);
+    mvl_mesh_init(&quad);
+    {
+        const float p[4][3] = {{-0.5f, -0.5f, 0}, {0.5f, -0.5f, 0}, {0.5f, 0.5f, 0}, {-0.5f, 0.5f, 0}};
+        const float n[3] = {0, 0, 1};
+        mvl_mesh_add_quad(&quad, p, n, 0, 0, 1, 1, NULL);
+    }
+    r->portal_mesh = add_mesh(r, &quad);
+    mvl_mesh_free(&quad);
     {
         int id = mvl_res_texture(&e->res, mvl_kv_get_str(&e->config, "render.sky_texture", "textures/sky_stars.tga"));
         const mvl_texture_res *t = mvl_res_get_texture(&e->res, id);
@@ -307,14 +318,22 @@ static GLuint tex_handle(mvl_engine *e, int id) {
     return t ? t->handle : 0;
 }
 
-static void draw_sky(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj) {
+/* Draws the sky. With reset_depth the sky also writes the far depth, which
+ * clears the depth buffer inside a portal's stencil area. */
+static void draw_sky(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, int reset_depth) {
     mat4 vp, inv;
     mvl_environment *env = &e->scene.env;
     view.m[12] = view.m[13] = view.m[14] = 0.0f; /* rotation only */
     vp = m4_mul(proj, view);
     if (!m4_invert(vp, &inv)) inv = m4_identity();
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
+    if (reset_depth) {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_ALWAYS);
+        glDepthMask(GL_TRUE);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+    }
     glUseProgram(r->sky_prog);
     glUniformMatrix4fv(r->sky_inv, 1, GL_FALSE, inv.m);
     glUniform3f(r->sky_top, env->sky_top[0], env->sky_top[1], env->sky_top[2]);
@@ -326,8 +345,10 @@ static void draw_sky(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj) {
     glUniform1i(r->sky_tex, 0);
     glBindVertexArray(r->empty_vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
+    r->draws++;
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
 }
 
 static void set_world_uniforms(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, float snap_w, float snap_h) {
@@ -385,37 +406,134 @@ static void draw_entity(mvl_renderer *r, mvl_engine *e, const mvl_entity *en, fl
     glBindTexture(GL_TEXTURE_2D, tex_handle(e, en->texture));
     glBindVertexArray(g->vao);
     glDrawArrays(GL_TRIANGLES, 0, g->count);
+    r->draws++;
 }
 
-static void draw_world(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, float face_yaw, float snap_w, float snap_h) {
+/* Bounding sphere test against the frustum of the current pass. */
+static int entity_visible(mvl_engine *e, const mvl_entity *en, const mvl_frustum *f) {
+    vec3 c;
+    float radius;
+    if (en->kind == MVL_ENT_SPRITE) {
+        vec3 p = mvl_scene_world_pos(&e->scene, en);
+        float w = en->scale.x, h = en->scale.y;
+        c = v3(p.x, p.y + h * 0.5f, p.z);
+        radius = (w > h ? w : h) * 0.75f;
+    } else {
+        const mvl_mesh_res *mr = mvl_res_get_mesh(&e->res, en->mesh);
+        if (!mr) return 0;
+        mvl_bounds_sphere(mvl_scene_world_matrix(&e->scene, en), mr->min, mr->max, &c, &radius);
+    }
+    return mvl_frustum_sphere(f, c, radius);
+}
+
+enum { PASS_OPAQUE, PASS_DECAL, PASS_TRANSLUCENT };
+
+/* Draws all entities: opaque, then decals by layer (on top of the surfaces
+ * below them, polygon offset, no depth writes), then translucent ones. */
+static void draw_scene(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, float face_yaw, float snap_w, float snap_h) {
     mvl_scene *s = &e->scene;
-    draw_sky(r, e, view, proj);
+    mvl_frustum f;
+    mvl_frustum_from_matrix(&f, m4_mul(proj, view));
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glDisable(GL_BLEND);
     set_world_uniforms(r, e, view, proj, snap_w, snap_h);
-    for (int pass = 0; pass < 2; ++pass) {
-        if (pass == 1) {
+    for (int pass = PASS_OPAQUE; pass <= PASS_TRANSLUCENT; ++pass) {
+        int layers = pass == PASS_DECAL ? 8 : 1;
+        if (pass != PASS_OPAQUE) {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDepthMask(GL_FALSE);
         }
-        for (int i = 0; i < s->high_water; ++i) {
-            const mvl_entity *en = &s->entities[i];
-            int translucent;
-            if (!en->alive || !(en->flags & MVL_ENT_VISIBLE)) continue;
-            translucent = en->color[3] < 0.999f;
-            if (translucent != pass) continue;
-            if (en->kind == MVL_ENT_SPRITE) glDisable(GL_CULL_FACE);
-            draw_entity(r, e, en, face_yaw);
-            if (en->kind == MVL_ENT_SPRITE) glEnable(GL_CULL_FACE);
+        for (int layer = 0; layer < layers; ++layer) {
+            if (pass == PASS_DECAL) {
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                /* vertex snapping moves surfaces by up to half a low-res pixel, so
+                   pull decals forward by several pixels of depth slope */
+                glPolygonOffset(-4.0f - 2.0f * (float)layer, -16.0f * (float)(layer + 1));
+            }
+            for (int i = 0; i < s->high_water; ++i) {
+                const mvl_entity *en = &s->entities[i];
+                int kind;
+                if (!en->alive || !(en->flags & MVL_ENT_VISIBLE)) continue;
+                kind = (en->flags & MVL_ENT_DECAL) ? PASS_DECAL : (en->color[3] < 0.999f ? PASS_TRANSLUCENT : PASS_OPAQUE);
+                if (kind != pass || (pass == PASS_DECAL && en->layer != layer)) continue;
+                if (!entity_visible(e, en, &f)) continue;
+                if (en->kind == MVL_ENT_SPRITE) glDisable(GL_CULL_FACE);
+                draw_entity(r, e, en, face_yaw);
+                if (en->kind == MVL_ENT_SPRITE) glEnable(GL_CULL_FACE);
+            }
         }
+        glDisable(GL_POLYGON_OFFSET_FILL);
     }
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
+}
+
+/* Draws the view through every enabled portal visible in this pass, limited
+ * to the portal rectangle by the stencil buffer. */
+static void draw_portals(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, float face_yaw, float snap_w, float snap_h) {
+    mvl_scene *s = &e->scene;
+    mat4 inv;
+    vec3 eye;
+    mvl_frustum f;
+    if (!m4_invert(view, &inv)) return;
+    eye = v3(inv.m[12], inv.m[13], inv.m[14]);
+    mvl_frustum_from_matrix(&f, m4_mul(proj, view));
+    for (int i = 0; i < MVL_MAX_PORTALS; ++i) {
+        const mvl_portal *p = &s->portals[i];
+        mat4 vview, vproj, quad;
+        if (!p->enabled || !mvl_portal_faces(p, eye)) continue;
+        if (!mvl_frustum_sphere(&f, p->pos, 0.5f * sqrtf(p->w * p->w + p->h * p->h))) continue;
+        /* 1. mark the visible part of the rectangle in the stencil */
+        glEnable(GL_STENCIL_TEST);
+        glStencilMask(0xFF);
+        glClearStencil(0);
+        glClear(GL_STENCIL_BUFFER_BIT);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glDisable(GL_CULL_FACE);
+        set_world_uniforms(r, e, view, proj, snap_w, snap_h);
+        quad = mvl_portal_quad_matrix(p);
+        glUniformMatrix4fv(r->world.model, 1, GL_FALSE, quad.m);
+        glUniform4f(r->world.tint, 1, 1, 1, 1);
+        glBindVertexArray(r->meshes[r->portal_mesh].vao);
+        glDrawArrays(GL_TRIANGLES, 0, r->meshes[r->portal_mesh].count);
+        r->draws++;
+        /* 2. inside the mark: sky (resets depth) and the scene seen through the portal */
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        glStencilMask(0x00);
+        mvl_portal_view(p, view, proj, &vview, &vproj);
+        draw_sky(r, e, vview, vproj, 1);
+        draw_scene(r, e, vview, vproj, face_yaw + (p->target_yaw - p->yaw), snap_w, snap_h);
+        glStencilMask(0xFF);
+        glDisable(GL_STENCIL_TEST);
+    }
+}
+
+static void draw_world(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 proj, float face_yaw, float snap_w, float snap_h) {
+    draw_sky(r, e, view, proj, 0);
+    draw_scene(r, e, view, proj, face_yaw, snap_w, snap_h);
+    draw_portals(r, e, view, proj, face_yaw, snap_w, snap_h);
+}
+
+/* Near/far planes: far follows the fog so depth precision is not wasted. */
+static mvl_camera pass_camera(const mvl_engine *e) {
+    mvl_camera c = e->scene.camera;
+    float far = e->scene.env.fog_far + 30.0f;
+    if (c.znear < 0.1f) c.znear = 0.1f;
+    if (far < c.zfar) c.zfar = far;
+    if (c.zfar < c.znear + 10.0f) c.zfar = c.znear + 10.0f;
+    return c;
 }
 
 /* ------------------------------------------------------------------- UI */
@@ -510,10 +628,15 @@ void mvl_renderer_draw(mvl_renderer *r, mvl_engine *e, int w, int h) {
     glBindFramebuffer(GL_FRAMEBUFFER, r->world_rt.fbo);
     glViewport(0, 0, rw, rh);
     glClearColor(e->scene.env.fog_color[0], e->scene.env.fog_color[1], e->scene.env.fog_color[2], 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    view = mvl_camera_view(&e->scene.camera);
-    proj = mvl_camera_proj(&e->scene.camera, (float)rw / (float)rh);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    r->draws = 0;
+    {
+        mvl_camera cam = pass_camera(e);
+        view = mvl_camera_view(&cam);
+        proj = mvl_camera_proj(&cam, (float)rw / (float)rh);
+    }
     draw_world(r, e, view, proj, e->scene.camera.yaw, (float)rw, (float)rh);
+    e->render_draws = r->draws;
     render_ui_canvas(r, e);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -542,13 +665,13 @@ void mvl_renderer_draw_xr_view(mvl_renderer *r, mvl_engine *e, unsigned fbo, con
     glEnable(GL_SCISSOR_TEST);
     glScissor(vp[0], vp[1], vp[2], vp[3]);
     glClearColor(e->scene.env.fog_color[0], e->scene.env.fog_color[1], e->scene.env.fog_color[2], 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
+    r->draws = 0;
     draw_world(r, e, view, proj, c->yaw + e->xr_head_yaw, 480.0f, 480.0f);
+    e->render_draws = r->draws;
     /* head-locked UI panel 1.5 m in front of the eyes */
     if (e->ui.count > 0 && m4_invert(view, &head_world)) {
-        const mvl_entity dummy = {0};
-        (void)dummy;
         panel = m4_mul(head_world, m4_translate(v3(0, -0.1f, -1.5f)));
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

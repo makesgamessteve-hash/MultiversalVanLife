@@ -54,6 +54,8 @@ typedef struct mvl_engine {
     float alpha;              /* interpolation factor of the last frame */
     int headless;
     int quit_requested;
+    int render_draws;         /* draw calls of the last rendered frame (set by the renderer) */
+    char screenshot_request[128]; /* file name requested by a test, written by the platform */
     int script_errors;
     char last_error[1024];
 

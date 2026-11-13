@@ -1,0 +1,4 @@
+[{"file": "portal_open.tga", "region": [0.47, 0.47, 0.53, 0.53], "min": {"blue": 0.95}},
+ {"file": "portal_open.tga", "region": [0.0, 0.0, 0.2, 1.0], "max": {"blue": 0.0}},
+ {"file": "portal_blocked.tga", "region": [0.0, 0.0, 1.0, 1.0], "max": {"blue": 0.0}},
+ {"file": "portal_back.tga", "region": [0.0, 0.0, 1.0, 1.0], "max": {"blue": 0.0}}]

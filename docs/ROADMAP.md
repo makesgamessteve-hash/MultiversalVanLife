@@ -14,7 +14,7 @@ Rules for every phase:
 | Phase | Change | Tasks | Specs touched | Status |
 |---|---|---|---|---|
 | 1 | `p01-procedural-engine-core` | 8 | scripting-api | done |
-| 2 | `p02-decals-portals-culling` | 8 | rendering, scripting-api | planned |
+| 2 | `p02-decals-portals-culling` | 8 | rendering, scripting-api | done |
 | 3 | `p03-van-windows` | 5 | story-and-worlds, van-windows | planned |
 | 4 | `p04-text-dialogue-and-audio` | 6 | audio-and-voice, data-and-mods | planned |
 | 5 | `p05-save-records` | 5 | save-games, scripting-api | planned |

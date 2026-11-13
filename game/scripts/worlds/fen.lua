@@ -26,7 +26,7 @@ world.register({
     })
     w:bounds(-22, -28, 22, 14)
     w:ground("grass", 120, 60)
-    w:prop({ mesh = mvl.plane_mesh(30, 18, 10, 6), texture = "water", x = 0, y = 0.02, z = -12, uv_scroll = { 0.02, 0.01 }, color = { 0.7, 0.9, 0.9, 1 } })
+    w:prop({ mesh = mvl.plane_mesh(30, 18, 10, 6, 8), texture = "water", x = 0, y = 0, z = -12, decal = true, layer = 1, uv_scroll = { 0.02, 0.01 }, color = { 0.7, 0.9, 0.9, 1 } })
     w:scatter({ texture = "bush", count = 40, min_r = 6, max_r = 24, cz = -6, w = 1.2, h = 1.4, seed = 21 })
     w:scatter({ texture = "tree_pine", count = 14, min_r = 22, max_r = 30, cz = -6, w = 3, h = 7, radius = 0.4, seed = 4 })
     for i = 1, 3 do w:prop({ model = "rock", texture = "stone", x = -18 + i * 9, z = 8 - i * 2, yaw = i, scale = 1.2, radius = 0.6 }) end

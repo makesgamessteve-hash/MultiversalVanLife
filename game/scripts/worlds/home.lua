@@ -19,7 +19,7 @@ world.register({
     })
     w:bounds(-30, -30, 30, 30)
     w:ground("grass", 140, 70)
-    w:prop({ mesh = mvl.plane_mesh(4, 40, 2, 20), texture = "dirt", x = 7, y = 0.01, z = 4 })
+    w:prop({ mesh = mvl.plane_mesh(4, 40, 2, 20, 10), texture = "dirt", x = 7, y = 0, z = 4, decal = true })
     -- farmhouse (door on +X) and barn
     w:prop({ voxel = "house", x = 0, z = -8, box = { 6.0, 5.0 } })
     w:prop({ voxel = "barn", x = -13, z = -15, yaw = 0.3, box = { 5.0, 4.0 } })

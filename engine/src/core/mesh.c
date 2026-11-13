@@ -202,6 +202,22 @@ void mvl_mesh_build_plane(mvl_mesh *m, float sx, float sz, float tx, float tz) {
     mvl_mesh_compute_bounds(m);
 }
 
+void mvl_mesh_build_plane_grid(mvl_mesh *m, float sx, float sz, float tx, float tz, int seg) {
+    const float n[3] = {0, 1, 0};
+    if (seg < 1) seg = 1;
+    if (seg > 256) seg = 256;
+    for (int j = 0; j < seg; ++j)
+        for (int i = 0; i < seg; ++i) {
+            float x0 = -sx * 0.5f + sx * (float)i / (float)seg, x1 = -sx * 0.5f + sx * (float)(i + 1) / (float)seg;
+            float z0 = -sz * 0.5f + sz * (float)j / (float)seg, z1 = -sz * 0.5f + sz * (float)(j + 1) / (float)seg;
+            float u0 = tx * (float)i / (float)seg, u1 = tx * (float)(i + 1) / (float)seg;
+            float v0 = tz * (float)j / (float)seg, v1 = tz * (float)(j + 1) / (float)seg;
+            const float p[4][3] = {{x0, 0, z1}, {x1, 0, z1}, {x1, 0, z0}, {x0, 0, z0}};
+            mvl_mesh_add_quad(m, p, n, u0, v0, u1, v1, NULL);
+        }
+    mvl_mesh_compute_bounds(m);
+}
+
 void mvl_mesh_build_box(mvl_mesh *m, float sx, float sy, float sz) {
     float x = sx * 0.5f, z = sz * 0.5f, y = sy;
     const float faces[6][4][3] = {

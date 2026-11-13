@@ -43,4 +43,19 @@ int m4_invert(mat4 m, mat4 *out);
 vec3 mvl_forward(float yaw, float pitch);
 vec3 mvl_right(float yaw);
 
+/* View frustum as six planes (x, y, z, w) with normals pointing inwards. */
+typedef struct {
+    vec4 planes[6];
+} mvl_frustum;
+
+/* Extracts the planes of a combined projection * view matrix. */
+void mvl_frustum_from_matrix(mvl_frustum *f, mat4 view_proj);
+/* 0 if the sphere is completely outside, 1 if inside or intersecting. */
+int mvl_frustum_sphere(const mvl_frustum *f, vec3 center, float radius);
+/* Bounding sphere of a local box [min, max] transformed by `world`. */
+void mvl_bounds_sphere(mat4 world, const float min[3], const float max[3], vec3 *center, float *radius);
+/* Replaces the near plane of a perspective projection by `clip_plane`
+ * (view space, visible side positive, camera on the negative side). */
+mat4 mvl_oblique_projection(mat4 proj, vec4 clip_plane);
+
 #endif

@@ -26,7 +26,7 @@ void mvl_env_default(mvl_environment *e) {
 void mvl_scene_init(mvl_scene *s) {
     memset(s, 0, sizeof *s);
     s->camera.fov_deg = 70.0f;
-    s->camera.znear = 0.05f;
+    s->camera.znear = 0.1f;
     s->camera.zfar = 200.0f;
     s->camera.pos = v3(0, 1.6f, 0);
     mvl_env_default(&s->env);
@@ -140,6 +140,39 @@ mat4 mvl_entity_model_matrix(const mvl_entity *e) {
     m = m4_mul(m, m4_rotate_x(e->pitch));
     m = m4_mul(m, m4_rotate_z(e->roll));
     return m4_mul(m, m4_scale(e->scale));
+}
+
+mat4 mvl_portal_matrix(const mvl_portal *p) {
+    mat4 m = m4_mul(m4_translate(p->target_pos), m4_rotate_y(p->target_yaw - p->yaw));
+    return m4_mul(m, m4_translate(v3_scale(p->pos, -1.0f)));
+}
+
+mat4 mvl_portal_quad_matrix(const mvl_portal *p) {
+    return m4_mul(m4_mul(m4_translate(p->pos), m4_rotate_y(p->yaw)), m4_scale(v3(p->w, p->h, 1.0f)));
+}
+
+int mvl_portal_faces(const mvl_portal *p, vec3 eye) {
+    return v3_dot(mvl_forward(p->yaw, 0.0f), v3_sub(eye, p->pos)) < 0.0f;
+}
+
+void mvl_portal_view(const mvl_portal *p, mat4 view, mat4 proj, mat4 *out_view, mat4 *out_proj) {
+    mat4 inv_m, vv, inv_vv;
+    vec3 n = mvl_forward(p->target_yaw, 0.0f);
+    float plane[4] = {n.x, n.y, n.z, -v3_dot(n, p->target_pos)};
+    vec4 c;
+    m4_invert(mvl_portal_matrix(p), &inv_m);
+    vv = m4_mul(view, inv_m);
+    *out_view = vv;
+    if (!m4_invert(vv, &inv_vv)) {
+        *out_proj = proj;
+        return;
+    }
+    /* plane (row vector) into virtual view space: p_view = p_world * inverse(view) */
+    c.x = plane[0] * inv_vv.m[0] + plane[1] * inv_vv.m[1] + plane[2] * inv_vv.m[2] + plane[3] * inv_vv.m[3];
+    c.y = plane[0] * inv_vv.m[4] + plane[1] * inv_vv.m[5] + plane[2] * inv_vv.m[6] + plane[3] * inv_vv.m[7];
+    c.z = plane[0] * inv_vv.m[8] + plane[1] * inv_vv.m[9] + plane[2] * inv_vv.m[10] + plane[3] * inv_vv.m[11];
+    c.w = plane[0] * inv_vv.m[12] + plane[1] * inv_vv.m[13] + plane[2] * inv_vv.m[14] + plane[3] * inv_vv.m[15];
+    *out_proj = mvl_oblique_projection(proj, c);
 }
 
 mat4 mvl_camera_view(const mvl_camera *c) {

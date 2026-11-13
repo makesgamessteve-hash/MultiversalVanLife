@@ -26,7 +26,7 @@ world.register({
     })
     w:bounds(-12, -26, 12, 10)
     w:ground("sand", 80, 40)
-    w:prop({ mesh = mvl.plane_mesh(24, 36, 8, 12), texture = "water", x = 0, y = 0.05, z = -8, uv_scroll = { 0.01, 0.03 }, color = { 0.6, 0.8, 1.0, 0.55 } })
+    w:prop({ mesh = mvl.plane_mesh(24, 36, 8, 12, 9), texture = "water", x = 0, y = 0, z = -8, decal = true, layer = 1, uv_scroll = { 0.01, 0.03 }, color = { 0.6, 0.8, 1.0, 0.55 } })
     for i, p in ipairs(SHELVES) do w:prop({ voxel = "bookshelf", x = p[1], z = p[2], yaw = p[3], box = { 2.0, 0.8 } }) end
     for i = 1, 4 do
       local x, z = (i % 2 == 0) and 6 or -6, -2 - i * 5

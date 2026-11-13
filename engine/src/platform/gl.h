@@ -23,6 +23,12 @@
     X(void, glDepthFunc, (GLenum))                                                                     \
     X(void, glDepthMask, (GLboolean))                                                                  \
     X(void, glCullFace, (GLenum))                                                                      \
+    X(void, glStencilFunc, (GLenum, GLint, GLuint))                                                    \
+    X(void, glStencilOp, (GLenum, GLenum, GLenum))                                                     \
+    X(void, glStencilMask, (GLuint))                                                                   \
+    X(void, glClearStencil, (GLint))                                                                   \
+    X(void, glColorMask, (GLboolean, GLboolean, GLboolean, GLboolean))                                 \
+    X(void, glPolygonOffset, (GLfloat, GLfloat))                                                       \
     X(void, glGenTextures, (GLsizei, GLuint *))                                                        \
     X(void, glDeleteTextures, (GLsizei, const GLuint *))                                               \
     X(void, glBindTexture, (GLenum, GLuint))                                                           \
@@ -92,6 +98,12 @@ MVL_GL_FUNCS
 #define glDepthFunc mvl_glDepthFunc
 #define glDepthMask mvl_glDepthMask
 #define glCullFace mvl_glCullFace
+#define glStencilFunc mvl_glStencilFunc
+#define glStencilOp mvl_glStencilOp
+#define glStencilMask mvl_glStencilMask
+#define glClearStencil mvl_glClearStencil
+#define glColorMask mvl_glColorMask
+#define glPolygonOffset mvl_glPolygonOffset
 #define glGenTextures mvl_glGenTextures
 #define glDeleteTextures mvl_glDeleteTextures
 #define glBindTexture mvl_glBindTexture

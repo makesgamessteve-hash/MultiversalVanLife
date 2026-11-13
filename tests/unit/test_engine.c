@@ -276,7 +276,8 @@ void test_engine_test_runner(void) {
                     "test.set_xr(true, true, 0.5); local s, a = mvl.xr(); test.expect(s and a, 'xr flags')\n"
                     "test.eq(test.mixer_voices(), 0, 'no voices'); test.expect(test.ui_quads() >= 0)\n"
                     "test.until_true(function() return mvl.ticks() > 10 end, 50, 'ticks')\n"
-                    "test.expect(mvl.testing(), 'test mode')\n",
+                    "test.expect(mvl.testing(), 'test mode')\n"
+                    "test.screenshot('shot.tga'); test.eq(mvl.render_stats(), 0, 'no renderer headless')\n",
                     0, 600);
     run_test_script("tr_fail", "test.wait(1); test.eq(1, 2, 'numbers')\n", 1, 600);
     run_test_script("tr_expect", "test.expect(false, 'nope')\n", 1, 600);
@@ -369,6 +370,8 @@ static const char *PROC_SCRIPT =
     "  assert(mvl.texture_gen{ colors = {} } > 0)\n"
     "  assert(not pcall(mvl.texture_gen, { size = 33 }))\n"
     "  assert(mvl.release_texture(t1) and not mvl.release_texture(t1) and not mvl.release_texture(0))\n"
+    "  assert(mvl.portal(0, { pos = {1, 2, 3}, yaw = 0.5, w = 2, h = 1, target = {9, 9, 9}, target_yaw = 1 }))\n"
+    "  assert(mvl.portal(1, {}) and not mvl.portal(1) and not pcall(mvl.portal, 8, {}))\n"
     "end\n";
 
 void test_engine_procedural_api(void) {
@@ -379,5 +382,23 @@ void test_engine_procedural_api(void) {
     CHECK(mvl_engine_init(&e, &d));
     CHECK_EQ_INT(e.script_errors, 0);
     if (e.script_errors) fprintf(stderr, "%s\n", e.last_error);
+    /* decal flag and clamped layer reach the entity */
+    CHECK(mvl_script_run_string(&e, "D1 = mvl.spawn{ decal = true, layer = 9 } D2 = mvl.spawn{ layer = -3 }", "=decal"));
+    {
+        int decals = 0, top = 0, bottom = 0;
+        for (int i = 0; i < e.scene.high_water; ++i) {
+            mvl_entity *en = &e.scene.entities[i];
+            if (!en->alive) continue;
+            if (en->flags & MVL_ENT_DECAL) {
+                decals++;
+                top = en->layer;
+            } else if (en->layer == 0) bottom++;
+        }
+        CHECK_EQ_INT(decals, 1);
+        CHECK(e.scene.portals[0].enabled && e.scene.portals[0].target_pos.x == 9.0f && !e.scene.portals[1].enabled);
+        CHECK_NEAR(e.scene.portals[0].w, 2, 0);
+        CHECK_EQ_INT(top, 7);
+        CHECK(bottom >= 1);
+    }
     mvl_engine_shutdown(&e);
 }

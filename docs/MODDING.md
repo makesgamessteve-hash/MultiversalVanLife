@@ -94,6 +94,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Group | Functions |
 |---|---|
 | Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
+| Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}` |
 | Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
 | World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
@@ -184,6 +185,48 @@ local sandstone = mvl.texture_gen{ kind = "stone", size = 32, seed = 3, scale = 
 local wall = mvl.spawn{ mesh = mvl.box_mesh(2, 2, 0.5), texture = sandstone, pos = {0, 0, -4} }
 assert(sandstone > 0 and mvl.exists(wall))
 ```
+
+### Decals
+
+Flat things lying on a surface (roads, paths, puddles, rugs, painted marks)
+should be decals: they are drawn after the surface below them and never
+flicker into it, at any distance. Put them exactly on the surface (`y = 0`
+on flat ground) and give overlapping decals a `layer` from 0 to 7 (higher is
+drawn on top). Large surfaces should be tessellated with the fifth argument
+of `mvl.plane_mesh(sx, sz, tiles_x, tiles_z, segments)`: the retro vertex
+snapping moves vertices by up to half a pixel, which bends huge triangles.
+
+<!-- example -->
+```lua
+local ground = mvl.spawn{ mesh = mvl.plane_mesh(64, 64, 16, 16, 16), texture = mvl.texture("textures/grass.tga") }
+local road = mvl.spawn{ mesh = mvl.plane_mesh(4, 64, 1, 16, 16), texture = mvl.texture("textures/dirt.tga"),
+                        decal = true, layer = 0 }
+local puddle = mvl.spawn{ mesh = mvl.plane_mesh(3, 2, 1, 1, 2), texture = mvl.texture("textures/water.tga"),
+                          pos = {0.5, 0, 3}, decal = true, layer = 1, uv_scroll = {0.02, 0.01} }
+assert(mvl.exists(road) and mvl.exists(puddle))
+```
+
+### Portals
+
+A portal is a rectangle in the scene that shows another place, like a window
+(the van's windows use them). `mvl.portal(i, {pos, yaw, w, h, target,
+target_yaw})` defines portal `i` (0..7): the rectangle is centred on `pos`,
+faces along `yaw` (0 looks along -Z) and is seen from its back side; what
+lies beyond `target` in the direction `target_yaw` is shown inside it.
+Geometry between the target and the viewer is clipped away. `mvl.portal(i)`
+switches it off. Portals are one-sided and do not show other portals.
+
+<!-- example -->
+```lua
+-- a window at the origin that looks out at a place 500 m away
+mvl.portal(0, { pos = {0, 1.5, 0}, yaw = 0, w = 1.2, h = 0.8, target = {500, 1.5, 500}, target_yaw = 0 })
+local view = mvl.spawn{ mesh = mvl.box_mesh(4, 4, 4), pos = {500, 0, 490} }   -- seen through the window
+mvl.portal(0)                                                                -- close it again
+assert(mvl.exists(view))
+```
+
+Entities outside the camera's view are not drawn (frustum culling);
+`mvl.render_stats()` returns the draw calls of the last frame.
 
 ### Composite entities
 

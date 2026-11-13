@@ -241,6 +241,50 @@ static int l_world_pos(lua_State *L) {
     return 3;
 }
 
+/* -------------------------------------------------------------- portals */
+static vec3 field_vec3(lua_State *L, int t, const char *k, vec3 def) {
+    lua_getfield(L, t, k);
+    if (lua_istable(L, -1)) {
+        float v[3] = {def.x, def.y, def.z};
+        for (int i = 0; i < 3; ++i) {
+            lua_rawgeti(L, -1, i + 1);
+            if (lua_isnumber(L, -1)) v[i] = (float)lua_tonumber(L, -1);
+            lua_pop(L, 1);
+        }
+        def = v3(v[0], v[1], v[2]);
+    }
+    lua_pop(L, 1);
+    return def;
+}
+
+/* mvl.portal(i, {pos, yaw, w, h, target, target_yaw}) defines portal i;
+ * mvl.portal(i) switches it off. Returns whether the portal is enabled. */
+static int l_portal(lua_State *L) {
+    mvl_engine *e = mvl_script_engine(L);
+    int i = (int)luaL_checkinteger(L, 1);
+    mvl_portal *p;
+    if (i < 0 || i >= MVL_MAX_PORTALS) return luaL_error(L, "portal index out of range (0..%d)", MVL_MAX_PORTALS - 1);
+    p = &e->scene.portals[i];
+    if (lua_istable(L, 2)) {
+        p->pos = field_vec3(L, 2, "pos", p->pos);
+        p->yaw = field_num(L, 2, "yaw", p->yaw);
+        p->w = field_num(L, 2, "w", p->w > 0 ? p->w : 1.0f);
+        p->h = field_num(L, 2, "h", p->h > 0 ? p->h : 1.0f);
+        p->target_pos = field_vec3(L, 2, "target", p->target_pos);
+        p->target_yaw = field_num(L, 2, "target_yaw", p->target_yaw);
+        p->enabled = 1;
+    } else {
+        p->enabled = 0;
+    }
+    lua_pushboolean(L, p->enabled);
+    return 1;
+}
+
+static int l_render_stats(lua_State *L) {
+    lua_pushinteger(L, mvl_script_engine(L)->render_draws);
+    return 1;
+}
+
 /* --------------------------------------------------------- voxel models */
 static mvl_voxels *check_vox(lua_State *L) {
     mvl_voxels *v = (mvl_voxels *)luaL_checkudata(L, 1, VOX_MT);
@@ -416,6 +460,8 @@ void mvl_script_open_procedural(lua_State *L) {
                                      {"world_pos", l_world_pos},
                                      {"voxels", l_voxels},
                                      {"texture_gen", l_texture_gen},
+                                     {"portal", l_portal},
+                                     {"render_stats", l_render_stats},
                                      {NULL, NULL}};
     static const luaL_Reg rng_methods[] = {{"next", rng_next}, {"u32", rng_u32}, {"int", rng_int}, {"float", rng_float},
                                            {"chance", rng_chance}, {"pick", rng_pick}, {NULL, NULL}};
