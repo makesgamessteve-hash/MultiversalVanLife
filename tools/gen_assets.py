@@ -1638,24 +1638,28 @@ def vox_van(path):
             if v.get(x, y, 10):
                 if y in (0, 17) or x in (1, 38):
                     v.set(x, y, 10, chrome)
-    # side windows: z 12..15, panes separated by cream pillars
-    for y in (0, 17):
+    # side windows: z 12..15, panes separated by cream pillars; the glass sits
+    # one voxel into the body so the windows have depth
+    for y, inner in ((0, 1), (17, 16)):
         for x in range(4, 36):
             if x in (4, 12, 21, 29, 35):
                 continue
             for z in range(12, 16):
-                v.set(x, y, z, glass_hi if (z == 15 and x % 3 == 0) else glass)
+                v.clear(x, y, z, x, y, z)
+                v.set(x, inner, z, glass_hi if (z == 15 and x % 3 == 0) else glass)
         for z in range(3, 10):  # sliding door seam on both sides
             v.set(26, y, z, seam)
         v.set(24, y, 7, chrome)  # door handle
-    # windscreen (front +X) and rear window
+    # windscreen (front +X) and rear window, also set into the body
     for y in range(2, 16):
         if y in (8, 9):
             continue  # split windscreen pillar
         for z in range(12, 16):
-            v.set(38, y, z, glass)
+            v.clear(38, y, z, 38, y, z)
+            v.set(37, y, z, glass)
         for z in range(12, 15):
-            v.set(1, y, z, glass)
+            v.clear(1, y, z, 1, y, z)
+            v.set(2, y, z, glass)
     # front: round headlights, grille, bumper, a little emblem circle
     for cy in (3.5, 14.5):
         for y in range(18):
@@ -2074,6 +2078,71 @@ def vox_van_interior(path):
     v.clear(63, 26, 6, 63, 37, 14)
     v.box(27, 63, 5, 37, 63, 15, brass)
     v.clear(28, 63, 6, 36, 63, 14)
+
+    # the windows have thickness: deep panelled reveals (4 voxels, half a
+    # metre) on the inside of the thin wall, a brass lip at the inner edge
+    # and a sill that sticks out a little further
+    def reveal(along, a0, a1, z0, z1, depth_cells, sill_cell):
+        """along: 'x' (window in a Y wall) or 'y' (window in an X wall);
+        depth_cells: the wall-normal coordinates of the reveal, wall first."""
+        last = depth_cells[-1]
+        for d in depth_cells:
+            c = brass if d == last else wood
+            for a in range(a0 - 1, a1 + 2):
+                for z in (z0 - 1, z1 + 1):
+                    if along == "x":
+                        v.set(a, d, z, c)
+                    else:
+                        v.set(d, a, z, c)
+            for z in range(z0, z1 + 1):
+                for a in (a0 - 1, a1 + 1):
+                    if along == "x":
+                        v.set(a, d, z, c)
+                    else:
+                        v.set(d, a, z, c)
+        for a in range(a0 - 2, a1 + 3):
+            if along == "x":
+                v.set(a, sill_cell, z0 - 1, wood)
+            else:
+                v.set(sill_cell, a, z0 - 1, wood)
+    reveal("x", 13, 24, 10, 16, (1, 2, 3, 4), 5)     # A
+    reveal("x", 38, 51, 7, 15, (1, 2, 3, 4), 5)      # B
+    reveal("y", 26, 37, 6, 14, (62, 61, 60, 59), 58)  # C (the windscreen, over the dashboard)
+    reveal("x", 28, 36, 6, 14, (62, 61, 60, 59), 58)  # D
+
+    # the driver's seat at the front, facing the windscreen window C, with a
+    # dashboard under the window and a steering wheel
+    leather = v.shades((120, 54, 40), 3, 0.08)
+    leather_hi = v.col((160, 82, 56))
+    v.box(51, 29, 1, 53, 34, 2, brass_d)               # pedestal
+    v.box(49, 27, 3, 55, 36, 4, leather)               # seat
+    v.box(50, 28, 5, 54, 35, 5, leather_hi)            # cushion
+    v.box(48, 27, 5, 49, 36, 13, leather)              # backrest
+    v.box(48, 29, 14, 49, 34, 16, leather_hi)          # headrest
+    v.box(50, 26, 5, 54, 26, 7, leather)               # armrests
+    v.box(50, 37, 5, 54, 37, 7, leather)
+    v.box(59, 24, 1, 62, 39, 4, wood)                  # dashboard
+    v.box(58, 24, 4, 62, 39, 4, brass)
+    for y in range(26, 38, 3):                         # gauges
+        v.set(58, y, 3, glow[(y // 3) % 4])
+        v.set(58, y + 1, 3, warm)
+    for y in range(24, 40):                            # the window sill doubles as the dash top
+        v.set(58, y, 5, wood)
+    rim = v.col((38, 30, 28))
+    cw, cz, r = 31.5, 7.0, 2.6                         # steering wheel in the YZ plane
+    for y in range(26, 38):
+        for z in range(3, 12):
+            d = math.sqrt((y + 0.5 - (cw + 0.5)) ** 2 + (z + 0.5 - (cz + 0.5)) ** 2)
+            if r - 0.75 <= d <= r + 0.35:
+                v.set(56, y, z, rim)
+            elif d < 0.8:
+                v.set(56, y, z, brass)
+    for y in (31, 32):                                 # spokes and the column
+        for z in range(5, 10):
+            if not v.get(56, y, z) or z == 7:
+                v.set(56, y, z, brass if z == 7 else brass_d)
+    v.box(57, 31, 6, 57, 32, 6, brass_d)
+    v.box(58, 31, 5, 58, 32, 5, brass_d)
     # sanity: keep a clear 6-voxel-wide walkway from the door to the console
     v.clear(1, 29, 1, 25, 34, H - 1)
     v.save(path)

@@ -28,6 +28,9 @@ generated multiverse; you choose one, visit, and help the people who live there.
   border...). Help, take a side or give up: people remember you, stories of
   your deeds travel, and when you come back time has passed, with festivals,
   statues, new troubles and invitations calling you back.
+- **At the wheel**: sit in the driver's seat at the front of the van and drive
+  it around the place you travelled to, watching from behind the van or
+  through the windscreen; it stays where you park it.
 - **The codex**: what you learn by visiting, talking, reading old stones and
   watching creatures, with what people believe beside what really happened,
   why things are as they are, and the chronicle of your own deeds.
@@ -112,6 +115,7 @@ HTTPS or `localhost`.
 | Run | Shift | X | | |
 | Put down a carried item | Q | Y | | |
 | Codex | C (left/right: tabs and buttons) | Back / Select (d-pad) | pause menu, then tap | pause menu |
+| Drive (at the wheel) | W/S speed and reverse, A/D steer, Shift faster, E view, Backspace get up | left stick, X faster, A view, B get up | stick, USE view, X get up | thumbstick, trigger view, grip get up |
 | Menus | arrows, E | d-pad, A | tap an item | thumbstick, trigger |
 
 Bindings live in `game/config/input.ini`.

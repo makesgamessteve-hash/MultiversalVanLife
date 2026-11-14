@@ -23,6 +23,7 @@ van.WINDOWS = {
   { pos = { 0.0625, 1.3125, -3.875 }, w = 1.125, h = 1.125, yaw = 0, ext = { -0.44, 1.75, -1.185 }, ext_yaw = 0 },
 }
 van.DOOR = { -3.9, 0 }           -- interior door (local x, z)
+van.SEAT = { 2.6, 0 }            -- the driver's seat, under the windscreen window (local x, z)
 van.ENTRY = { -3.2, 0, -math.pi / 2 } -- where the player stands after entering
 van.BOUNDS = 3.8
 
@@ -62,20 +63,25 @@ function van.build()
                                   unlit = true, nofog = true, persistent = true, color = tint })
   van.entities.ceiling = mvl.spawn({ mesh = mvl.box_mesh(8, 0.1, 8), texture = mvl.texture("textures/metal_panel.tga"),
                                      pos = { px, py + 3.0, pz }, unlit = true, nofog = true, persistent = true, color = tint })
-  -- the console blocks walking through it
+  -- the console and the driver's seat block walking through them
   van.entities.console = mvl.spawn({ pos = { px, py, pz }, radius = 0.95, solid = true, persistent = true, visible = false })
+  van.entities.seat = mvl.spawn({ pos = { px + van.SEAT[1], py, pz + van.SEAT[2] }, radius = 0.5, solid = true,
+                                  persistent = true, visible = false })
   van.entities.vortex = build_vortex()
   -- filled in place: the world module holds a reference to this table
   van.fixed[#van.fixed + 1] = { x = px, y = py, z = pz, range = 2.2, prompt = "Use the console",
                                 use = function() van.on_console() end }
   van.fixed[#van.fixed + 1] = { x = px + van.DOOR[1], y = py, z = pz + van.DOOR[2], range = 1.6,
                                 prompt = "Step outside", use = function() van.on_door() end }
+  van.fixed[#van.fixed + 1] = { x = px + van.SEAT[1], y = py, z = pz + van.SEAT[2], range = 1.6,
+                                prompt = "Sit in the driver's seat", use = function() van.on_seat() end }
   van.update_windows()
 end
 
 -- Callbacks set by the story module.
 function van.on_console() end
 function van.on_door() end
+function van.on_seat() end
 
 -- Moves the van exterior (called when a world places the van at ground
 -- height y).

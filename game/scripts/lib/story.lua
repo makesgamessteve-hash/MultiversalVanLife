@@ -63,15 +63,29 @@ end
 function story.place_van(w, x, z, yaw)
   local y = w:height(x, z)
   local model = w:prop({ voxel = "van", x = x, y = y, z = z, yaw = yaw, box = { 5.0, 2.3 } })
+  local lamp = w:prop({ model = "cube", x = x, y = y, z = z, scale = { 0.25, 0.15, 0.25 }, color = { 1, 0.7, 0.2, 1 },
+                        unlit = true })
+  local door = w:interactable({ x = x, z = z, range = 2.0, prompt = "Enter the van", use = function() story.enter_van() end })
+  story.van_parts = { model = model, lamp = lamp, door = door }
+  story.move_van(x, z, yaw, y)
+  return model
+end
+
+-- Moves the parked van (and its lamp, light, door and window portals) to
+-- (x, z) at ground height y, facing yaw, its nose and side tilted (driving).
+function story.move_van(x, z, yaw, y, nose, side)
+  local parts = story.van_parts
   local c, s = math.cos(yaw), math.sin(yaw)
-  local dx, dz = x + c * -2.9, z - s * -2.9
-  w:prop({ model = "cube", x = x + c * 1.6, y = y + 2.45, z = z - s * 1.6, scale = { 0.25, 0.15, 0.25 },
-           color = { 1, 0.7, 0.2, 1 }, unlit = true })
-  w:light(7, x + c * 1.6, y + 3.0, z - s * 1.6, 1.0, 0.6, 0.2, 7)
-  w:interactable({ x = dx, z = dz, range = 2.0, prompt = "Enter the van", use = function() story.enter_van() end })
+  if parts then
+    mvl.set_pos(parts.model, x, y, z)
+    mvl.set(parts.model, { yaw = yaw, roll = nose or 0, pitch = side or 0 })
+    mvl.set_pos(parts.lamp, x + c * 1.6, y + 2.45, z - s * 1.6)
+    mvl.set(parts.lamp, { yaw = yaw })
+    parts.door.x, parts.door.z = x + c * -2.9, z - s * -2.9
+  end
+  mvl.light(7, x + c * 1.6, y + 3.0, z - s * 1.6, 1.0, 0.6, 0.2, 7)
   story.van_door = { x = x + c * -3.6, z = z - s * -3.6, yaw = math.atan(c, -s) }
   van.set_exterior(x, z, yaw, y)
-  return model
 end
 
 -- Entering and leaving are instant: the interior is part of the scene.
@@ -94,6 +108,7 @@ end
 
 van.on_console = function() story.open_console() end
 van.on_door = function() story.exit_van() end
+van.on_seat = function() require("lib.drive").sit() end
 
 -- ------------------------------------------------------------- console
 local function gen() return require("gen") end
@@ -176,6 +191,8 @@ end
 -- while the van is in the vortex; the trip lasts at least 3.5 seconds and
 -- until the destination is ready.
 function story.travel(to)
+  local drive = require("lib.drive")
+  if drive.active then drive.stand() end
   story.menu = nil
   story.busy = true
   dialogue.skip_all()

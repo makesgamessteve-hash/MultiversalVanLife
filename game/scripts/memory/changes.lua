@@ -12,6 +12,7 @@
 --   outcome     = how the land's quest ended (helped, a side taken, given up)
 --   events      = the land's history since the player came (deeds, aftermath)
 --   clock, aftermath, chapter, past = time passing there (memory/aftermath.lua)
+--   van         = where the player parked the van after driving it (lib/drive.lua)
 -- Chunks apply the log whenever they are built. Writes are buffered and
 -- flushed when leaving a land, at the end of the night, on saving and every
 -- 30 seconds.
@@ -30,7 +31,7 @@ function changes.open(addr)
   log = setmetatable({ address = addr, objects = rec.objects or {}, placed = rec.placed or {}, quest = rec.quest,
                        next_id = rec.next_id or 1, characters = rec.characters or {}, community = rec.community,
                        outcome = rec.outcome, events = rec.events, clock = rec.clock, aftermath = rec.aftermath,
-                       chapter = rec.chapter, past = rec.past, dirty = false }, Log)
+                       chapter = rec.chapter, past = rec.past, van = rec.van, dirty = false }, Log)
   changes.logs[addr] = log
   return log
 end
@@ -95,7 +96,7 @@ function Log:flush()
                                                    next_id = self.next_id, characters = self.characters,
                                                    community = self.community, outcome = self.outcome,
                                                    events = self.events, clock = self.clock, aftermath = self.aftermath,
-                                                   chapter = self.chapter, past = self.past })
+                                                   chapter = self.chapter, past = self.past, van = self.van })
   self.dirty = false
   return true
 end

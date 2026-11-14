@@ -94,7 +94,8 @@ world.register({
         if dx * dx + dz * dz < 100 and codex.observe(node, cr.sp.id) then hud.notify("You watch the " .. cr.sp.name) end
       end
     end)
-    local v = d.spots.van
+    -- the van stands where it landed, or where the player parked it
+    local v = log.van or d.spots.van
     story.place_van(w, v.x, v.z, v.yaw)
     return story.van_door.x, story.van_door.z, story.van_door.yaw
   end,

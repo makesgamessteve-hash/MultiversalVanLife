@@ -12,6 +12,7 @@ local progress = require("lib.progress")
 local story = require("lib.story")
 local Menu = require("lib.menu")
 local codex = require("lib.codex")
+local drive = require("lib.drive")
 local gen = require("gen")
 
 require("worlds.home")
@@ -34,6 +35,7 @@ local function start_play(new_game)
   dialogue.skip_all()
   -- a new session: places and their changes are read back from the save
   require("memory.changes").reset()
+  drive.reset()
   gen.start(progress.seed())
   game.state = "play"
   player.enabled = true
@@ -170,10 +172,12 @@ function game.update(dt)
   end
   gen.update()
   local talking = dialogue.update(dt)
-  local blocked = talking or story.busy or story.menu ~= nil
+  local blocked = talking or story.busy or story.menu ~= nil or drive.active
   player.enabled = not blocked
   player.update(dt)
   if story.menu and not talking then story.menu:update() end
+  -- at the wheel: the van moves and the camera follows it
+  if drive.active and not talking and not story.menu then drive.update(dt) end
   world.update(dt, not blocked)
   story.update(dt)
   hud.set_prompt((not blocked and world.focus) and world.focus.prompt or nil)
@@ -200,6 +204,7 @@ end
 -- Hooks used by automated game tests and the debug console.
 game.debug = {
   world = world, player = player, dialogue = dialogue, story = story, progress = progress, hud = hud, codex = codex,
+  drive = drive,
   van = story.van, gen = gen,
   start = start_play,
   open_pause = open_pause,
