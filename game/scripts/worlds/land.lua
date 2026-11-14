@@ -48,6 +48,10 @@ world.register({
     for i = 2, #d.people do
       local p = d.people[i]
       local line = gen.quests.fill(CHATTER[(i - 2) % #CHATTER + 1], d.quest and d.quest.words or {})
+      -- where the Wanderer legend is told, people recognise the van
+      if d.wanderer and i == 2 then
+        line = "The Wanderer's wagon, cream and teal! The old stories said it would come back one day."
+      end
       w:npc_at(p, function()
         if p.lines then
           -- a person of history speaks of their deeds

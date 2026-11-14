@@ -124,7 +124,7 @@ function H.land_with(template)
   local base = D().story.signals()[1].address:match("^(.*)%.l%d+$")
   for i = 0, 255 do
     local addr = base .. ".l" .. i
-    if gen.quests.pick(G.registry, gen.address.seed(G.seed, addr)).id == template then return addr end
+    if gen.history.tensions.trouble(G, addr).id == template then return addr end
   end
 end
 

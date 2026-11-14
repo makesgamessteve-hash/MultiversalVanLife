@@ -6,7 +6,13 @@ local planet = require("gen.history.planet")
 local cosmos = require("gen.history.cosmos")
 local prime = require("gen.prime")
 
-local H = { engine = engine, events = events, planet = planet, cosmos = cosmos }
+local refine = require("gen.history.refine")
+local tensions = require("gen.history.tensions")
+local memory = require("gen.history.memory")
+local wanderer = require("gen.history.wanderer")
+
+local H = { engine = engine, events = events, planet = planet, cosmos = cosmos, refine = refine, tensions = tensions,
+            memory = memory, wanderer = wanderer }
 
 local function ago(year)
   local y = -year
@@ -53,12 +59,45 @@ function H.describe(h)
   return table.concat(out, "\n")
 end
 
+-- Echoes of greater histories and the troubles of the present.
+function H.describe_present(d)
+  local out = {}
+  for _, e in ipairs(d.echoes or {}) do out[#out + 1] = "- Echo: " .. e.name .. " (" .. ago(e.year) .. ")" end
+  -- each country's strongest tension; countries sharing one are listed together
+  local order, by_text = {}, {}
+  for _, c in ipairs(d.countries or {}) do
+    local t = c.tensions and c.tensions[1]
+    if t then
+      local key = t.kind .. ":" .. t.text
+      if not by_text[key] then by_text[key] = { t = t, names = {} }; order[#order + 1] = key end
+      table.insert(by_text[key].names, c.name or "?")
+    end
+  end
+  for i = 1, math.min(10, #order) do
+    local g = by_text[order[i]]
+    local t = g.t
+    out[#out + 1] = string.format("- %s: %s (%s, severity %.2f; because %s; touching %s)", table.concat(g.names, ", "),
+                                  t.text, t.kind, t.severity, table.concat(t.causes, "; "), table.concat(t.stakeholders, ", "))
+  end
+  for _, cul in ipairs(d.cultures or {}) do
+    local told = {}
+    for _, m in ipairs(cul.memory or {}) do
+      if m.rule ~= "as it was" and #told < 3 then told[#told + 1] = m.told .. " [" .. m.rule .. "]" end
+    end
+    if #told > 0 then out[#out + 1] = "- The " .. cul.name .. " remember " .. table.concat(told, "; ") end
+  end
+  if #out == 0 then return nil end
+  return "Today:\n" .. table.concat(out, "\n")
+end
+
 local function wrap(R, level)
   local prev = R:level(level).describe
   R:describe(level, function(node)
     local text = prev and prev(node) or tostring(node.summary.name)
     local hist = H.describe(node.data.history)
-    return hist and (text .. "\n\n" .. hist) or text
+    if hist then text = text .. "\n\n" .. hist end
+    local present = level == "planet" and H.describe_present(node.data)
+    return present and (text .. "\n\n" .. present) or text
   end)
 end
 
@@ -69,6 +108,19 @@ function H.register(R)
   R:pass("planet", "history", { after = { "cultures" }, run = function(ctx)
     if ctx.summary.prime then return end
     planet.run(ctx)
+  end })
+  -- great events reach down to the worlds and their lands
+  R:pass("galaxy", "refine", { after = { "history" }, run = function(ctx)
+    if not ctx.summary.prime then refine.galaxy(ctx) end
+  end })
+  R:pass("cluster", "refine", { after = { "history", "stars" }, run = function(ctx)
+    if not ctx.summary.prime then refine.cluster(ctx) end
+  end })
+  R:pass("system", "refine", { after = { "settlers" }, run = function(ctx)
+    if not ctx.summary.prime then refine.system(ctx) end
+  end })
+  R:pass("planet", "echoes", { after = { "history" }, run = function(ctx)
+    if not ctx.summary.prime then refine.planet(ctx) end
   end })
   for _, level in ipairs({ "universe", "galaxy", "cluster", "planet" }) do wrap(R, level) end
 

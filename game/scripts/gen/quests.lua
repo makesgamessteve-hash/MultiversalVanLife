@@ -63,6 +63,24 @@ function Q.pick(R, land_seed)
   return list[#list]
 end
 
+-- The trouble of a land with a tension calling for a kind of quest: a
+-- template of that kind (mods' templates included), picked from the seed;
+-- without a kind (lands nobody lives in), any template.
+function Q.choose(R, land_seed, kind)
+  if not kind then return Q.pick(R, land_seed) end
+  local list, total = {}, 0
+  for _, t in ipairs(Q.templates(R)) do
+    if t.kind == kind then list[#list + 1] = t; total = total + (t.w or 1) end
+  end
+  if #list == 0 then return Q.pick(R, land_seed) end
+  local x = mvl.rng(mvl.hash(land_seed, "trouble")):next() * total
+  for _, t in ipairs(list) do
+    x = x - (t.w or 1)
+    if x < 0 then return t end
+  end
+  return list[#list]
+end
+
 function Q.severity(land_seed) return dm.round(0.2 + 0.8 * mvl.rng(mvl.hash(land_seed, "severity")):next(), 3) end
 
 function Q.template(R, id)
@@ -93,11 +111,14 @@ end
 -- Generates the land's quest into d.quest and its features into d.features.
 function Q.generate(ctx, d, style)
   local R = ctx.G.registry
-  local t = Q.pick(R, ctx.node.seed)
+  -- the land's strongest tension decides its trouble (history, phase 20)
+  local tension = d.tensions and d.tensions[1]
+  local t = Q.choose(R, ctx.node.seed, tension and tension.quest)
   local rng = ctx:random("quest")
   local giver = d.people[1]
-  local q = { template = t.id, kind = t.kind, giver = giver.id, severity = Q.severity(ctx.node.seed), items = {},
-              targets = {} }
+  local q = { template = t.id, kind = t.kind, giver = giver.id,
+              severity = tension and tension.severity or Q.severity(ctx.node.seed), items = {}, targets = {},
+              tension = tension and tension.text }
   local words = {
     giver = giver.name, place = d.name, folk = style.folk, light = t.light or style.light, glow = t.glow or style.glow,
     part = t.part or style.part, keepsake = t.keepsake or style.keepsake, spot = t.spot or style.place,

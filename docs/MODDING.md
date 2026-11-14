@@ -67,9 +67,10 @@ Quest templates have a `kind` (`relight`, `gather`, `return` or `lost`), a
 weight `w`, the words they use (`part`, `keepsake`, `light`, `glow`, `spot`,
 `machine`, and `item`, the sprite of collectable items) and text with
 placeholders: `{giver}`, `{place}` (the settlement), `{folk}`, `{n}`,
-`{left}`, `{lost}` and the words above. A land's trouble is picked from its
-seed among all registered templates, so newly generated lands can get the
-mod's trouble. Other things a mod can extend:
+`{left}`, `{lost}` and the words above. A land's strongest tension (its
+history's troubles, see [WORLDGEN.md](WORLDGEN.md)) calls for a kind of
+quest, and its trouble is picked from its seed among all registered
+templates of that kind, so newly generated lands can get the mod's trouble. Other things a mod can extend:
 
 | Table | Contents |
 |---|---|

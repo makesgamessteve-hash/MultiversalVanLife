@@ -51,3 +51,11 @@ test.eq(D.world.current.def.id, "land", "the destination is loaded")
 test.eq(D.world.current.land_node.address, first.address, "the right land")
 test.eq(D.progress.location(), "land:" .. first.address, "the location is saved")
 H.finish_dialogue()
+-- the signal told of the land's strongest tension, which is its trouble
+local d = D.world.current.land_node.data
+test.eq(d.quest.template, first.trouble, "the trouble heard is the land's trouble")
+if d.tensions then
+  test.eq(first.tension, d.tensions[1].text, "the call tells of the land's strongest tension")
+  test.eq(first.severity, d.tensions[1].severity, "as severe as it is")
+  test.eq(d.quest.tension, d.tensions[1].text, "the quest is about it")
+end

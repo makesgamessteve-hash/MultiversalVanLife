@@ -428,6 +428,74 @@ their lives, and Prime free of history: no history pass runs in Prime and
 no event refers to it. Universe lore remembers the quiet worlds the powers
 overlooked.
 
+### History refined, remembered and brought to the present
+
+**Refinement** (`gen/history/refine.lua`): a galaxy's great wars and falls
+(importance 0.6 and more, at most 20) are promised (`event_ref`
+commitments) to the clusters they touched; each cluster passes the promise
+to one of its star systems, each system to its rocky world, and the world
+records the event's echo (a fact with the powers of that world alive at the
+time as local participants, or the forebears of its peoples when the event
+is older than their history). Following the causes of an echo leads back
+through the system and the cluster to the galaxy's event. Each echo leaves
+a trace in a land (`trace` commitments to land 116 of a country): a wreck
+or a battlefield of a war, a crater where a power fell. A planet's own
+history leaves traces too, the most important first and at most six: the
+ruins of fallen capitals (land 117, built in the architecture style of the
+culture that raised them: a weathered house without its roof, moss in its
+cracks), battlefields of its wars (land 117) and shrines to the Wanderer
+(land 115). Lands place up to three traces, 45 m from their square, and
+keep their names (`traces`); the chunk streamer builds ruins as ruined
+buildings (`ruin:<style>:<n>` model keys) and the rest as voxel models of
+their kind (`gen/visuals/traces.lua`).
+
+**Cultural memory** (`gen/history/memory.lua`): every culture keeps its own
+version of the events its nation lived through, beside the true record:
+its victories become glorious and the enemy treacherous whoever struck
+first (`glorify`), its defeats the enemy's treachery (`villainise`),
+plagues are blamed on its enemies or on heretics (`scapegoat`), founders
+become holy (`apotheosis`), fallen rivals are remembered as wicked, the
+Wanderer becomes a `legend`, and events older than the last two eras (three
+for traditional cultures) are forgotten, except foundings and legends. Each
+remembered event keeps the rule that shaped it and its true event fact.
+
+**Tensions** (`gen/history/tensions.lua`): history ends with the troubles of
+the present. Each country of a planet with history gets tensions from its
+final state, each with a severity, causes (in words, and the facts of the
+events behind them) and stakeholders:
+
+| Tension | When | Quest kind |
+|---|---|---|
+| drought | under 450 mm of rain a year; worse where another nation holds the river upstream | gather |
+| contested border | inside the spheres (lands and their neighbours) of two living nations | return |
+| feud | a war of its nation in the last 100 years | return |
+| succession crisis | the ruler is past three quarters of their lifespan | relight |
+| schism | a schism of its nation in the last 150 years | relight |
+| epidemic | a plague in the last 50 years | gather |
+| incursion | a large predator lives in its biome | lost |
+| failing magic | where the world has magic, in a seeded quarter of countries | relight |
+| lost relic | ruins lie in the country | return |
+
+A land feels each of its country's tensions more or less (severity scaled
+by its seed) and adds a local trouble of its own (a lost traveller, dark
+nights, a broken machine, scattered heirlooms); lands of worlds without
+history have only that. The land's quest is a template of the kind its
+strongest tension calls for (mods' templates included) with that severity,
+and the signals the van hears describe that tension and score it (history's
+tensions above local ones).
+
+**The Wanderer** (`gen/history/wanderer.lua`): long before the player,
+Juniper's van wandered the multiverse. In a seeded third of the universes,
+a planet's history may (35%) hold a sighting of a cream-and-teal wagon that
+came out of the sky; the culture of the nation that saw it keeps it as a
+legend, sometimes with a shrine. In its lands the quest giver recognises the
+van on the first meeting and a villager speaks of the legend.
+
+The bible's planet sections end with **Today**: the echoes of greater
+histories, each country's strongest tension with its causes and
+stakeholders, and what each culture remembers differently; land
+descriptions give the trouble with its causes, the traces and the legend.
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

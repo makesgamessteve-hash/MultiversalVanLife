@@ -232,9 +232,26 @@ function B.build(kind, style, seed)
   return g, p
 end
 
--- Mesh, collider footprint (metres) and grid hash of a building.
-function B.mesh(kind, style, seed)
+-- Weathers a building into a ruin: no roof, broken walls, moss.
+function B.weather(g, p, seed)
+  local r = mvl.rng(seed)
+  g:color(9, 70, 96, 52)
+  g:box(0, 0, p.top, 63, 63, 47, 0) -- the roof fell in
+  for _ = 1, 10 do
+    local x = p.x0 + r:next() * p.w
+    local y = p.y0 + r:next() * p.d
+    g:sphere(x, y, p.top * (0.3 + r:next() * 0.8), 3 + r:next() * 6, 0)
+  end
+  g:replace(2, 9) -- moss over the shadowed courses
+  g:replace(3, 9)
+  return g
+end
+
+-- Mesh, collider footprint (metres) and grid hash of a building; with
+-- `ruined`, of its ruin.
+function B.mesh(kind, style, seed, ruined)
   local g, p = B.build(kind, style, seed)
+  if ruined then B.weather(g, p, seed) end
   local hash = g:hash()
   local mesh = g:mesh(B.VOXEL)
   g:free()

@@ -78,6 +78,8 @@ function H.run(ctx)
   end
   local R = regions(d)
   local steps = rng:int(40, 100)
+  local wanderer = require("gen.history.wanderer")
+  local sighting_step = wanderer.plan(ctx, ctx:random("wanderer"), steps)
   local cultures = d.cultures
   local function faction_of(cul, founded_regions)
     local s = species_of(d, cul.species) or {}
@@ -105,6 +107,7 @@ function H.run(ctx)
     end,
     each = function(st, step)
       EV.drift(st)
+      if step == sighting_step then wanderer.sight(st) end
       -- colonists arrive late in the story, in their colony country
       if step == math.floor(steps * 0.6) then
         for _, cul in ipairs(cultures) do
@@ -265,8 +268,20 @@ function H.run(ctx)
       placed = placed + 1
     end
   end
+  -- each culture remembers history its own way
+  local memory = require("gen.history.memory")
+  for _, cul in ipairs(cultures) do
+    cul.memory = memory.remember(cul, st)
+    for _, m in ipairs(cul.memory) do
+      if m.rule == "legend" then cul.wanderer = { years_ago = -m.year, told = m.told } end
+    end
+  end
+  -- traces in the lands: ruins of fallen capitals, battlefields, shrines
+  require("gen.history.refine").planet_traces(ctx, st, cultures, d.countries)
   d.history = E.export(st, { level = "planet", regions = R })
   for _, era in ipairs(d.history.eras) do era.fact = ctx:fact("era", { name = era.name, from = era.from, to = era.to }) end
+  -- and the troubles of the present
+  require("gen.history.tensions").countries(d, ctx.seed)
 end
 
 return H

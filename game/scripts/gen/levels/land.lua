@@ -424,6 +424,10 @@ function land.register(R)
           d.people[#d.people + 1] = person
           ctx:honour(c, ctx:fact("resident", { name = who.name, role = who.role }, c))
         end
+        -- the legend of the Wanderer
+        if cul.wanderer then
+          d.wanderer = { years_ago = cul.wanderer.years_ago, told = cul.wanderer.told }
+        end
         -- monuments promised by the planet: the statue of an individual
         for _, c in ipairs(ctx:commitments("monument")) do
           local who = c.data.data.individual
@@ -437,6 +441,25 @@ function land.register(R)
           ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
         end
       end
+      -- traces history left here: ruins, battlefields, wrecks, craters, shrines
+      local sq = d.spots.square
+      for k, c in ipairs(ctx:commitments("trace")) do
+        local tr = c.data.data
+        if k <= 3 then
+          local a = k * 2.1 + 0.7
+          local f = { id = "trace" .. k, role = "trace", x = dm.round(sq.x + dm.cos(a) * 45, 2),
+                      z = dm.round(sq.z + dm.sin(a) * 45, 2), yaw = dm.round(a, 4),
+                      trace = { kind = tr.kind, name = tr.name, year = tr.year, event = tr.event, culture = tr.culture,
+                                style = tr.style, seed = k } }
+          if tr.kind == "ruin" then f.box = { 6, 6 } end
+          d.features[#d.features + 1] = f
+          d.traces = d.traces or {}
+          d.traces[#d.traces + 1] = { kind = tr.kind, name = tr.name, year = tr.year, culture = tr.culture }
+        end
+        ctx:honour(c, ctx:fact("trace", { name = tr.name, kind = tr.kind }, c))
+      end
+      -- the troubles of the present: the land's trouble is the strongest
+      d.tensions = require("gen.history.tensions").for_land(planet.data, ctx.parent.summary.id, ctx.node.seed)
       quests.generate(ctx, d, provisional.style(d.style))
       if biome then
         d.biome_trees = biome.trees
@@ -471,7 +494,17 @@ function land.register(R)
       local who = d.culture and string.format(" (\"%s\"), a settlement of the %s of %s, followers of %s,",
                                              d.name_meaning, d.culture.species, d.culture.name, d.culture.religion) or
                   string.format(", a %s settlement", d.style)
-      return string.format("%s%s %d people%s. Trouble: %s.", d.name, who, #d.people, where, d.quest.short)
+      local top = d.tensions and d.tensions[1]
+      local trouble = top and string.format("%s, because %s%s", top.text, table.concat(top.causes, " and "),
+                                            top.text == d.quest.short and "" or (" (" .. d.quest.short .. ")"))
+                      or d.quest.short
+      local text = string.format("%s%s %d people%s. Trouble: %s.", d.name, who, #d.people, where, trouble)
+      local seen = {}
+      for _, tr in ipairs(d.traces or {}) do seen[#seen + 1] = tr.name end
+      if #seen > 0 then text = text .. " Here lie " .. table.concat(seen, ", ") .. "." end
+      if d.wanderer then text = text .. " They tell of the Wanderer, seen " .. math.floor(d.wanderer.years_ago + 0.5) ..
+                                       " years ago." end
+      return text
     end
     return string.format("Rolling %s, crossed by %s.", d.style, #d.roads > 0 and d.roads[1].name or "no road")
   end)

@@ -32,7 +32,7 @@ Rules for every phase:
 | 17 | `p17-traditions-society-technology` | 5 | culture-generation | done |
 | 18 | `p18-architecture-and-people` | 5 | culture-generation, procedural-visuals | done |
 | 19 | `p19-history-engine` | 7 | history-generation, prime-universe | done |
-| 20 | `p20-history-refinement-and-tensions` | 6 | history-generation, land-streaming | planned |
+| 20 | `p20-history-refinement-and-tensions` | 6 | history-generation, land-streaming | done |
 | 21 | `p21-tension-quests-and-dialogue` | 6 | generated-quests, world-memory | planned |
 | 22 | `p22-consequences-and-revisits` | 5 | signals-and-codex, world-memory | planned |
 | 23 | `p23-codex` | 4 | signals-and-codex, world-memory | planned |

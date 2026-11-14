@@ -88,7 +88,7 @@ function system.register(R)
       a = a * (1.45 + rng:next() * 0.75) -- spacing keeps orbits apart
     end
     -- a promised homeworld or colony needs a rocky world
-    if #ctx:commitments() > 0 then
+    if #ctx:commitments("homeworld") + #ctx:commitments("colony") > 0 then
       require("gen.life.sapients").ensure_rocky(d, planets, ctx:random("settlers"), system.period)
       for i, p in ipairs(planets) do
         p.name = names.planet(star.name, i)

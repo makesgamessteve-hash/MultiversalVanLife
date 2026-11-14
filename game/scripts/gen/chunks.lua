@@ -420,6 +420,15 @@ function S:feature_model(f, rec)
     return self.models:acquire({ kind = "building", key = "building:" .. rec.style_key .. ":" .. f.building .. ":" ..
                                    (f.variant or 0), building = f.building, style = d.architecture, seed = f.variant or 0 })
   end
+  if f.trace then
+    local tr = f.trace
+    if tr.kind == "ruin" and tr.style then
+      return self.models:acquire({ kind = "building", key = "ruin:" .. chunks.style_key(tr.style) .. ":" .. (tr.seed or 1),
+                                   building = "house", style = tr.style, seed = tr.seed or 1, ruined = true })
+    end
+    return self.models:acquire({ kind = "trace", key = "trace:" .. tr.kind .. ":" .. (tr.seed or 1), trace = tr.kind,
+                                 seed = tr.seed or 1 })
+  end
   if f.statue then
     local q = f.statue
     return self.models:acquire({ kind = "statue", key = "statue:" .. rec.node.address .. ":" .. tostring(q.name),

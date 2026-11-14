@@ -114,13 +114,17 @@ local function candidate(G, o, rng)
   local addr, planet, country = dry_land(G, o, rng)
   if not addr then return nil end
   local land_seed = address.seed(G.seed, addr)
-  local t = quests.pick(G.registry, land_seed)
+  -- the land's trouble is its strongest tension (history), as the land will have it
+  local tensions = require("gen.history.tensions").for_land(planet.data, country.summary.id, land_seed)
+  local top = tensions and tensions[1]
+  local t = quests.choose(G.registry, land_seed, top and top.quest)
   local named = require("gen.culture").land_name(planet.data, country.summary.id, land_seed)
   return {
     address = addr, name = named and named.name or provisional.settlement_name(land_seed), planet = o.summary.name,
     meaning = named and named.meaning, peopled = named ~= nil,
     galaxy = o.galaxy.address, galaxy_name = o.galaxy.data.name, universe = o.universe,
-    trouble = t.id, short = t.short or t.id, severity = quests.severity(land_seed),
+    trouble = t.id, short = t.short or t.id, severity = top and top.severity or quests.severity(land_seed),
+    tension = top and top.text, tension_kind = top and top.kind, local_trouble = top and top.local_trouble,
   }
 end
 
@@ -140,7 +144,9 @@ function S.tonight(G, night, visited, recent)
     local o = origins[i] or origin(G, extra)
     local c = o and candidate(G, o, rng)
     if c then
+      -- strong tensions call loudest, the troubles of history above local ones
       c.score = c.severity + (visited[c.galaxy] and 0 or 0.6) + (recent[c.trouble] and 0 or 0.4) + (c.peopled and 1 or 0)
+                + ((c.tension_kind and not c.local_trouble) and 0.3 or 0)
       cands[#cands + 1] = c
       galaxies_seen[c.galaxy] = true
     end
@@ -164,7 +170,7 @@ end
 
 -- Juniper's description of a signal.
 function S.describe(s)
-  return string.format("A call from %s, on %s in the %s galaxy: %s.", s.name, s.planet, s.galaxy_name, s.short)
+  return string.format("A call from %s, on %s in the %s galaxy: %s.", s.name, s.planet, s.galaxy_name, s.tension or s.short)
 end
 
 return S

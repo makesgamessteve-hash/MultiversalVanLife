@@ -108,7 +108,14 @@ function LQ.start(w, node, R)
     else
       s.started = true
       remember()
-      say_as(giver.name, text("intro"))
+      local intro = text("intro")
+      -- where the Wanderer legend is told, the van is recognised at once
+      if d.wanderer then
+        local first = string.format("That wagon! Cream and teal, like the Wanderer in our stories, who came out of the sky " ..
+                              "%d years ago. You came back!", math.floor(d.wanderer.years_ago + 0.5))
+        intro = type(intro) == "table" and { first, table.unpack(intro) } or { first, intro }
+      end
+      say_as(giver.name, intro)
     end
   end)
 
