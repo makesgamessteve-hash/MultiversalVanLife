@@ -294,6 +294,11 @@ static int l_portal(lua_State *L) {
     return 1;
 }
 
+static int l_mesh_count(lua_State *L) {
+    lua_pushinteger(L, mvl_res_mesh_live(&mvl_script_engine(L)->res));
+    return 1;
+}
+
 static int l_render_stats(lua_State *L) {
     lua_pushinteger(L, mvl_script_engine(L)->render_draws);
     return 1;
@@ -388,6 +393,20 @@ static int vox_color(lua_State *L) {
 
 static int vox_count(lua_State *L) {
     lua_pushinteger(L, mvl_voxels_count(check_vox(L)));
+    return 1;
+}
+
+/* A hash of the grid's cells and the colours they use (same model, same hash). */
+static int vox_hash(lua_State *L) {
+    mvl_voxels *v = check_vox(L);
+    size_t n = (size_t)v->sx * (size_t)v->sy * (size_t)v->sz;
+    uint32_t h = mvl_hash3((uint32_t)v->sx, (uint32_t)v->sy, (uint32_t)v->sz);
+    uint8_t used[256] = {0};
+    h = mvl_hash_bytes(v->cells, n, h);
+    for (size_t i = 0; i < n; ++i) used[v->cells[i]] = 1;
+    for (int i = 1; i < 256; ++i)
+        if (used[i]) h = mvl_hash_combine(h, v->palette[i] ^ (uint32_t)i);
+    lua_pushinteger(L, (lua_Integer)h);
     return 1;
 }
 
@@ -520,13 +539,14 @@ void mvl_script_open_procedural(lua_State *L) {
                                      {"texture_recolor", l_texture_recolor},
                                      {"portal", l_portal},
                                      {"render_stats", l_render_stats},
+                                     {"mesh_count", l_mesh_count},
                                      {NULL, NULL}};
     static const luaL_Reg rng_methods[] = {{"next", rng_next}, {"u32", rng_u32}, {"int", rng_int}, {"float", rng_float},
                                            {"chance", rng_chance}, {"pick", rng_pick}, {NULL, NULL}};
     static const luaL_Reg vox_methods[] = {{"set", vox_set},       {"get", vox_get},           {"box", vox_box},
                                            {"ellipsoid", vox_ellipsoid}, {"sphere", vox_sphere}, {"cylinder", vox_cylinder},
                                            {"line", vox_line},     {"mirror_x", vox_mirror_x}, {"replace", vox_replace},
-                                           {"color", vox_color},   {"count", vox_count},       {"size", vox_size},
+                                           {"color", vox_color},   {"count", vox_count}, {"hash", vox_hash},       {"size", vox_size},
                                            {"mesh", vox_mesh},     {"free", vox_free},         {NULL, NULL}};
     luaL_setfuncs(L, funcs, 0);
     luaL_newmetatable(L, RNG_MT);

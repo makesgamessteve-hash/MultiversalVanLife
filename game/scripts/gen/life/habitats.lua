@@ -37,9 +37,35 @@ function H.look(sp)
   return { sprite = sprite, mode = "all", w = h, h = h, flies = sp.move == "fly" }
 end
 
--- The habitats of a land at `cell` of a living planet `P` whose biome is
--- `biome` (nil when the planet has no species).
-function H.for_land(P, cell, biome)
+-- The parameters of a species' voxel model (gen/visuals/models.lua);
+-- `pseed` is the planet's seed.
+function H.model(L, sp, pseed)
+  local seed = mvl.hash(pseed, sp.id)
+  local l
+  for _, x in ipairs(L.lineages) do if x.id == sp.lineage then l = x end end
+  if sp.kind == "plant" then
+    return { kind = "plant", key = "plant:" .. seed, seed = seed, lseed = mvl.hash(pseed, sp.lineage), form = sp.form,
+             leaf = sp.leaf, height = sp.height, colors = sp.colors, chemistry = L.chemistry }
+  end
+  return { kind = "animal", key = "animal:" .. seed, seed = seed, limbs = sp.limbs, covering = sp.covering,
+           segments = l and l.segments or 4, eyes = l and l.eyes or 2, tail = l and l.tail or false, move = sp.move,
+           size = sp.size, height = sp.height, stockiness = sp.stockiness, colors = sp.colors }
+end
+
+-- How an animal behaves (lib/creatures.lua): its role and way of moving.
+function H.behaviour(sp)
+  if sp.kind ~= "animal" then return nil end
+  local kind
+  if sp.move == "fly" then kind = "flyer"
+  elseif sp.move == "burrow" or sp.limbs == 0 then kind = "burrower"
+  elseif sp.role == "predator" then kind = "prowler"
+  else kind = "grazer" end
+  return { kind = kind, role = sp.role, speed = dm.round(dm.clamp(0.8 + sp.size * 1.2, 0.6, 6), 3) }
+end
+
+-- The habitats of a land at `cell` of a living planet `P` (seed `pseed`)
+-- whose biome is `biome` (nil when the planet has no species).
+function H.for_land(P, cell, biome, pseed)
   local L = P.life
   if not L or not L.species then return nil end
   local geo = require("gen.levels.geography")
@@ -62,7 +88,7 @@ function H.for_land(P, cell, biome)
       local look = H.look(sp)
       local entry = { id = sp.id, name = sp.name, role = sp.role, abundance = sp.abundance, colors = sp.colors,
                       sprite = look.sprite, mode = look.mode, w = look.w, h = look.h, solid = look.solid,
-                      flies = look.flies }
+                      flies = look.flies, model = H.model(L, sp, pseed or 0), behaviour = H.behaviour(sp) }
       table.insert(sp.kind == "plant" and h.plants or h.animals, entry)
     end
   end

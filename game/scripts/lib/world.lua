@@ -229,6 +229,7 @@ function world.update(dt, allow_interact)
     -- stream around the player, or around the parked van while inside it
     local a = world.inside() and world.anchor() or nil
     w.streamer:update(a and a.x or player.x, a and a.z or player.z)
+    w.streamer.creatures:update(dt, a and a.x or player.x, a and a.z or player.z)
   end
   world.flush_timer = (world.flush_timer or 0) + dt
   if world.flush_timer >= changes.FLUSH_EVERY then

@@ -11,6 +11,7 @@ local landgen = require("gen.levels.land")
 local changes = require("memory.changes")
 local PAL = require("gen.visuals.palette")
 local habitats = require("gen.life.habitats")
+local models = require("gen.visuals.models")
 
 local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
 local S = {}
@@ -29,6 +30,8 @@ function chunks.new(anchor, provider)
     stats = { built = 0, unloaded = 0, max_loaded = 0, lands = 0 },
     agx = anchor.data.grid[1], agz = anchor.data.grid[2],
   }, S)
+  self.models = models.new()                              -- voxel plants and animals, shared and counted
+  self.creatures = require("lib.creatures").new(self, self.models)
   self:activate(anchor, anchor.data.grid[1], anchor.data.grid[2])
   return self
 end
@@ -274,6 +277,20 @@ function S:build(cx, cz, rec)
     if not cleared(d, lx, lz) or (rec.memory and rec.memory:taken(id)) then return end
     if mvl.height(lx + rec.ox, lz + rec.oz) < 0.3 then return end -- nothing grows under water
     local wx, wz = lx + rec.ox, lz + rec.oz
+    local model = sp and sp.model and self.models:acquire(sp.model)
+    if model and model.mesh > 0 then
+      -- a voxel plant of its species (shared by all its instances)
+      c.models = c.models or {}
+      c.models[#c.models + 1] = model.key
+      local e = mvl.spawn({ mesh = model.mesh, pos = { wx, mvl.height(wx, wz) - 0.05, wz }, yaw = rng:next() * 6.283,
+                            scale = { sc, sc, sc }, solid = radius ~= nil, radius = radius })
+      c.entities[#c.entities + 1] = e
+      c.sway = c.sway or {}
+      c.sway[#c.sway + 1] = { e = e, phase = rng:next() * 6.283, amp = sp.solid and 0.025 or 0.07 }
+      return
+    elseif model then
+      self.models:release(model.key)
+    end
     c.entities[#c.entities + 1] = mvl.spawn({
       kind = "sprite", texture = sp and mvl.texture_recolor("textures/" .. texture .. ".tga", sp.colors, sp.mode) or
                                 PAL.texture(d.materials, texture),
@@ -290,18 +307,17 @@ function S:build(cx, cz, rec)
       plant(sp.sprite, sp.w, sp.h, sp.solid and 0.3 or nil, sp)
       if #c.entities > n0 then c.species[sp.id] = true end
     end
-    for _, sp in ipairs(animals) do
-      local lx, lz = (lcx + rng:next()) * size, (lcz + rng:next()) * size
+    -- animals: a herd keeps together around its leader
+    local leader
+    local hx, hz = (lcx + 0.2 + rng:next() * 0.6) * size, (lcz + 0.2 + rng:next() * 0.6) * size
+    for i, sp in ipairs(animals) do
+      local lx, lz = hx + (i == 1 and 0 or (rng:next() - 0.5) * 6), hz + (i == 1 and 0 or (rng:next() - 0.5) * 6)
       local wx, wz = lx + rec.ox, lz + rec.oz
-      local sc = 0.85 + rng:next() * 0.3
       if cleared(d, lx, lz) and mvl.height(wx, wz) > 0.3 then
         c.species[sp.id] = true
         c.animals = c.animals + 1
-        c.entities[#c.entities + 1] = mvl.spawn({
-          kind = "sprite", texture = mvl.texture_recolor("textures/" .. sp.sprite .. ".tga", sp.colors, sp.mode),
-          pos = { wx, mvl.height(wx, wz) + (sp.flies and 1.5 + rng:next() * 3 or 0), wz },
-          scale = { sp.w * sc, sp.h * sc, 1 },
-        })
+        local cr = self.creatures:spawn(sp, wx, wz, c, leader, rng)
+        leader = leader or cr
       end
     end
   else
@@ -342,7 +358,9 @@ end
 
 function S:unload(k)
   local c = self.loaded[k]
+  self.creatures:drop_chunk(c)
   for _, e in ipairs(c.entities) do mvl.destroy(e) end
+  for _, key in ipairs(c.models or {}) do self.models:release(key) end
   for _, id in ipairs(c.ids or {}) do self.spawned[id] = nil end
   for _, m in ipairs(c.meshes) do mvl.release_mesh(m) end
   self.loaded[k] = nil
@@ -354,6 +372,8 @@ end
 -- ones (at most `budget`, default PER_TICK). Returns the number built.
 function S:update(px, pz, budget)
   local size = chunks.SIZE
+  self.models:tick()
+  if budget == math.huge then self.models.built = -math.huge end -- on arrival everything is built at once
   local pcx, pcz = math.floor(px / size), math.floor(pz / size)
   for k, c in pairs(self.loaded) do
     if math.max(math.abs(c.cx - pcx), math.abs(c.cz - pcz)) > chunks.UNLOAD then self:unload(k) end
@@ -385,6 +405,8 @@ function S:fill(px, pz) return self:update(px, pz, math.huge) end
 -- Destroys every chunk.
 function S:clear()
   for k in pairs(self.loaded) do self:unload(k) end
+  self.creatures:clear()
+  self.models:clear()
   if self.sea_mesh then
     mvl.release_mesh(self.sea_mesh)
     self.sea_mesh = nil

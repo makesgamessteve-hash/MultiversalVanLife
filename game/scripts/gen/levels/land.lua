@@ -192,7 +192,7 @@ local function place_on_planet(ctx, d, country)
   d.climate = { temperature = dm.round(cells.temp[cell] - 273.15, 1), coldest = dm.round(cells.tmin[cell] - 273.15, 1),
                 warmest = dm.round(cells.tmax[cell] - 273.15, 1), precipitation = cells.precip[cell] }
   d.materials = require("gen.visuals.palette").materials(planet.data, cell, biome, d.climate)
-  d.habitats = require("gen.life.habitats").for_land(planet.data, cell, biome)
+  d.habitats = require("gen.life.habitats").for_land(planet.data, cell, biome, planet.seed)
   d.continent = ctx:ancestor("continent").data.name
   d.country = ctx.parent.summary.name
   d.coast = false

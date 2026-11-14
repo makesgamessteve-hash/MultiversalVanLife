@@ -94,8 +94,35 @@ static void set_capture(app_state *a, int on) {
     SDL_SetWindowRelativeMouseMode(a->window, on);
 }
 
+/* Real input devices and window focus: scripted tests drive input only
+ * through the test API, so stray events cannot change their outcome (when
+ * another test's window opens on the same display, this one loses focus,
+ * which would otherwise reset the input and cancel touches mid-test). */
+static int device_event(Uint32 type) {
+    switch (type) {
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_UP:
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_MOTION:
+    case SDL_EVENT_MOUSE_WHEEL:
+    case SDL_EVENT_FINGER_DOWN:
+    case SDL_EVENT_FINGER_MOTION:
+    case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_CANCELED:
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static void handle_event(app_state *a, const SDL_Event *ev) {
     mvl_engine *e = &a->engine;
+    if (e->test_mode && device_event(ev->type)) return;
     switch (ev->type) {
     case SDL_EVENT_QUIT:
         a->running = 0;

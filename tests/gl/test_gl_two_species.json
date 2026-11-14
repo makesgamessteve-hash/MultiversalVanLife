@@ -1,0 +1,4 @@
+[{"file": "two.tga", "region": [0.16, 0.38, 0.24, 0.48], "max": {"blue": 0.6}},
+ {"file": "two.tga", "region": [0.63, 0.37, 0.89, 0.56], "max": {"blue": 0.75}},
+ {"file": "two.tga", "region": [0.0, 0.0, 1.0, 0.25], "min": {"blue": 0.99}},
+ {"file": "two.tga", "region": [0.3, 0.3, 0.55, 0.7], "min": {"blue": 0.99}}]

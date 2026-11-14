@@ -1,0 +1,6 @@
+[{"file": "gallery.tga", "region": [0.08, 0.44, 0.23, 0.62], "max": {"blue": 0.85}},
+ {"file": "gallery.tga", "region": [0.32, 0.46, 0.46, 0.62], "max": {"blue": 0.85}},
+ {"file": "gallery.tga", "region": [0.56, 0.42, 0.67, 0.62], "max": {"blue": 0.85}},
+ {"file": "gallery.tga", "region": [0.23, 0.38, 0.31, 0.5], "max": {"blue": 0.95}},
+ {"file": "gallery.tga", "region": [0.70, 0.40, 0.76, 0.48], "max": {"blue": 0.85}},
+ {"file": "gallery.tga", "region": [0.0, 0.0, 1.0, 0.3], "min": {"blue": 0.99}}]

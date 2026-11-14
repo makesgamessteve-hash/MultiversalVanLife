@@ -268,6 +268,15 @@ static int l_get_yaw(lua_State *L) {
     return 1;
 }
 
+static int l_get_rotation(lua_State *L) {
+    mvl_entity *en = check_entity(L, 1);
+    if (!en) return 0;
+    lua_pushnumber(L, en->yaw);
+    lua_pushnumber(L, en->pitch);
+    lua_pushnumber(L, en->roll);
+    return 3;
+}
+
 static int l_set_visible(lua_State *L) {
     mvl_entity *en = check_entity(L, 1);
     if (en) set_flag(&en->flags, MVL_ENT_VISIBLE, lua_toboolean(L, 2));
@@ -841,7 +850,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"texture", l_texture}, {"mesh", l_mesh}, {"plane_mesh", l_plane_mesh}, {"box_mesh", l_box_mesh}, {"ribbon_mesh", l_ribbon_mesh},
     {"mesh_bounds", l_mesh_bounds}, {"sound", l_sound},
     {"spawn", l_spawn}, {"set", l_set}, {"set_pos", l_set_pos}, {"get_pos", l_get_pos},
-    {"set_yaw", l_set_yaw}, {"get_yaw", l_get_yaw}, {"set_visible", l_set_visible}, {"set_color", l_set_color},
+    {"set_yaw", l_set_yaw}, {"get_yaw", l_get_yaw}, {"get_rotation", l_get_rotation}, {"set_visible", l_set_visible}, {"set_color", l_set_color},
     {"destroy", l_destroy}, {"exists", l_exists}, {"clear_scene", l_clear_scene}, {"entity_count", l_entity_count},
     {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"sky", l_sky}, {"bounds", l_bounds},
     {"move", l_move}, {"overlaps", l_overlaps},

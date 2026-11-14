@@ -43,3 +43,10 @@ Species that travel between worlds SHALL appear on other planets only where hist
 #### Scenario: Colonists
 - **WHEN** a commitment places a colony of a species on a planet
 - **THEN** that species lives there with its homeworld anatomy alongside native life
+
+### Requirement: Creature behaviour
+Animals in a land SHALL move with simple behaviours suiting their role (grazing, herding, fleeing, prowling, flying, burrowing) and react to the player.
+
+#### Scenario: Prey flees
+- **WHEN** the player runs toward a grazing animal
+- **THEN** it flees, and herd members follow

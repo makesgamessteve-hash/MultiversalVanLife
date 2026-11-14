@@ -70,6 +70,8 @@ const mvl_sound *mvl_res_get_sound(const mvl_resources *r, int id);
 /* Destroys a runtime resource; its id becomes invalid and the slot reusable.
  * The built-in white texture (id 0) cannot be released. Returns 1 on success. */
 int mvl_res_release_mesh(mvl_resources *r, int id);
+/* Number of meshes currently loaded. */
+int mvl_res_mesh_live(const mvl_resources *r);
 /* Id of a live texture created under `name`, or 0. */
 int mvl_res_find_texture(const mvl_resources *r, const char *name);
 int mvl_res_release_texture(mvl_resources *r, int id);

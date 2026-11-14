@@ -124,8 +124,8 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `ribbon_mesh({x, y, z, ...}, width [, v_scale])`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Planets | `planet_grid(level)`, `planet_cell(level, i)`, `planet_neighbours(level, i)`, `planet_nearest(level, x, y, z)`, `planet_sample(level, values, x, y, z)`, `planet_plates(level, seed, n)`, `planet_tectonics{level, seed, plates, continental}`, `planet_climate{level, elevation, axis, tilt_sin, locked, sub, mean, span, lapse, water, iterations}` → `{temp, tmin, tmax, precip, wind}`, `planet_rivers{level, elevation, precip}` → `{filled, flow_to, flow, lake}`, `planet_territory(level, seeds, cost)` → owner per cell, `planet_components(level, mask)` → ids, count (cells and plates are numbered from 1; 0 means none) |
-| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
-| Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
+| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)` (grids also have `g:hash()`), `mesh_count()`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
+| Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `get_rotation(e)` (yaw, pitch, roll), `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
 | World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
 | Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])` |
 | Audio | `play(sound, vol, pan, loop, group)`, `stop`, `stop_group`, `fade(voice, vol, secs, stop)`, `playing`, `group_volume(g [, v])` |
@@ -325,6 +325,70 @@ assert(math.abs(hx - -1.2) < 1e-4 and math.abs(hz - -3) < 1e-4)
 mvl.destroy(body)                               -- also destroys the head
 assert(not mvl.exists(head))
 ```
+
+## Plants and creatures
+
+Generated species become voxel models at runtime (`gen/visuals/plants.lua`,
+`gen/visuals/creatures.lua`), cached by `gen/visuals/models.lua` and brought
+to life by `lib/creatures.lua`.
+
+**Plant grammar.** Each plant lineage has a grammar drawn from its seed
+(`plants.grammar(lseed)`): `angle` between a branch and its parent,
+`splits` per fork, `depth` of forking, `trunk` (share of the height that is
+bare), `lean`, `crown` (size of leaf clusters) and `shrink` (branch length
+ratio). A species evaluates it for its form and leaf into a grid of at most
+24 x 24 x 32 voxels: broad crowns are leaf blobs at the branch tips, needle
+trees stacked tiers, frond trees a curved trunk with drooping fronds,
+shards crystal spikes, shrubs short stems with blobs, herbs grass blades with
+flowers, fungi stems and caps. Palette indices 1-2 are bark, 3-5 leaves (dark
+to light) and 6 a highlight.
+
+**Creature body plans.** `creatures.plan(p)` turns traits (`limbs`,
+`covering`, `segments`, `eyes`, `tail`, `move`, `size`, `height`,
+`stockiness`, `colors`, `seed`) into voxel proportions: a torso of 12 voxels
+along +y (the model faces -z in the world), its width and height from the
+build, legs in pairs at hips along the torso, wings for flyers and gliders,
+a tail, or a chain of segments for legless crawlers. Each movable part is a
+separate mesh (`body`, `leg`, `wing`, `tail`, `seg`) attached to the body by
+parenting, and `merged` holds the resting pose for creatures far away.
+Palette indices: 1 dark, 2 base, 3 light, 4 eyes, 5 bright accents.
+
+**Adding a body part.** Register a function in `creatures.PARTS`; it is
+called (in name order) for every body and merged model with the voxel grid,
+the plan and the torso's bottom `z0` and middle `cy`, and may draw anything:
+
+<!-- example -->
+```lua
+local creatures = require("gen.visuals.creatures")
+creatures.PARTS.horn = function(g, plan, z0, cy)
+  -- a horn on the head, in the bright accent colour
+  g:line(8, cy + plan.ry + 2, z0 + plan.rz * 2, 8, cy + plan.ry + 4, z0 + plan.rz * 2 + 4, 0.6, 5)
+end
+local beast = creatures.build({ limbs = 4, covering = "fur", segments = 2, eyes = 2, tail = true, move = "walk",
+                                size = 1.2, height = 1, stockiness = 1.1, seed = 7,
+                                colors = { { 60, 40, 30 }, { 120, 90, 60 }, { 200, 170, 120 } } })
+local cow = mvl.spawn{ mesh = beast.merged, pos = { 0, 0, -4 } }
+assert(beast.body > 0 and beast.leg > 0 and beast.tail > 0 and mvl.exists(cow))
+mvl.destroy(cow)
+creatures.release(beast)
+creatures.PARTS.horn = nil
+```
+
+**Models and budgets.** `models.new{budget, max}` makes a cache: `acquire(p)`
+returns the shared model for parameters `p` (with a `key`), building at most
+`budget` new models per tick and keeping at most `max` meshes; it returns
+nil when over budget (callers then draw the species' sprite). `release(key)`
+frees the meshes when the last user is gone. Every land's streamer has one
+(`streamer.models`); a herd's members share one model.
+
+**Behaviour.** `streamer.creatures` keeps every animal of the loaded chunks:
+grazers graze, wander near home or their herd's leader and flee when the
+player comes within 9 m or runs at them from within 18 m (their whole herd
+with them); prowlers prowl and back away; flyers circle above their home
+and dart off; burrowers crawl and burrow when disturbed. Within 40 m a
+creature has its parts and is animated (legs in alternating pairs, flapping
+wings, swaying tails, slithering segments); further away it is its merged
+model. Plants near the player sway.
 
 ## World memory
 

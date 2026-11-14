@@ -104,6 +104,13 @@ int mvl_res_release_mesh(mvl_resources *r, int id) {
     return 1;
 }
 
+int mvl_res_mesh_live(const mvl_resources *r) {
+    int n = 0;
+    for (int i = 1; i < r->mesh_count; ++i)
+        if (r->meshes[i].handle) ++n;
+    return n;
+}
+
 int mvl_res_texture(mvl_resources *r, const char *path) {
     size_t size;
     char *data;

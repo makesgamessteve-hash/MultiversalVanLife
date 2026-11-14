@@ -262,9 +262,14 @@ cell's biome and the commonest other land biome around the cell (weights
 0.65 and 0.35), each with a copy of its species and how to draw them. A slow
 noise field lays patches of the habitats across the land; each chunk shows
 plants (up to 16, more in rich biomes) and animals (at most 3; grazers in
-small herds, flyers above the ground) of its patch. Until phase 15 they are
+small herds, flyers above the ground) of its patch. They are
+voxel models built from the species' traits (plant branch grammars,
+creature body plans; see docs/MODDING.md), shared by all instances of a
+species through a reference-counted cache with a build budget per tick;
 sprites (trees, bushes, flowers, fungi, crystal shards and four creature
-body plans) repainted in each species' colours.
+body plans) repainted in each species' colours remain the fallback.
+Animals move with behaviours suited to their role and react to the player
+(`lib/creatures.lua`); grazers flee as a herd.
 
 ## Skies and palettes
 
