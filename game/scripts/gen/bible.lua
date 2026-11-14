@@ -24,7 +24,15 @@ local function render(v, indent, out, depth)
   end
   for _, k in ipairs(util.sorted_keys(v)) do
     local x = v[k]
-    if type(x) == "table" and #x > 4 and type(x[1]) == "table" then
+    local keys = 0
+    if type(x) == "table" and #x == 0 then for _ in pairs(x) do keys = keys + 1 end end
+    if depth == 0 and k == "history" and type(x) == "table" then
+      -- told in the description above
+      out[#out + 1] = indent .. "- **history**: " .. #(x.events or {}) .. " events in " .. #(x.eras or {}) .. " eras, " ..
+                      #(x.individuals or {}) .. " people (see above)"
+    elseif keys > 32 then
+      out[#out + 1] = indent .. "- **" .. scalar(k) .. "**: " .. keys .. " entries"
+    elseif type(x) == "table" and #x > 4 and type(x[1]) == "table" then
       out[#out + 1] = indent .. "- **" .. scalar(k) .. "**: " .. #x .. " entries"
     elseif type(x) == "table" and #x > 8 and type(x[1]) == "string" then
       out[#out + 1] = indent .. "- **" .. scalar(k) .. "**: " .. #x .. " items (" .. x[1] .. ", " .. x[2] .. ", " ..
@@ -111,7 +119,8 @@ function bible.export(G, addr)
       for _, id in ipairs(node.fact_order) do
         local f = node.facts[id]
         out[#out + 1] = fact_line(f)
-        if next(f.data) and f.kind ~= "commitment" then render(f.data, "  ", out, 1) end
+        -- places with long histories list their facts one line each
+        if next(f.data) and f.kind ~= "commitment" and #node.fact_order <= 40 then render(f.data, "  ", out, 1) end
         if f.members then out[#out + 1] = "  - shared by: " .. table.concat(f.members, ", ") end
       end
       out[#out + 1] = ""

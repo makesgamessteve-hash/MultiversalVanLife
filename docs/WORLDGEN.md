@@ -383,6 +383,51 @@ promised a statue in a land of the culture's first country
 (`planet.kK.nN.l119`); the land honours the commitment with a statue on a
 plinth near its square, in its own stone.
 
+## History
+
+`gen/history/engine.lua` simulates history on every level with one engine:
+regions (the level's children, with neighbours), factions (traits:
+ambition, aggression, diplomacy, commerce, piety, curiosity; territories,
+relations, prosperity, stability, a ruler), a time step and an event table
+(`gen/history/events.lua`): expansion, alliance, war, trade, schism,
+discovery, plague, migration, revolution (the far half of a realm breaks
+away as a new faction), golden age and collapse. Each step every living
+faction may act; an action is chosen by weights from its traits, lands and
+relations and resolves into an event with its year, participants, places,
+leading individual, importance and causes (no event happens before its
+causes). Individuals (founders, rulers, heroes, prophets, inventors, mages)
+are born and die by their species' lifespans; past the cap of 60 stored
+individuals, rulers are remembered by name only. The timeline is cut into
+3 to 5 eras where it changed most; each era keeps a snapshot of the
+territories and rulers at its end, so fallen kingdoms can be shown later.
+Years count up to the present (year 0).
+
+| Level | Step | Regions | Factions |
+|---|---|---|---|
+| universe | 10^8 years | notable galaxies | elder powers, or the gods themselves where gods are real |
+| galaxy | 10^3 years | star clusters (three nearest) | elder empires that fall in the deep past; star nations with faster-than-light travel |
+| cluster | 10^2 years | star systems (lanes) | the spacefaring people, settling its promised colonies, and breakaway colony leagues |
+| planet | 25 years | countries (across their borders) | a nation per culture, founded in its home country |
+
+**Planet histories** (`gen/history/planet.lua`) drive the cultures:
+settling spreads a culture into free countries; a revolution makes the
+breakaway half a daughter culture speaking a daughter language; a schism
+founds a new faith with its prophet; notable events (importance 0.5 and
+more) become commemorations in the calendars of the cultures that lived
+them; technology is recomputed per era from the eras a culture lived
+through, its discoveries and its trade partners' resources (era snapshots
+keep each culture's level). At the present, countries belong to the
+nations holding them (their culture, nation and name follow; unheld
+countries are wild), and up to three individuals still alive are promised
+(`resident` commitments) to a land of their nation's capital country,
+where they live by the square and tell of their deeds.
+
+Events, individuals, eras and new faiths are facts with causes; checks keep
+events in order, people within their lifespans and their deeds within
+their lives, and Prime free of history: no history pass runs in Prime and
+no event refers to it. Universe lore remembers the quiet worlds the powers
+overlooked.
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

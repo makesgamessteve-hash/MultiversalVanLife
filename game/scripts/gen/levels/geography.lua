@@ -273,7 +273,11 @@ local function continent_pass(ctx)
       -- named in the language of its culture, where it has one
       local cul = c.culture and planet.cultures[c.culture]
       local s = { name = names.make(ctx:random("country" .. id), "world"), id = id, capital = c.capital }
-      if cul then
+      if c.name then
+        -- named by the planet's history
+        s.name, s.meaning, s.nation = c.name, c.meaning, c.nation
+        s.culture = cul and cul.name
+      elseif cul then
         local n = require("gen.culture.language").name(cul.language, ctx:random("country" .. id), "country")
         s.name, s.meaning, s.culture = n.name, n.meaning, cul.name
       end

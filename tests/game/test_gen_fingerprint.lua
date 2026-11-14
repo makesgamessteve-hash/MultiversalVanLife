@@ -26,14 +26,14 @@ end
 -- fields, cluster placement, stellar masses and orbits
 local COSMOS = {
   [""] = "b8bfa3a08d62209d",
-  ["u1"] = "7147fa3c43960518",
-  ["u1.g2"] = "d3131223bc62a780",
+  ["u1"] = "3a2964e9d47f0312",
+  ["u1.g2"] = "9edb8f5e11fe8139",
   ["u1.g2.c3"] = "adb113330f368849",
   ["u1.g2.c3.s1"] = "948bc3ac9f9d7c7e",
   ["u0.g0.c0.s0"] = "eebc898325d8a267",
   ["u7.g40.c2.s0"] = "8a344d56d65fb15a",
   -- a rocky planet: physics and the C kernels (grid, tectonics, climate, rivers, territories)
-  ["u1.g2.c3.s1.p0"] = "cd871d3ae097d3c7",
+  ["u1.g2.c3.s1.p0"] = "a05d236def1c8461",
 }
 local C = gen.run.new(gen.cosmos, { seed = 20261113, mods = {} })
 addrs = {}

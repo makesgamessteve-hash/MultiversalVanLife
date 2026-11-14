@@ -49,7 +49,16 @@ world.register({
       local p = d.people[i]
       local line = gen.quests.fill(CHATTER[(i - 2) % #CHATTER + 1], d.quest and d.quest.words or {})
       w:npc_at(p, function()
-        dialogue.say({ speaker = "villager", name = p.name, text = line, color = { 0.85, 0.85, 1 } })
+        if p.lines then
+          -- a person of history speaks of their deeds
+          local said = {}
+          for k, text in ipairs(p.lines) do
+            said[k] = { speaker = "villager", name = p.name, text = text, color = { 1, 0.9, 0.6 } }
+          end
+          dialogue.say(said)
+        else
+          dialogue.say({ speaker = "villager", name = p.name, text = line, color = { 0.85, 0.85, 1 } })
+        end
       end)
     end
     LQ.start(w, node, gen.cosmos)

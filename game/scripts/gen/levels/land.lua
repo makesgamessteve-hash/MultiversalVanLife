@@ -376,6 +376,7 @@ function land.register(R)
         local n = culture.land_name(planet.data, ctx.parent.summary.id, ctx.node.seed)
         d.name, d.name_meaning = n.name, n.meaning
         d.culture = { id = cul.id, name = cul.name, species = cul.species, religion = planet.data.religions[cul.religion].name }
+        d.nation = ctx.parent.summary.nation
         for i, p in ipairs(d.people) do
           local pn = culture.person_name(cul, mvl.hash(ctx.node.seed, "person", i))
           p.name, p.name_meaning, p.species = pn.name, pn.meaning, cul.species
@@ -401,6 +402,27 @@ function land.register(R)
             f.yaw = dm.round(f.yaw + dm.pi, 4)
             if f.building == "temple" and cul.style.sky_faith then f.yaw = dm.round(-dm.pi / 2, 4) end
           end
+        end
+        -- people of the planet's history who live here now
+        for k, c in ipairs(ctx:commitments("resident")) do
+          local who = c.data.data.individual
+          local sq = d.spots.square
+          local lines = { string.format("I am %s, %s of the %s.", who.name, who.role, who.nation) }
+          for i = #who.deeds, math.max(1, #who.deeds - 2), -1 do
+            local deed = who.deeds[i]
+            lines[#lines + 1] = string.format("%d years ago I %s.", math.floor(deed.ago + 0.5), deed.text)
+          end
+          local person = { id = "resident" .. k, name = who.name, name_meaning = who.meaning, legend = true,
+                           role = who.role, nation = who.nation, lines = lines,
+                           x = dm.round(sq.x + 4 + k * 2, 2), z = dm.round(sq.z + 3, 2) }
+          person.yaw = dm.round(dm.atan(-(sq.x - person.x), -(sq.z - person.z)), 4)
+          if who.anatomy then
+            person.body = { anatomy = util.copy(who.anatomy), hue = who.hue, dress = who.dress, accent = who.accent,
+                            seed = k }
+          end
+          person.texture, person.species = d.people[1] and d.people[1].texture or "npc_farmer", cul.species
+          d.people[#d.people + 1] = person
+          ctx:honour(c, ctx:fact("resident", { name = who.name, role = who.role }, c))
         end
         -- monuments promised by the planet: the statue of an individual
         for _, c in ipairs(ctx:commitments("monument")) do
