@@ -279,6 +279,7 @@ int main(int argc, char **argv) {
     char data_dir[1024], mods_dir[1024];
     char *pref = NULL;
     int width = 1280, height = 720, fullscreen = 0, mute = 0, force_touch = 0;
+    static char options[256];
     memset(&d, 0, sizeof d);
 #ifdef __EMSCRIPTEN__
     snprintf(data_dir, sizeof data_dir, "/game");
@@ -313,6 +314,11 @@ int main(int argc, char **argv) {
         else if (!strcmp(arg, "--fullscreen")) fullscreen = 1;
         else if (!strcmp(arg, "--mute")) mute = 1;
         else if (!strcmp(arg, "--touch")) force_touch = 1;
+        else if (!strcmp(arg, "--benchmark") && v) {
+            /* a scripted run for measuring (see game/scripts/main.lua) */
+            snprintf(options, sizeof options, "benchmark=%s;", argv[++i]);
+            d.options = options;
+        }
         else {
             fprintf(stderr, "unknown argument: %s\n", arg);
             return 2;

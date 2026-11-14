@@ -25,6 +25,11 @@
     var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches);
     var Module = {
       canvas: document.getElementById('canvas'),
+      // ?benchmark=travel runs a scripted trip on a fresh profile (tests/web/smoke.mjs)
+      arguments: (function () {
+        var b = new URLSearchParams(location.search).get('benchmark');
+        return b ? ['--benchmark', b] : [];
+      })(),
       // called by the engine once the game is running (see platform/main.c)
       mvlReady: function () {
         statusEl.style.display = 'none';

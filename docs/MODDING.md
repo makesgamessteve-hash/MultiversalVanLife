@@ -68,6 +68,19 @@ gen.cosmos:content("dialogue_rules", {
   { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
 
+-- and a generation pass: wild moonberry bushes by every settlement of the
+-- generated multiverse (Prime stays as it is)
+gen.cosmos:pass("land", "moonberry_bushes", { after = { "layout" }, run = function(ctx)
+  local sq = ctx.data.spots and ctx.data.spots.square
+  if not sq or gen.prime.inside(ctx.node.address) then return end
+  local rng = ctx:random("moonberries")
+  local a = rng:next() * 6.2832
+  ctx.data.features[#ctx.data.features + 1] = {
+    id = "moonberry_bush", role = "decor", sprite = "flowers", w = 1.2, h = 0.9,
+    x = sq.x + math.floor(math.cos(a) * 1800) / 100, z = sq.z + math.floor(math.sin(a) * 1800) / 100 }
+  ctx:fact("decor", { name = "wild moonberries" })
+end })
+
 -- and what grows where the harvest was saved, a night later (an aftermath
 -- rule that leaves a mark, see "Time passing" in MODDING.md)
 gen.cosmos:content("aftermath_rules", {
@@ -125,8 +138,28 @@ conversation is `hello` (or `hello_known`, `hello_friend`, `hello_resent`,
 `hello_letdown`, by memory), a `topic` (`news_line`, `idiom`, `history`,
 `faith_line`, `smalltalk`, `holiday_line`) and a `farewell` (often a
 `blessing`). Mods add alternatives to any symbol with the content table
-`dialogue_rules`, as the sample mod above does. Other things a mod can
-extend:
+`dialogue_rules`, as the sample mod above does:
+
+<!-- example -->
+```lua
+local gen = require("gen")
+local G = gen.dialogue.grammar
+local rules = G.rules(gen.cosmos)
+rules.blessing = { "May #moon_deity# light your road." }   -- only this blessing here
+local lore = { place = "Ushet", moon_deity = "Teeki", news = { "the wells are drying up" } }
+local slots = G.slots(lore, { met = true, favour = 2, deed = "lit our lamps again", known_as = "the Lamplighter" })
+local used = {}
+local line = G.expand(rules, "blessing", slots, mvl.rng(1), 0, used)
+assert(line == "May Teeki light your road." and used.moon_deity == "Teeki")
+-- a people without a moon god never blesses by one: no alternative fits
+assert(G.expand(rules, "blessing", G.slots({ place = "Ushet" }), mvl.rng(1)) == nil)
+-- a friend is greeted by the name the village gave them
+local talk = G.talk(gen.cosmos, lore, { met = true, favour = 2, deed = "lit our lamps again",
+                                        known_as = "the Lamplighter" }, 7, 3)
+assert(talk[1]:find("Lamplighter", 1, true) and talk[1]:find("lit our lamps again", 1, true))
+```
+
+Other things a mod can extend:
 
 | Table | Contents |
 |---|---|
@@ -665,3 +698,19 @@ Tests drive the game through `test.input(action, value)`, `test.press`,
 `test.voice_volume(voice)`, which is -1 once a voice stopped), count UI quads
 (`test.ui_quads()`) and read files next to the test (`test.read_file(path)`).
 The headless runner mixes audio like a sound device, so fades progress.
+
+A mod that adds generation content can be checked with the same guards as
+the base game: that the multiverse stays varied, generation stays within its
+time budgets, and its passes keep their promises:
+
+```bash
+./build/mvl_headless --data game --mods path/to/mods --save /tmp/save --stats 200 --thresholds tests/stats_thresholds.ini
+```
+
+```bash
+./build/mvl_headless --data game --mods path/to/mods --save /tmp/save --budget 12 --budgets tests/budgets.ini
+```
+
+```bash
+./build/mvl_headless --data game --mods path/to/mods --save /tmp/save --bible u1.g2.c3.s1 --out bible.md
+```

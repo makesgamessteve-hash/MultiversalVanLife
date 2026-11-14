@@ -42,6 +42,36 @@ add_test(NAME tools.bible
     -DOUT=${MVL_TEST_TMP}/bible.md
     -P ${CMAKE_CURRENT_SOURCE_DIR}/run_bible_test.cmake)
 
+# Guards against monotony and slowness: variety statistics over 200 seeds
+# and per-level time budgets, and proof that they catch a deliberately
+# biased generator and an artificially slow pass.
+function(mvl_tool_test name expect)
+  add_test(NAME tools.${name}
+    COMMAND ${CMAKE_COMMAND}
+      -DRUNNER=$<TARGET_FILE:mvl_headless>
+      -DDATA=${CMAKE_SOURCE_DIR}/game
+      -DSAVE=${MVL_TEST_TMP}/save_tool_${name}
+      "-DARGS=${ARGN}"
+      "-DEXPECT=${expect}"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/run_tool_test.cmake)
+endfunction()
+mvl_tool_test(stats "" --stats 200 --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/stats_thresholds.ini)
+mvl_tool_test(stats_monotony "biome_distribution_share" --stats 30 --bias biome
+              --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/stats_thresholds.ini)
+mvl_tool_test(budget "" --budget 12 --budgets ${CMAKE_CURRENT_SOURCE_DIR}/budgets.ini)
+mvl_tool_test(budget_slow "level cluster takes" --budget 4 --delay cluster:60
+              --budgets ${CMAKE_CURRENT_SOURCE_DIR}/budgets.ini)
+
+# Save size budget: 200 visited lands with their changes stay below 20 MB.
+add_test(NAME stress.save
+  COMMAND ${CMAKE_COMMAND}
+    -DRUNNER=$<TARGET_FILE:mvl_headless>
+    -DDATA=${CMAKE_SOURCE_DIR}/game
+    -DSAVE=${MVL_TEST_TMP}/save_stress
+    -DTEST=${CMAKE_CURRENT_SOURCE_DIR}/game/stress_save.lua
+    -DLIMIT=20971520
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/run_save_stress.cmake)
+
 # The sample mod in docs/MODDING.md is the one test_mods runs.
 if(Python3_FOUND)
   add_test(NAME docs.sample_mod

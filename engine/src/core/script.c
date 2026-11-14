@@ -828,6 +828,16 @@ static int l_write_option_file(lua_State *L) {
     lua_pushboolean(L, path && *path && mvl_file_write(path, text, n));
     return 1;
 }
+/* Reads the file named by a tool option (e.g. --thresholds FILE); nil if absent. */
+static int l_read_option_file(lua_State *L) {
+    size_t n = 0;
+    const char *path = mvl_kv_get(&eng(L)->options, luaL_checkstring(L, 1));
+    char *text = path && *path ? mvl_file_read(path, &n) : NULL;
+    if (!text) return 0;
+    lua_pushlstring(L, text, n);
+    free(text);
+    return 1;
+}
 static int l_quit(lua_State *L) {
     eng(L)->quit_requested = 1;
     return 0;
@@ -884,6 +894,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"log", l_log}, {"time", l_time}, {"ticks", l_ticks}, {"quit", l_quit}, {"platform", l_platform},
     {"headless", l_headless}, {"xr", l_xr}, {"xr_request", l_xr_request}, {"xr_head", l_xr_head},
     {"testing", l_testing}, {"option", l_option}, {"write_option_file", l_write_option_file},
+    {"read_option_file", l_read_option_file},
     {NULL, NULL}};
 
 /* --------------------------------------------- module loading via VFS */

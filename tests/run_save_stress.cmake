@@ -1,0 +1,22 @@
+# Save size budget: runs the save stress script (200 arrivals with changes)
+# and fails if the save folder reaches LIMIT bytes.
+file(REMOVE_RECURSE ${SAVE})
+file(MAKE_DIRECTORY ${SAVE})
+execute_process(
+  COMMAND ${RUNNER} --data ${DATA} --save ${SAVE} --test ${TEST}
+  RESULT_VARIABLE rc)
+if(NOT rc EQUAL 0)
+  message(FATAL_ERROR "the save stress run failed (exit code ${rc})")
+endif()
+file(GLOB_RECURSE files LIST_DIRECTORIES false ${SAVE}/*)
+set(total 0)
+list(LENGTH files count)
+foreach(f ${files})
+  file(SIZE ${f} size)
+  math(EXPR total "${total} + ${size}")
+endforeach()
+math(EXPR mb "${total} / 1048576")
+message("save folder: ${count} files, ${total} bytes (about ${mb} MB), limit ${LIMIT} bytes")
+if(total GREATER_EQUAL LIMIT)
+  message(FATAL_ERROR "the save folder is ${total} bytes, over the budget of ${LIMIT}")
+endif()

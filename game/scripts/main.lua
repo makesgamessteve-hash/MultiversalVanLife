@@ -93,9 +93,40 @@ local function open_pause()
   game.state = "pause"
 end
 
+-- Benchmark "travel": on a fresh profile only (it would start a new journey),
+-- the van takes one trip to tonight's first signal; the log tells when it
+-- starts and arrives so a page can measure the frames in between.
+local function benchmark_travel()
+  if progress.has_save() then
+    mvl.log("benchmark: skipped, a save exists")
+    return
+  end
+  progress.reset(4242)
+  progress.save()
+  start_play(false)
+  progress.set_flag("van_met")
+  story.van.enter(player, world)
+  local stage = "waiting"
+  local function step()
+    if stage == "waiting" and not story.busy then
+      stage = "travelling"
+      mvl.log("benchmark: travel start")
+      story.travel(story.signals()[1].address)
+    elseif stage == "travelling" and not story.busy then
+      stage = "done"
+      mvl.log("benchmark: arrived")
+      return
+    end
+    story.after(0.1, step)
+  end
+  story.after(1.0, step)
+end
+
 function game.init()
   -- tool mode: mvl_headless --bible ADDRESS --out FILE [--seed N]
   if mvl.option("bible") then return gen.bible.cli(gen.cosmos, gen.run) end
+  -- mvl_headless --stats SEEDS --thresholds FILE / --budget SEEDS --budgets FILE
+  if mvl.option("stats") or mvl.option("budget") then return gen.stats.cli(gen.cosmos, gen.run) end
   lines.load()
   -- the title shows the save's own farm (places are stored on first sight)
   gen.start(progress.has_save() and progress.seed() or 1)
@@ -103,6 +134,7 @@ function game.init()
   build_title()
   world.load("home")
   audio.scape("title")
+  if mvl.option("benchmark") == "travel" then benchmark_travel() end
 end
 
 function game.update(dt)

@@ -36,7 +36,7 @@ Rules for every phase:
 | 21 | `p21-tension-quests-and-dialogue` | 6 | generated-quests, world-memory | done |
 | 22 | `p22-consequences-and-revisits` | 5 | signals-and-codex, world-memory | done |
 | 23 | `p23-codex` | 4 | signals-and-codex, world-memory | done |
-| 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | planned |
+| 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | done |
 
 ## Milestones
 
@@ -47,4 +47,7 @@ Rules for every phase:
 - **After phase 18**: peoples with languages, religions, traditions, technology, buildings and dress.
 - **After phase 20**: history on every level, ruins and legends, troubles grounded in history.
 - **After phase 23**: quests from real tensions with lasting consequences, revisits and the codex.
-- **Phase 24**: hardening and release.
+- **Phase 24**: hardening and release: variety statistics over 200 seeds, generation time budgets, a 200-land save
+  budget and the web travel frame check guard every push.
+
+All 24 phases are done; the main specs in `openspec/specs/` describe the game as shipped.

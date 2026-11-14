@@ -86,14 +86,26 @@ function G:_generate(addr)
   }
   local outer = self.building
   self.building = node
+  -- with timing on (the budget tool), the time of every pass is kept
+  local timed = self.timing and { total = 0, passes = {} }
   for _, pass in ipairs(self.registry:ordered(level.n)) do
     local ctx = setmetatable({ G = self, node = node, parent = parent, pass = pass, data = node.data,
                                summary = node.summary, seed = address.pass_seed(node.seed, pass.name) }, Ctx)
+    local t0 = timed and os.clock()
     pass.run(ctx)
+    if timed then
+      local dt = os.clock() - t0
+      timed.passes[pass.name] = dt
+      timed.total = timed.total + dt
+    end
     self.stats.passes = self.stats.passes + 1
     ctx:yield()
   end
   self.building = outer
+  if timed then
+    self.timing[level.name] = self.timing[level.name] or {}
+    table.insert(self.timing[level.name], timed)
+  end
   if count(node.children) > level.caps.children then
     error(string.format("%s lists %d children, the cap is %d", addr, count(node.children), level.caps.children), 0)
   end

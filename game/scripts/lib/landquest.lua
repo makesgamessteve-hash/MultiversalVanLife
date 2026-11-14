@@ -99,9 +99,11 @@ function LQ.start(w, node, R)
     characters.community(log, { known_as = characters.TITLES[q.kind] or "the Helper", deed = deed, favour = 1 })
     characters.thank(log, giver.id, deed, 1)
     if q.kind == "mediate" then
+      -- a dispute that ends without a side taken ended in a compromise
+      local shared = result ~= "a" and result ~= "b"
       for i, party in ipairs(q.parties) do
         local key = i == 1 and "a" or "b"
-        if result == "compromise" then
+        if shared then
           characters.thank(log, party.person, deed, 1)
           characters.add_reputation(party.label, 1)
         elseif result == key then

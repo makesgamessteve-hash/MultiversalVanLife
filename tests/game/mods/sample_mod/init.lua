@@ -17,6 +17,19 @@ gen.cosmos:content("dialogue_rules", {
   { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
 
+-- and a generation pass: wild moonberry bushes by every settlement of the
+-- generated multiverse (Prime stays as it is)
+gen.cosmos:pass("land", "moonberry_bushes", { after = { "layout" }, run = function(ctx)
+  local sq = ctx.data.spots and ctx.data.spots.square
+  if not sq or gen.prime.inside(ctx.node.address) then return end
+  local rng = ctx:random("moonberries")
+  local a = rng:next() * 6.2832
+  ctx.data.features[#ctx.data.features + 1] = {
+    id = "moonberry_bush", role = "decor", sprite = "flowers", w = 1.2, h = 0.9,
+    x = sq.x + math.floor(math.cos(a) * 1800) / 100, z = sq.z + math.floor(math.sin(a) * 1800) / 100 }
+  ctx:fact("decor", { name = "wild moonberries" })
+end })
+
 -- and what grows where the harvest was saved, a night later (an aftermath
 -- rule that leaves a mark, see "Time passing" in MODDING.md)
 gen.cosmos:content("aftermath_rules", {

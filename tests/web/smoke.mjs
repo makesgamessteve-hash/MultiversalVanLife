@@ -2,8 +2,8 @@
 // Serves the Emscripten build, loads it in headless Chromium (desktop and a
 // touch phone), checks that the game boots without errors, renders
 // something other than a blank canvas, keeps its save folder in IndexedDB
-// across a reload, enables touch controls on mobile and opens the codex by
-// tapping on a phone.
+// across a reload, enables touch controls on mobile, opens the codex by
+// tapping on a phone and keeps drawing frames while the van travels.
 //   node tests/web/smoke.mjs <build-web-dir> [screenshot-dir]
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -30,6 +30,12 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const url = `http://127.0.0.1:${server.address().port}/multiversal_van_life.html`;
+
+// Travel budget in headless Chromium with software WebGL (SwiftShader, about
+// 15 fps at 640x360 on a desktop; a generator that stops yielding during the
+// trip shows as frames of several seconds).
+const MIN_TRAVEL_FPS = 6;
+const MAX_TRAVEL_FRAME_MS = 1000;
 
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 let failures = 0;
@@ -115,6 +121,34 @@ await run('mobile', { ...devices['Pixel 7'] }, async (page) => {
     }
   });
   if (!/opened/.test(codex)) return 'the codex did not open by tapping: ' + codex.slice(0, 200);
+  return true;
+});
+
+// Travel frame rate: a scripted trip (?benchmark=travel, fresh profile)
+// generates the destination while the van is in the vortex; the page must
+// keep drawing frames all the way (no long stalls, a playable rate).
+await run('travel', { viewport: { width: 640, height: 360 } }, async (page) => {
+  const started = page.waitForEvent('console', { predicate: (m) => m.text().includes('benchmark: travel start'), timeout: 30000 });
+  await page.goto(url + '?benchmark=travel');
+  await started;
+  const arrived = page.waitForEvent('console', { predicate: (m) => m.text().includes('benchmark: arrived'), timeout: 60000 })
+    .then(() => true, () => false);
+  const frames = await page.evaluate(() => new Promise((done) => {
+    const times = [];
+    const t0 = performance.now();
+    const tick = (t) => {
+      times.push(t);
+      if (t - t0 < 4000) requestAnimationFrame(tick); else done(times);
+    };
+    requestAnimationFrame(tick);
+  }));
+  if (!(await arrived)) return 'the van never arrived';
+  let worst = 0;
+  for (let i = 1; i < frames.length; ++i) worst = Math.max(worst, frames[i] - frames[i - 1]);
+  const fps = (frames.length - 1) / ((frames[frames.length - 1] - frames[0]) / 1000);
+  console.log(`     travel: ${fps.toFixed(1)} fps, longest frame ${worst.toFixed(0)} ms`);
+  if (fps < MIN_TRAVEL_FPS) return `travel ran at ${fps.toFixed(1)} fps (at least ${MIN_TRAVEL_FPS} wanted)`;
+  if (worst > MAX_TRAVEL_FRAME_MS) return `a frame took ${worst.toFixed(0)} ms during travel (at most ${MAX_TRAVEL_FRAME_MS})`;
   return true;
 });
 

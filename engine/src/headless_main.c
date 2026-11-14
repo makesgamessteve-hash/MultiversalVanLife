@@ -2,6 +2,8 @@
  * Used for automated game tests and CI:
  *   mvl_headless --data game --test tests/game/test_intro.lua [--frames N]
  *   mvl_headless --data game --bible u1.g2.c0 --out bible.md [--seed N]
+ *   mvl_headless --data game --stats 200 --thresholds tests/stats_thresholds.ini [--bias biome]
+ *   mvl_headless --data game --budget 12 --budgets tests/budgets.ini
  * MIT License. */
 #include "core/engine.h"
 #include "core/log.h"
@@ -39,14 +41,19 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--save") && v) d.save_dir = argv[++i];
         else if (!strcmp(a, "--test") && v) d.test_script = argv[++i];
         else if (!strcmp(a, "--frames") && v) frames = atoi(argv[++i]);
-        else if ((!strcmp(a, "--bible") || !strcmp(a, "--out") || !strcmp(a, "--seed")) && v &&
-                 olen + strlen(a) + strlen(v) + 2 < sizeof options) {
+        else if ((!strcmp(a, "--bible") || !strcmp(a, "--out") || !strcmp(a, "--seed") || !strcmp(a, "--stats") ||
+                  !strcmp(a, "--thresholds") || !strcmp(a, "--bias") || !strcmp(a, "--budget") ||
+                  !strcmp(a, "--budgets") || !strcmp(a, "--benchmark") || !strcmp(a, "--level") ||
+                  !strcmp(a, "--delay")) &&
+                 v && olen + strlen(a) + strlen(v) + 2 < sizeof options) {
             /* tool options, read by scripts with mvl.option() */
             olen += (size_t)snprintf(options + olen, sizeof options - olen, "%s=%s;", a + 2, argv[++i]);
         } else {
             fprintf(stderr,
                     "usage: %s [--data DIR] [--mods DIR] [--save DIR] [--test FILE] [--frames N]\n"
-                    "       [--bible ADDRESS --out FILE [--seed N]]\n",
+                    "       [--bible ADDRESS --out FILE [--seed N]]\n"
+                    "       [--stats SEEDS --thresholds FILE [--bias biome]]\n"
+                    "       [--budget SEEDS --budgets FILE [--delay LEVEL:MS]] [--level N]\n",
                     argv[0]);
             return 2;
         }

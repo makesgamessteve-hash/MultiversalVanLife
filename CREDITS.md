@@ -5,6 +5,9 @@
 - Engine, scripts, tools: MIT license.
 - Art and dialogue: CC BY 4.0. All textures, sprites, models and voxel
   models are original and generated procedurally by `tools/gen_assets.py`.
+  The buildings, people, statues, plants, creatures and ruins of generated
+  worlds, and the names, languages and texts their people speak, are made
+  by the game's own generators at runtime.
 - Sound effects, ambience loops and music: generated with
   [ElevenLabs](https://elevenlabs.io) (text to sound effects and Eleven Music)
   from the prompts in `tools/audiogen/manifest.json`, and distributed with the
@@ -20,6 +23,8 @@
 | [Emscripten](https://emscripten.org) | MIT / UIUC | Web build |
 | [OpenSpec](https://github.com/Fission-AI/OpenSpec) | MIT | Specifications |
 | [ElevenLabs JS SDK](https://github.com/elevenlabs/elevenlabs-js) | MIT | Sound and music generation tool |
+| [Playwright](https://playwright.dev) | Apache 2.0 | Web smoke test in headless Chromium (tests only) |
+| [gcovr](https://gcovr.com) | BSD 3-Clause | Coverage reports (CI only) |
 
 The game is inspired by classic science fiction about friendly travellers in
 impossible vehicles. It uses no characters, names, art, sounds or designs from

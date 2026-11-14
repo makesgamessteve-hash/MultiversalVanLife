@@ -2,8 +2,28 @@
 
 Multiversal Van Life generates its multiverse lazily from one seed per save.
 This document describes the framework every generator plugs into
-(`game/scripts/gen.lua` and `game/scripts/gen/`). Later phases add the real
-content: universe laws, galaxies, stars, planets, peoples and their history.
+(`game/scripts/gen.lua` and `game/scripts/gen/`) and every generator built
+on it, from the multiverse down to a village square: universe laws,
+galaxies, stars and planets with their geology, climate, skies and life,
+the peoples living there with their languages, faiths, traditions,
+buildings and histories, the troubles of the present that become quests,
+what the player's deeds change, and the codex where the player keeps what
+they learned. It ends with the guards that keep all of it varied, fast and
+small.
+
+**Contents**: [levels and addresses](#levels-and-addresses) ·
+[seeds](#seeds) · [passes](#passes) · [laziness](#laziness-summaries-and-detail) ·
+[facts and causes](#facts-and-causes) · [commitments](#commitments) ·
+[budgets and caps](#budgets-and-caps) · [versions and mods](#versions-and-mods) ·
+[checks](#consistency-checks) · [world bible](#world-bible) ·
+[the cosmos](#the-cosmos-top-down) · [Prime](#prime) · [life](#life) ·
+[languages and religions](#cultures-languages-and-religions) ·
+[traditions, society and technology](#cultures-traditions-society-and-technology) ·
+[architecture and people](#cultures-architecture-dress-and-people) ·
+[history](#history) · [skies](#skies-and-palettes) · [lands](#lands-and-chunks) ·
+[signals](#signals-provisional-worlds-and-quests) · [world memory](#world-memory) ·
+[the codex](#the-codex) · [variety, budgets and save size](#variety-budgets-and-save-size) ·
+[fingerprints](#fingerprints) · [example](#example)
 
 ## Levels and addresses
 
@@ -716,6 +736,53 @@ saint or war is one entry wherever it is learned. Juniper knows the true
 story in the universes she wandered through (the Wanderer's universes), so
 there the codex shows legends beside what really happened. See
 [MODDING.md](MODDING.md#the-codex).
+
+## Variety, budgets and save size
+
+Three guards run in CI on every platform (`gen/stats.lua`, `tests/CMakeLists.txt`):
+
+- **Variety** (`mvl_headless --stats 200 --thresholds tests/stats_thresholds.ini`,
+  ctest `tools.stats`): a peopled world from each of 200 seeds (at planet
+  grid level 3), counting their biome distributions (the land biomes with
+  15% of the land or more), the body plans of their species, the sources
+  their religions grew from, their peoples' technology levels and the kinds
+  of tension in their countries. Thresholds (`metric = <= value` or `>=`)
+  fail the run when, for example, more than half of the planets share one
+  biome distribution. `--bias biome` makes every planet a desert, and ctest
+  `tools.stats_monotony` checks that the guard catches it.
+- **Budgets** (`mvl_headless --budget 12 --budgets tests/budgets.ini`, ctest
+  `tools.budget`): places down to a land from 12 seeds at the game's planet
+  resolution, with the time of every pass recorded (`G.timing`); the median
+  time of each level must stay within its budget, and a level over it fails
+  naming its slowest pass. `--delay LEVEL:MS` adds an artificially slow pass
+  (ctest `tools.budget_slow`). The web smoke test also measures the frame
+  rate while the van travels (`?benchmark=travel` runs a scripted trip on a
+  fresh profile), so a generator that stops yielding shows up.
+- **Save size** (ctest `stress.save`, `tests/game/stress_save.lua`): 200
+  arrivals in generated lands with changes in each (things taken and put
+  down, people talked to, troubles solved or given up, nights passing,
+  revisits with their aftermath); the save folder must stay below 20 MB
+  (about 4.5 MB today).
+
+The same checks from a script:
+
+<!-- example -->
+```lua
+local gen = require("gen")
+local S = gen.stats
+local level = gen.planet.LEVEL
+gen.planet.LEVEL = 3
+local st = S.collect(gen.cosmos, gen.run, 3)            -- three seeds
+local m = S.metrics(st)
+assert(m.planets >= 1 and m.biomes >= 1)
+local fails = S.check(m, S.parse("planets = >= 1\nbiome_distribution_share = <= 1"))
+assert(#fails == 0)
+assert(#S.check({ biomes = 2 }, S.parse("biomes = >= 10")) == 1)
+local times = S.time(gen.cosmos, gen.run, 1)             -- milliseconds per level
+assert(times.planet and times.planet.median > 0)
+assert(#S.over(times, S.parse("planet = <= 0")) == 1)    -- nothing is that fast
+gen.planet.LEVEL = level
+```
 
 ## Fingerprints
 

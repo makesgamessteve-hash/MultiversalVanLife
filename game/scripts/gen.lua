@@ -63,6 +63,7 @@ gen.land = require("gen.levels.land")
 gen.land.register(gen.cosmos)
 gen.signals = require("gen.signals")
 gen.dialogue = { grammar = require("gen.dialogue.grammar"), lore = require("gen.dialogue.lore") }
+gen.stats = require("gen.stats")
 
 -- Inside Prime nothing is generated below the planets except the farm and
 -- the countryside around it; elsewhere places exist up to their parent's cap.

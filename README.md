@@ -18,8 +18,19 @@ generated multiverse; you choose one, visit, and help the people who live there.
   [docs/MODDING.md](docs/MODDING.md).
 - **Generated multiverse**: every place, from universes down to single lands,
   is generated lazily and deterministically from the save's seed, with causes
-  for every fact. See [docs/WORLDGEN.md](docs/WORLDGEN.md) and the roadmap in
-  [docs/ROADMAP.md](docs/ROADMAP.md).
+  for every fact: galaxies and stars, planets with plates, climate, rivers,
+  skies and living, moving wildlife, peoples with their own languages,
+  faiths, calendars, customs, buildings and dress, and histories that leave
+  ruins and legends. See [docs/WORLDGEN.md](docs/WORLDGEN.md) and the
+  roadmap in [docs/ROADMAP.md](docs/ROADMAP.md).
+- **Troubles with consequences**: every signal comes from a real tension of
+  the place (a drought made worse by a dam upstream, a quarrel over a
+  border...). Help, take a side or give up: people remember you, stories of
+  your deeds travel, and when you come back time has passed, with festivals,
+  statues, new troubles and invitations calling you back.
+- **The codex**: what you learn by visiting, talking, reading old stones and
+  watching creatures, with what people believe beside what really happened,
+  why things are as they are, and the chronicle of your own deeds.
 
 ## Layout
 
@@ -58,7 +69,13 @@ cmake --build build
 
 The build copies `game/` next to the executable; edit the files there or in
 the repository and rebuild. Command line options: `--data DIR`, `--mods DIR`,
-`--save DIR`, `--width W --height H`, `--fullscreen`, `--touch`, `--mute`.
+`--save DIR`, `--width W --height H`, `--fullscreen`, `--touch`, `--mute`,
+`--benchmark travel` (a scripted trip on a fresh save, for measuring).
+
+The headless runner (`mvl_headless`) is also a tool: `--bible ADDRESS --out
+FILE` writes the world bible of a place, `--stats SEEDS --thresholds FILE`
+prints variety statistics and `--budget SEEDS --budgets FILE` generation
+times (see [docs/WORLDGEN.md](docs/WORLDGEN.md#variety-budgets-and-save-size)).
 
 ### Web (and WebXR)
 
@@ -94,6 +111,8 @@ HTTPS or `localhost`.
 | Pause | Esc, Tab | Start | II | left menu button |
 | Run | Shift | X | | |
 | Put down a carried item | Q | Y | | |
+| Codex | C (left/right: tabs and buttons) | Back / Select (d-pad) | pause menu, then tap | pause menu |
+| Menus | arrows, E | d-pad, A | tap an item | thumbstick, trigger |
 
 Bindings live in `game/config/input.ini`.
 
@@ -117,14 +136,21 @@ cmake --build build-cov --target coverage
 
 - **Unit tests** (`tests/unit`) cover the engine core.
 - **Automated game tests** (`tests/game/test_*.lua`) play the real game through
-  the headless runner: the intro, each quest, the night cycle, save/continue,
-  touch controls, the pause menu with a simulated VR session, and mods.
+  the headless runner: the intro, every kind of quest and its choices, the
+  night cycle, save/continue, generation of every level, history and its
+  traces, what people remember and what comes of the player's deeds, the
+  codex, touch controls, the pause menu with a simulated VR session, and
+  mods with their own troubles, generation passes, sayings and consequences.
+- **Guards** against monotony, slowness and save bloat: variety statistics
+  over 200 seeds, per-level generation time budgets and a 200-land save stress
+  test (`tools.*` and `stress.save` in ctest).
 - **Coverage gate**: the `coverage` target fails below 95% line coverage of
   `engine/src/core` (currently about 99%).
 - With `-DMVL_GL_TESTS=ON` the game tests also run through the real OpenGL
   game (use `xvfb-run` on a headless Linux machine).
 - `node tests/web/smoke.mjs build-web` checks the web build in headless
-  Chromium as a desktop browser and as a phone.
+  Chromium as a desktop browser and as a phone (the codex by tapping), and
+  measures the frame rate while the van travels.
 
 CI (`.github/workflows/ci.yml`) runs all of this on Linux, Windows, macOS and
 the web, and validates the OpenSpec specs.
