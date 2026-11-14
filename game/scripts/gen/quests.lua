@@ -185,9 +185,14 @@ end
 local function person(ctx, d, cul, id, x, z, texture)
   local seed = mvl.hash(ctx.node.seed, id)
   local p = { id = id, x = x, z = z, texture = texture or (d.people[1] and d.people[1].texture) or "npc_farmer" }
+  local spare = d.lore and d.lore.names
   if cul then
     local n = require("gen.culture").person_name(cul, seed)
     p.name, p.name_meaning, p.species = n.name, n.meaning, cul.species
+  elseif spare and #spare > 0 then
+    -- runtime quests (chapters): the names the land keeps for newcomers
+    local n = spare[seed % #spare + 1]
+    p.name, p.name_meaning = n.name, n.meaning
   else
     p.name = names.make(mvl.rng(seed), "world")
   end
@@ -206,8 +211,10 @@ local function hamlet(ctx, cul, key)
 end
 
 -- Generates the land's quest into d.quest and its features into d.features.
--- `cul` is the culture of the land's people (or nil).
-function Q.generate(ctx, d, style, cul)
+-- `cul` is the culture of the land's people (or nil); `opts.prefix` prefixes
+-- the ids of the quest's features and people (later chapters of a land).
+function Q.generate(ctx, d, style, cul, opts)
+  local P = opts and opts.prefix or ""
   local R = ctx.G.registry
   -- the land's strongest tension decides its trouble
   local tension = d.tensions and d.tensions[1] or {}
@@ -234,7 +241,7 @@ function Q.generate(ctx, d, style, cul)
     q.count = n
     for i = 1, n do
       local x, z = place(rng, d, gx, gz, 12, 55)
-      local id = "q_item" .. i
+      local id = P .. "q_item" .. i
       local item = { id = id, role = "quest_item", x = x, z = z }
       if glow then
         item.sprite, item.w, item.h, item.y, item.unlit, item.nofog = sprite, 0.35, 0.35, 1.2, true, true
@@ -254,7 +261,7 @@ function Q.generate(ctx, d, style, cul)
         local x, z
         if t.kind == "relight" then x, z = place(rng, d, gx, gz, 15, 50)
         else x, z = place(rng, d, sq.x, sq.z, 5, 10) end
-        local id = "q_target" .. i
+        local id = P .. "q_target" .. i
         d.features[#d.features + 1] = { id = id, role = "quest_target",
                                          voxel = t.kind == "relight" and "lantern_post" or (t.target_voxel or "well"),
                                          x = x, z = z, radius = 0.4 }
@@ -273,7 +280,7 @@ function Q.generate(ctx, d, style, cul)
     q.count = 1
   elseif t.kind == "message" then
     local x, z = place(rng, d, gx, gz, 40, 55)
-    q.recipient = person(ctx, d, cul, "recipient", x, z)
+    q.recipient = person(ctx, d, cul, P .. "recipient", x, z)
     q.recipient.yaw = dm.round(dm.atan(-(gx - x), -(gz - z)), 4)
     words.recipient = q.recipient.name
     local m = MESSAGES[tension.kind] or MESSAGES.default
@@ -285,7 +292,7 @@ function Q.generate(ctx, d, style, cul)
     while #d.people < 3 do
       local i = #d.people + 1
       local x, z = place(rng, d, sq.x, sq.z, 3, 7)
-      local p = person(ctx, d, cul, "person" .. i, x, z)
+      local p = person(ctx, d, cul, P .. "person" .. i, x, z)
       p.yaw = dm.round(dm.atan(-(sq.x - x), -(sq.z - z)), 4)
       d.people[i] = p
     end
@@ -302,15 +309,15 @@ function Q.generate(ctx, d, style, cul)
     q.count = 2
   elseif t.kind == "escort" then
     local x, z = place(rng, d, sq.x, sq.z, 3, 6)
-    q.escort = person(ctx, d, cul, "escort", x, z, "npc_child")
+    q.escort = person(ctx, d, cul, P .. "escort", x, z, "npc_child")
     words.escort = q.escort.name
     local dx, dz = place(rng, d, gx, gz, 40, 55)
-    q.destination = { id = "q_dest", x = dx, z = dz,
+    q.destination = { id = P .. "q_dest", x = dx, z = dz,
                       name = (tension.kind == "sick child" or tension.kind == "epidemic") and "the healer's house" or
                              (words.saint and ("the shrine of " .. words.saint) or "the far farms") }
-    d.features[#d.features + 1] = { id = "q_dest", role = "quest_target", voxel = "lantern_post", x = dx, z = dz,
+    d.features[#d.features + 1] = { id = P .. "q_dest", role = "quest_target", voxel = "lantern_post", x = dx, z = dz,
                                      radius = 0.3 }
-    d.features[#d.features + 1] = { id = "q_dest_lamp", role = "quest_lamp", sprite = "lantern_on", unlit = true,
+    d.features[#d.features + 1] = { id = P .. "q_dest_lamp", role = "quest_lamp", sprite = "lantern_on", unlit = true,
                                      x = dx + 0.3, z = dz, y = 1.6, w = 0.4, h = 0.8 }
     words.destination = q.destination.name
     q.count = 1
@@ -320,8 +327,8 @@ function Q.generate(ctx, d, style, cul)
     words.part = t.part or (water and "spring-stone" or "glow-shard")
     items(rng:int(3, 4), t.item or (water and "crystal" or "firefly"), not water)
     local x, z = place(rng, d, sq.x, sq.z, 8, 12)
-    q.source = { id = "q_source", x = x, z = z, water = water }
-    d.features[#d.features + 1] = { id = "q_source", role = "quest_source", voxel = water and "well" or "lantern_post",
+    q.source = { id = P .. "q_source", x = x, z = z, water = water }
+    d.features[#d.features + 1] = { id = P .. "q_source", role = "quest_source", voxel = water and "well" or "lantern_post",
                                      x = x, z = z, radius = water and 0.9 or 0.3 }
   end
   words.n = q.count

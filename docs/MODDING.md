@@ -67,6 +67,18 @@ gen.cosmos:content("quest_templates", {
 gen.cosmos:content("dialogue_rules", {
   { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
+
+-- and what grows where the harvest was saved, a night later (an aftermath
+-- rule that leaves a mark, see "Time passing" in MODDING.md)
+gen.cosmos:content("aftermath_rules", {
+  { id = "moonberry_bushes", after = 1,
+    when = function(x) return x.success and x.outcome.template == "moonberries" end,
+    apply = function(x)
+      local sx, sz = x:spot(6, 10)
+      x:mark({ mark = "moonberry bushes", sprite = "flowers", x = sx, z = sz, w = 1.4, h = 1.0 })
+      x:news("moonberry bushes grow by the square now")
+    end },
+})
 ```
 
 Quest templates have a `kind`, a weight `w`, the words they use (`part`,
@@ -520,6 +532,38 @@ get `"placed/<n>"`. A world's change log is `w:memory()`:
 
 `w.streamer:add_feature(object)` shows a newly placed object at once;
 `w.streamer:remove_feature(id)` removes one from the built world.
+
+The log also keeps what people remember (`log.characters`,
+`log.community`, see `memory/characters.lua`), how the quest ended
+(`log.outcome`), the land's events since the player came (`log.events`) and
+its clock and aftermath (`log.clock`, `log.aftermath`, `log.chapter`).
+
+### Time passing
+
+When a land's quest ends, **aftermath rules** decide what happens there in
+the nights after (see [WORLDGEN.md](WORLDGEN.md#world-memory) for the base
+rules). A rule is `{ id, after = nights, when = function(x), apply =
+function(x), followup = function(x) }`; it is applied once, when the player
+comes back at least `after` nights later and `when(x)` is true. Mods add
+rules with `gen.cosmos:content("aftermath_rules", {...})`, like the sample
+mod's moonberry bushes. The context `x` has:
+
+| Field or call | Meaning |
+|---|---|
+| `x.outcome` | How the quest ended: `kind`, `result` (`done`, `a`, `b`, `compromise`, `abandoned`), `template`, `severity`, `tension`, `issue`, `favoured`, `wronged`, `night` |
+| `x.success`, `x.severity`, `x.title`, `x.deed`, `x.place`, `x.lore`, `x.data` | Helped or not; the name the land calls the player and their deed; the land's data |
+| `x:spot(rmin, rmax)` | A free spot that far from the square |
+| `x:mark(object)` | Builds a mark: any feature (`sprite`, `voxel`, `statue`, `trace`, `building`...) placed for good |
+| `x:news(text)` | What people will tell the player ("...since you ...") |
+| `x:event(text)` | An event of the land's history |
+| `x:field()`, `x:person(id)`, `x:leave()`, `x:ruin()` | A new field, a newcomer, a villager leaving, a house in ruins |
+| `x:festival(name)`, `x:rename(name)` | A festival in the calendar (with lanterns), a new name |
+| `x:trouble({ kind, text, quest, cause })` | A new trouble: the land's next quest |
+
+`followup(x)` returns a need or an invitation (`{ kind = "need" |
+"invitation", text, short }`) queued when the quest ends for night `night +
+after`; the signals keep a slot for it. Deeds spread as stories by
+`memory/spread.lua` (`spread.heard(address, culture, nation, night)`).
 
 <!-- example -->
 ```lua

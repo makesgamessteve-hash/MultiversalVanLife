@@ -664,6 +664,44 @@ later visits and restarts load them, and a change log per land
 (`records/changes/<address>`) records everything the player changed. See
 [MODDING.md](MODDING.md#world-memory).
 
+**Time passes** (`memory/aftermath.lua`): each visited land keeps a clock
+(its visits and the days that passed there: a night of the player's is
+about a week). How the land's quest ended sets its aftermath in motion:
+rules that come true some nights later and are applied, once, when the
+player comes back.
+
+| Rule | After | When | What happens |
+|---|---|---|---|
+| regrowth | 2 nights | helped | new fields where water or machines came back; life is better |
+| newcomers | 4 nights | helped | two families move in (named in the people's language) |
+| festival | 3 nights | helped, severity 0.45+, a people | the Feast of the (title) in the player's honour, lanterns round the square; an invitation |
+| monument | 6 nights | helped, severity 0.5+ | a statue of the player and the van in stone by the square |
+| shrine | 5 nights | helped, the Wanderer legend is told there | a shrine to the Wanderer |
+| renamed | 8 nights | helped, severity 0.7+ | the place is called "(name) of the (title)" |
+| decline | 3 nights | given up | a house falls into ruin, a family moves away, the trouble got worse |
+| trouble | 5 nights | helped (first quest) | a new trouble caused by the help (the new families crowd the spring, the lamps burn more oil than there is) becomes the land's next quest; a need |
+
+Results are written to the change log: marks (placed objects built in the
+local style), new fields and villagers, villagers who left, the name, the
+festival, the news (each villager tells what changed the first time they
+see the player again) and events of the land's history. A new trouble
+becomes a second **chapter**: a quest generated from it with ids of its own,
+its people named from names the land keeps for newcomers.
+
+**Stories spread** (`memory/spread.lua`): every deed is remembered with a
+fame (from the trouble's severity; settled disputes are told more; giving
+up is a small story). The same country hears of it at once, the rest of the
+planet after two nights (fame 0.5+), the rest of the galaxy after four
+(fame 0.8+). Its own people glorify the player, the wronged party's nation
+villainises them and other peoples make a legend of it ("a giant who came
+out of the sky in a cream-and-teal wagon..."). People who have not met the
+player greet them by the story's title; deeds also raise or lower the
+nation's opinion of the player.
+
+**Follow-ups**: invitations (festivals) and needs (new troubles) wait in a
+queue until their night; one signal a night is kept for the earliest due
+follow-up, so helped places call the player back.
+
 ## Fingerprints
 
 `tests/game/test_gen_fingerprint.lua` compares fingerprints (hashes of the

@@ -35,3 +35,18 @@ for n = 1, 200 do
   for _, l in ipairs(lines) do if l:find("Moonberries ripen", 1, true) then said = said + 1 end end
 end
 test.expect(said > 0, "villagers say it: " .. said .. " times in 200 talks")
+-- the mod's aftermath rule leaves its mark a night later
+local function visit(a)
+  if H.current() ~= "van" then H.use("Enter the van") H.finish_dialogue() end
+  H.travel_to(a)
+  H.step_outside()
+end
+visit(H.land_with("relight") or H.land_with("return"))
+D.progress.end_night()
+visit(addr)
+local mark
+for _, f in pairs(D.world.current:memory().placed) do if f.mark == "moonberry bushes" then mark = f end end
+test.expect(mark, "the mod's mark is in the land")
+D.player.place(mark.x + 2, mark.z + 2, 0)
+test.until_true(function() return D.world.current.streamer.spawned[mark.id] ~= nil end, 600, "and stands there")
+test.eq(D.world.current:memory().aftermath.news[1], "moonberry bushes grow by the square now", "people talk about it")

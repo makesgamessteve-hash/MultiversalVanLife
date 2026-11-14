@@ -144,7 +144,7 @@ test.eq(table.concat(grammar.talk(gen.cosmos, village.data.lore, nil, 7, 2), "|"
 -- --------------------------------------------------- greetings by memory
 local friend = grammar.talk(gen.cosmos, lore, { met = true, favour = 2, deed = "lit our lamps again",
                                                known_as = "the Lamplighter" }, 5, 3)
-test.expect(friend[1]:lower():find("the lamplighter", 1, true) and friend[1]:find("lit our lamps again", 1, true),
+test.expect(friend[1]:lower():find("lamplighter", 1, true) and friend[1]:find("lit our lamps again", 1, true),
             "a friend is greeted by name and deed: " .. friend[1])
 local foe = grammar.talk(gen.cosmos, lore, { met = true, favour = -2, wrong = "gave the water to them",
                                             known_as = "the Peacemaker" }, 5, 3)

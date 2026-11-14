@@ -60,6 +60,12 @@ function Lore.build(d, cul, P, country)
       if #L.holidays < 3 then L.holidays[#L.holidays + 1] = h.name end
     end
   end
+  -- names for people who come later (newcomers, the people of new troubles)
+  L.names = {}
+  for i = 1, 4 do
+    local n = language.name(cul.language, mvl.rng(mvl.hash(d.name, "newcomer", i)), "person")
+    L.names[i] = { name = n.name, meaning = n.meaning }
+  end
   L.greeting = greeting(cul)
   L.stranger = language.word(cul.language, "stranger")
   L.memory = {}

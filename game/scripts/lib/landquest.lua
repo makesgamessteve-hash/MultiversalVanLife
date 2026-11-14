@@ -17,6 +17,7 @@ local talk = require("lib.talk")
 local Menu = require("lib.menu")
 local quests = require("gen.quests")
 local characters = require("memory.characters")
+local spread = require("memory.spread")
 
 local LQ = {}
 
@@ -46,7 +47,8 @@ function LQ.start(w, node, R)
     lit = saved.lit or {}, placed = saved.placed or {}, taken = saved.taken or {},
     following = saved.following or false, lost_pos = saved.lost_pos, heard = saved.heard or {},
     delivered = saved.delivered or false,
-    complete = progress.helped(node.address) or log.outcome ~= nil, result = log.outcome and log.outcome.result,
+    complete = log.outcome ~= nil or (not log.chapter and progress.helped(node.address)),
+    result = log.outcome and log.outcome.result,
     q = q, log = log,
   }
   w.state.quest = s
@@ -68,11 +70,29 @@ function LQ.start(w, node, R)
     remember()
     local winner = extra and extra.winner
     local deed = text("deed", { winner = winner and winner.label }) or "helped us"
-    local outcome = { kind = q.kind, result = result, night = progress.night(), template = q.template }
+    local outcome = { kind = q.kind, result = result, night = progress.night(), template = q.template,
+                      severity = q.severity, tension = q.tension, issue = q.issue, chapter = q.chapter }
+    local function aftermath()
+      -- the deed becomes a story, and the land's future is set in motion
+      local com = log.community or {}
+      -- an event of the land's history
+      log.events = log.events or {}
+      log.events[#log.events + 1] = { night = outcome.night, text = result == "abandoned" and
+        "the stranger who promised help and gave up" or ("the coming of " .. (com.known_as or "a stranger") .. ", who " ..
+        deed) }
+      spread.record({ address = node.address, kind = q.kind, result = result, title = com.known_as or "the stranger",
+                      text = result == "abandoned" and "gave up on them" or deed, place = d.name,
+                      culture = d.culture and d.culture.name, nation = d.nation, favoured = outcome.favoured,
+                      wronged = outcome.wronged, wrong = winner and text("wrong_side", { winner = winner.label }),
+                      severity = q.severity, night = outcome.night })
+      require("memory.aftermath").plan(node, log, outcome)
+      if q.chapter then spread.answer(node.address, "need") end
+    end
     if result == "abandoned" then
       characters.community(log, { letdown = true, favour = -1 })
       characters.resent(log, giver.id, "gave up on us", 1)
       log:set_outcome(outcome)
+      aftermath()
       progress.save()
       return
     end
@@ -96,6 +116,7 @@ function LQ.start(w, node, R)
       end
     end
     log:set_outcome(outcome)
+    aftermath()
     progress.set_helped(node.address)
     progress.save()
     audio.sfx("quest_done", 0.9)

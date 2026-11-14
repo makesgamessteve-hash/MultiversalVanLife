@@ -105,7 +105,8 @@ function story.signals()
   if story.signal_cache and story.signal_cache.key == key then return story.signal_cache.list end
   local visited = {}
   for _, e in ipairs(progress.logbook()) do visited[e.galaxy] = true end
-  local list = gen().signals.tonight(G, progress.night(), visited, progress.recent_troubles())
+  local list = gen().signals.tonight(G, progress.night(), visited, progress.recent_troubles(),
+                                     require("memory.spread").due(progress.night()))
   story.signal_cache = { key = key, list = list }
   return list
 end

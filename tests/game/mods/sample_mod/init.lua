@@ -16,3 +16,15 @@ gen.cosmos:content("quest_templates", {
 gen.cosmos:content("dialogue_rules", {
   { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
+
+-- and what grows where the harvest was saved, a night later (an aftermath
+-- rule that leaves a mark, see "Time passing" in MODDING.md)
+gen.cosmos:content("aftermath_rules", {
+  { id = "moonberry_bushes", after = 1,
+    when = function(x) return x.success and x.outcome.template == "moonberries" end,
+    apply = function(x)
+      local sx, sz = x:spot(6, 10)
+      x:mark({ mark = "moonberry bushes", sprite = "flowers", x = sx, z = sz, w = 1.4, h = 1.0 })
+      x:news("moonberry bushes grow by the square now")
+    end },
+})

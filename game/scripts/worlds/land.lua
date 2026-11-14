@@ -18,7 +18,13 @@ world.register({
     local addr = w.args.address or progress.land_address()
     local G = gen.world
     -- stored on the first visit; later visits load exactly what was stored
-    local node = places.get(G, addr)
+    local stored = places.get(G, addr)
+    -- time has passed since the last visit: the aftermath of what the
+    -- player did, and the land as it is now
+    local log = require("memory.changes").open(addr)
+    require("memory.aftermath").update(stored, log, progress.night())
+    require("memory.spread").answer(addr, "invitation", progress.night())
+    local node = require("memory.aftermath").view(stored, log)
     local d = node.data
     local style = gen.provisional.style(d.style)
     local planet = places.ancestor(node, "planet")

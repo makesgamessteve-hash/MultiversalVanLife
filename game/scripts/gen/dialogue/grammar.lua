@@ -4,7 +4,8 @@
 -- another rule or fills a slot from the speaker's world: their culture's
 -- greeting, gods (the moon's among them), saint, holidays, beasts, the
 -- versions of history they tell, the news, and their memory of the player
--- (the name they know them by, the deed they remember, their favour). An
+-- (the name they know them by and call them by, the deed they remember,
+-- their favour). An
 -- alternative is only used when every slot it needs is known, so a people
 -- without gods never blesses by one. Choices are seeded per character and
 -- per conversation: the same talk always says the same, the next one
@@ -20,11 +21,19 @@ G.RULES = {
               "A visitor! In #place#!", "Mind the path, it's darker than it looks." },
   stranger_word = { "#stranger# (\"stranger\")", "traveller", "stranger", "friend" },
   hello_known = { "Oh, it's you again.", "#greet# again, traveller.", "Back in #place#?", "You came back! Hello again." },
-  hello_friend = { "#known_as#! #place# hasn't forgotten how you #deed#.", "#greet#, #known_as#! You #deed#; we still talk about it.",
-                   "Look who's here: #known_as#, who #deed#!", "Welcome back, #known_as#. Not a night goes by without someone saying how you #deed#." },
+  hello_friend = { "#title#! #place# hasn't forgotten how you #deed#.", "#greet#, #title#! You #deed#; we still talk about it.",
+                   "Look who's here: #known_as#, who #deed#!", "Welcome back, #title#. Not a night goes by without someone saying how you #deed#." },
   hello_resent = { "You. You #wrong#. I've nothing to say to you.", "Hmph. #known_as#. We remember how you #wrong#.",
                    "Go away. You #wrong#, and #place# doesn't forget." },
   hello_letdown = { "Oh. It's you. You gave up on us.", "We managed without you, in the end." },
+  -- the player is known from stories that travelled here
+  hello_heard = { "#greet#! Wait... aren't you #known_as#? Everyone's heard of #rumour#.",
+                  "You must be #known_as#! The story of #rumour# got here before you did.",
+                  "#known_as#, here in #place#! We've all heard of #rumour#." },
+  hello_wary = { "I know who you are. We've heard of #rumour#.", "Hmph. We've heard of #rumour#. Don't try it here." },
+  -- what changed since the player was last here
+  change_line = { "Have you seen? #change#.", "So much has changed: #change#.", "You won't believe it: #change#." },
+  rumour_line = { "Have you heard the story of #rumour#?", "They tell of #rumour#. Was that you?" },
   -- what there is to talk about
   topic = { "#news_line#", "#news_line#", "#idiom#", "#history#", "#faith_line#", "#smalltalk#", "#holiday_line#" },
   news_line = { "Have you heard? #news#.", "Everyone's worried: #news#.", "Times are hard: #news#.", "They say #news#." },
@@ -103,7 +112,9 @@ function G.slots(lore, mem)
     greeting = lore.greeting and lore.greeting.word, greeting_meaning = lore.greeting and lore.greeting.meaning,
   }
   if mem then
-    s.known_as, s.deed, s.wrong = mem.known_as, mem.deed, mem.wrong
+    s.known_as, s.deed, s.wrong, s.rumour, s.change = mem.known_as, mem.deed, mem.wrong, mem.rumour, mem.change
+    -- the name to call them by ("Lamplighter" for "the Lamplighter")
+    s.title = mem.known_as and (mem.known_as:gsub("^the ", ""):gsub("^%l", string.upper))
   end
   return s
 end
@@ -119,11 +130,15 @@ function G.talk(R, lore, mem, seed, n, opts)
     if mem.wrong and (mem.favour or 0) < 0 then hello = "hello_resent"
     elseif mem.letdown then hello = "hello_letdown"
     elseif mem.deed and (mem.favour or 0) > 0 then hello = "hello_friend"
+    elseif mem.rumour and not mem.met then hello = mem.rumour_rule == "villainise" and "hello_wary" or "hello_heard"
     elseif mem.met then hello = "hello_known" end
   end
   local lines = { G.expand(rules, hello, slots, rng) or G.expand(rules, "hello", slots, rng) }
   if hello ~= "hello_resent" then
-    lines[#lines + 1] = (opts and opts.topic) or G.expand(rules, "topic", slots, rng)
+    local topic = opts and opts.topic
+    if not topic and mem and mem.change then topic = G.expand(rules, "change_line", slots, rng) end
+    if not topic and mem and mem.rumour and rng:chance(0.3) then topic = G.expand(rules, "rumour_line", slots, rng) end
+    lines[#lines + 1] = topic or G.expand(rules, "topic", slots, rng)
     lines[#lines + 1] = G.expand(rules, "farewell", slots, rng)
   end
   return lines

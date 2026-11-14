@@ -128,9 +128,19 @@ local function candidate(G, o, rng)
   }
 end
 
+-- A signal from a visited land that needs the player again or invites
+-- them (a follow-up of world memory/spread.lua).
+function S.followup(f)
+  return { address = f.address, name = f.name, planet = f.planet, galaxy = f.galaxy, galaxy_name = f.galaxy_name,
+           universe = f.universe, trouble = "followup:" .. f.kind, short = f.short or f.text, text = f.text,
+           severity = 1, peopled = true, followup = f.kind }
+end
+
 -- Tonight's signals: `visited` maps galaxy addresses already visited to
--- true, `recent` maps recently offered trouble ids to true.
-function S.tonight(G, night, visited, recent)
+-- true, `recent` maps recently offered trouble ids to true; `followups`
+-- (due needs and invitations of visited lands, earliest first) get one
+-- reserved slot.
+function S.tonight(G, night, visited, recent, followups)
   visited, recent = visited or {}, recent or {}
   local rng = mvl.rng(mvl.hash(G.seed, "signals", night, "lands"))
   local cands, galaxies_seen = {}, {}
@@ -165,11 +175,23 @@ function S.tonight(G, night, visited, recent)
       end
     end
   end
+  -- a visited place calling the player back takes the last slot
+  local f = followups and followups[1]
+  if f then
+    local back = S.followup(f)
+    for i = #out, 1, -1 do if out[i].address == back.address then table.remove(out, i) end end
+    if #out >= S.PER_NIGHT then out[#out] = back else out[#out + 1] = back end
+  end
   return out
 end
 
 -- Juniper's description of a signal.
 function S.describe(s)
+  if s.followup == "invitation" then
+    return string.format("An invitation from %s, on %s in the %s galaxy: %s!", s.name, s.planet, s.galaxy_name, s.text)
+  elseif s.followup == "need" then
+    return string.format("%s is calling us back, on %s: %s.", s.name, s.planet, s.text)
+  end
   return string.format("A call from %s, on %s in the %s galaxy: %s.", s.name, s.planet, s.galaxy_name, s.tension or s.short)
 end
 
