@@ -117,25 +117,49 @@ function H.travel_to(addr)
   H.finish_dialogue()
 end
 
--- A land with the given quest template, near tonight's first signal.
-function H.land_with(template)
+-- A land whose trouble satisfies `pred(template, tensions)`: near
+-- tonight's first signal, or in another country of the signals' planets.
+function H.land_where(pred)
   local gen = D().gen
   local G = gen.world
-  local base = D().story.signals()[1].address:match("^(.*)%.l%d+$")
-  for i = 0, 255 do
-    local addr = base .. ".l" .. i
-    if gen.history.tensions.trouble(G, addr).id == template then return addr end
+  local trouble = gen.history.tensions.trouble
+  for k, s in ipairs(D().story.signals()) do
+    local base = s.address:match("^(.*)%.l%d+$")
+    if k == 1 then
+      for i = 0, 255 do
+        local addr = base .. ".l" .. i
+        if pred(trouble(G, addr)) then return addr end
+      end
+    end
+    local paddr = base:match("^(.-%.p%d+)")
+    for _, c in ipairs(G:generate(paddr).data.countries or {}) do
+      local cbase = paddr .. ".k" .. (c.continent - 1) .. ".n" .. c.index
+      for i = 0, 47 do
+        local addr = cbase .. ".l" .. i
+        if pred(trouble(G, addr)) then return addr end
+      end
+    end
   end
 end
 
+-- A land with the given quest template.
+function H.land_with(template)
+  return H.land_where(function(t) return t.id == template end)
+end
+
 -- Completes the quest of the current land through the game's interactions.
-function H.complete_quest()
+-- A dispute is settled by `choice` ("a", "b" or "compromise", the default).
+function H.complete_quest(choice)
   local w = D().world.current
   local s = w.state.quest
   local q = s.q
   local giver = w.land_node.data.people[1]
-  H.use("Talk to " .. giver.name)
-  H.finish_dialogue()
+  local people = {}
+  for _, p in ipairs(w.land_node.data.people) do people[p.id] = p end
+  if not s.started then
+    H.use("Talk to " .. giver.name)
+    H.finish_dialogue()
+  end
   if q.kind == "relight" or q.kind == "return" then
     for _ = 1, q.count do H.use(q.kind == "relight" and "Gather the" or "Pick up the") H.finish_dialogue() end
     test.eq(s.carrying, q.count, "carrying everything")
@@ -144,13 +168,35 @@ function H.complete_quest()
     for _ = 1, q.count do H.use("Pick up the") H.finish_dialogue() end
     test.expect(not s.complete, "not done before talking to the giver")
     H.use("Talk to " .. giver.name)
-  elseif q.kind == "lost" then
-    H.use("Talk to " .. q.lost.name)
+  elseif q.kind == "restore" then
+    for _ = 1, q.count do H.use("Pick up the") H.finish_dialogue() end
+    test.expect(not s.complete, "not done before restoring the source")
+    H.use("Restore the")
+  elseif q.kind == "message" then
+    H.use("Talk to " .. q.recipient.name)
     H.finish_dialogue()
-    test.expect(s.following, "the lost person follows")
+    test.expect(s.delivered and not s.complete, "the word is delivered")
+    H.use("Talk to " .. giver.name)
+  elseif q.kind == "mediate" then
+    for i = 1, 2 do
+      H.use("Talk to " .. people[q.parties[i].person].name)
+      H.finish_dialogue()
+    end
+    local menu = D().story.menu
+    test.expect(menu and menu.title == "SETTLE THE QUARREL", "after hearing both sides, a settlement is asked for")
+    choice = choice or "compromise"
+    local label = choice == "compromise" and "compromise" or
+                  ("Side with " .. require("lib.landquest").short(q.parties[choice == "a" and 1 or 2].label))
+    H.choose(menu, label)
+  elseif q.kind == "lost" or q.kind == "escort" then
+    local who = q.kind == "lost" and q.lost or q.escort
+    H.use("Talk to " .. who.name)
+    H.finish_dialogue()
+    test.expect(s.following, who.name .. " follows")
     local p = D().player
-    p.place(giver.x + 2, giver.z + 2, 0)
-    test.until_true(function() return s.complete end, 300, "the lost person is home")
+    local to = q.kind == "lost" and giver or q.destination
+    p.place(to.x + 2, to.z + 2, 0)
+    test.until_true(function() return s.complete end, 300, who.name .. " arrived")
   end
   H.finish_dialogue()
   return s.complete

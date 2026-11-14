@@ -8,13 +8,7 @@ local progress = require("lib.progress")
 local LQ = require("lib.landquest")
 local gen = require("gen")
 local places = require("memory.places")
-
-local CHATTER = {
-  "A van? Out here? Well, I've seen stranger things fall out of the sky.",
-  "Mind the {spot}s, the little ones built them.",
-  "The {folk} of {place} don't get many visitors. Welcome!",
-  "If you're looking for {giver}, they're by the square.",
-}
+local talk = require("lib.talk")
 
 world.register({
   id = "land",
@@ -44,15 +38,15 @@ world.register({
       local n = gen.neighbour_land(G, addr, gx, gz)
       return n and places.get(G, n.address) or nil
     end)
-    -- people (the first one has the trouble)
+    -- people (the first one has the trouble); they talk like their people
+    -- and remember the player
     for i = 2, #d.people do
       local p = d.people[i]
-      local line = gen.quests.fill(CHATTER[(i - 2) % #CHATTER + 1], d.quest and d.quest.words or {})
       -- where the Wanderer legend is told, people recognise the van
-      if d.wanderer and i == 2 then
-        line = "The Wanderer's wagon, cream and teal! The old stories said it would come back one day."
-      end
+      local topic = d.wanderer and i == 2 and
+                    "The Wanderer's wagon, cream and teal! The old stories said it would come back one day." or nil
       w:npc_at(p, function()
+        if LQ.talk(w, p) then return end
         if p.lines then
           -- a person of history speaks of their deeds
           local said = {}
@@ -61,7 +55,7 @@ world.register({
           end
           dialogue.say(said)
         else
-          dialogue.say({ speaker = "villager", name = p.name, text = line, color = { 0.85, 0.85, 1 } })
+          talk.villager(w, node, p, { topic = topic })
         end
       end)
     end

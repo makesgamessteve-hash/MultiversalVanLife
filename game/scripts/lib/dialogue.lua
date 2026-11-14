@@ -87,7 +87,10 @@ function dialogue.draw(touch)
   local bw = math.min(w - 16, 400)
   local bx, by, bh = math.floor((w - bw) / 2), h - 70, 62
   local sp = dialogue.speakers[cur.speaker]
-  if not sp then -- generated speakers
+  if cur.generated and cur.speaker ~= "narrator" and cur.name and cur.name ~= cur.speaker then
+    -- generated characters show their own name (villagers of generated lands)
+    sp = { name = cur.name, color = cur.color or (sp and sp.color) or { 0.85, 0.9, 1.0 } }
+  elseif not sp then -- generated speakers
     sp = cur.generated and { name = cur.name, color = cur.color or { 0.85, 0.9, 1.0 } } or dialogue.speakers.narrator
   end
   mvl.rect(bx, by, bw, bh, 0.03, 0.04, 0.1, 0.88)

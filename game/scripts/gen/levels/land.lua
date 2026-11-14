@@ -460,7 +460,9 @@ function land.register(R)
       end
       -- the troubles of the present: the land's trouble is the strongest
       d.tensions = require("gen.history.tensions").for_land(planet.data, ctx.parent.summary.id, ctx.node.seed)
-      quests.generate(ctx, d, provisional.style(d.style))
+      -- what its people know and talk about (kept with the land for dialogue)
+      d.lore = require("gen.dialogue.lore").build(d, cul, planet.data, ctx.parent.summary)
+      quests.generate(ctx, d, provisional.style(d.style), cul)
       if biome then
         d.biome_trees = biome.trees
         d.texture_override = biome.texture

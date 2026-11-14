@@ -1,5 +1,6 @@
 -- A mod adds a new kind of trouble; newly generated lands can have it and
--- it can be solved like any other.
+-- it can be solved like any other. It also adds a saying to the dialogue
+-- grammar, which villagers use.
 local D = game.debug
 local mods = mvl.mods()
 test.eq(mods[1], "sample_mod", "mod enabled")
@@ -20,3 +21,17 @@ test.expect(H.complete_quest(), "the mod's quest can be completed")
 test.expect(D.progress.helped(addr), "the land is helped")
 -- generated places record the active mods
 test.eq(w.land_node.mods[1], "sample_mod", "the land records the mod it was generated with")
+-- the land remembers the mod's deed
+test.eq(w:memory().community.deed, "saved the moonberry harvest", "the mod's deed is remembered")
+-- the mod's saying is part of the grammar and villagers say it
+local grammar = D.gen.dialogue.grammar
+local rules = grammar.rules(D.gen.cosmos)
+local found = false
+for _, alt in ipairs(rules.idiom) do if alt:find("Moonberries ripen", 1, true) then found = true end end
+test.expect(found, "the mod's saying is in the grammar")
+local said = 0
+for n = 1, 200 do
+  local lines = grammar.talk(D.gen.cosmos, w.land_node.data.lore, nil, 99, n)
+  for _, l in ipairs(lines) do if l:find("Moonberries ripen", 1, true) then said = said + 1 end end
+end
+test.expect(said > 0, "villagers say it: " .. said .. " times in 200 talks")

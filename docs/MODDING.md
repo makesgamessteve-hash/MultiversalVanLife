@@ -59,22 +59,68 @@ gen.cosmos:content("quest_templates", {
     intro = { "The {folk} of {place} pick moonberries only on nights like this one.",
               "But the baskets tipped over on the hill! Could you find all {n} {part}s?" },
     progress = "{left} {part}s are still out there.",
-    done = "A full basket! The {folk} will feast tonight, thanks to you." },
+    done = "A full basket! The {folk} will feast tonight, thanks to you.",
+    deed = "saved the moonberry harvest" },
+})
+
+-- and a saying villagers may use (see the dialogue grammar in MODDING.md)
+gen.cosmos:content("dialogue_rules", {
+  { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
 ```
 
-Quest templates have a `kind` (`relight`, `gather`, `return` or `lost`), a
-weight `w`, the words they use (`part`, `keepsake`, `light`, `glow`, `spot`,
-`machine`, and `item`, the sprite of collectable items) and text with
-placeholders: `{giver}`, `{place}` (the settlement), `{folk}`, `{n}`,
-`{left}`, `{lost}` and the words above. A land's strongest tension (its
-history's troubles, see [WORLDGEN.md](WORLDGEN.md)) calls for a kind of
-quest, and its trouble is picked from its seed among all registered
-templates of that kind, so newly generated lands can get the mod's trouble. Other things a mod can extend:
+Quest templates have a `kind`, a weight `w`, the words they use (`part`,
+`keepsake`, `light`, `glow`, `spot`, `machine`, `source`, and `item`, the
+sprite of collectable items) and text with placeholders: `{giver}`,
+`{place}` (the settlement), `{folk}`, `{n}`, `{left}` and the words above.
+`deed` is what the land remembers the player did ("saved the moonberry
+harvest": "Welcome back, the Finder! You saved the moonberry harvest").
+
+| Kind | The player... | Extra text keys | Extra placeholders |
+|---|---|---|---|
+| `relight` | gathers glowing things and lights the lamps | | `{light}` `{glow}` |
+| `gather` | finds the parts and brings them back | | `{part}` `{machine}` |
+| `return` | puts the keepsakes back in their places | | `{keepsake}` `{spot}` |
+| `lost` | finds someone and leads them home | `lost_line` | `{lost}` |
+| `message` | carries word to someone far away and brings back the answer | `reply`, `waiting` | `{recipient}` `{message}` `{answer}` |
+| `mediate` | hears both sides of a dispute and settles it: for one side or a compromise | `claim_a`, `claim_b`, `heard`, `done_side`, `done_compromise`, `deed_side`, `wrong_side` | `{party_a}` `{party_b}` `{issue}` `{winner}` |
+| `escort` | walks someone to a place | `escort_line`, `wait_line`, `arrive` | `{escort}` `{destination}` |
+| `restore` | finds what fed a failing spring or stone and restores it | `ready` | `{source}` `{part}` |
+
+Every quest comes from a land's strongest **tension** (its history's
+troubles, see [WORLDGEN.md](WORLDGEN.md)): the tension kind calls for quest
+kinds (`gen.history.tensions.QUEST`, a table mods may change, e.g.
+`QUEST["dark nights"] = { "relight", "message" }`), and the land's trouble
+is picked from its seed among all registered templates of that kind, so
+newly generated lands can get the mod's trouble. The giver adds a line of
+lore about the tension (the place, its gods, saint, holidays, the events
+and rivals behind it). Every quest can be given up (talking to the giver
+mid-quest offers it), and how it ended is remembered by the land (its change
+log's `outcome`), its people (favour, the deed or the wrong they remember,
+the name they call the player by) and the parties of a dispute
+(`memory/characters.lua` reputation).
+
+**Dialogue grammar.** Villagers talk with lines assembled by
+`gen/dialogue/grammar.lua`: rules map a symbol to alternatives, and `#name#`
+in an alternative expands another rule or fills a slot. Slots come from the
+land's lore and the speaker's memory: `place`, `greeting` and
+`greeting_meaning` (in the people's language), `stranger`, `deity`,
+`moon_deity`, `saint`, `faith`, `virtue`, `holiday`, `beast`, `plant`,
+`memory` (how the people tell their history), `news` (the land's tensions)
+and `known_as`, `deed`, `wrong` (what the speaker remembers of the player).
+An alternative is used only when every slot it needs is known. A
+conversation is `hello` (or `hello_known`, `hello_friend`, `hello_resent`,
+`hello_letdown`, by memory), a `topic` (`news_line`, `idiom`, `history`,
+`faith_line`, `smalltalk`, `holiday_line`) and a `farewell` (often a
+`blessing`). Mods add alternatives to any symbol with the content table
+`dialogue_rules`, as the sample mod above does. Other things a mod can
+extend:
 
 | Table | Contents |
 |---|---|
 | `gen.cosmos:content("quest_templates", {...})` | Troubles of generated lands |
+| `gen.cosmos:content("dialogue_rules", {...})` | What villagers say (`{ symbol = { alternatives } }`) |
+| `gen.history.tensions.QUEST` | The quest kinds each tension kind calls for |
 | `gen.cosmos:content("magic_sources" / "ftl_modes", {...})` | Universe laws (`{ id, w }`) |
 | `gen.provisional.STYLES` | Looks of generated worlds: terrain, sky, sounds, buildings, people, words |
 | `gen.names.LEXICONS` | Syllables of generated names |

@@ -491,6 +491,49 @@ came out of the sky; the culture of the nation that saw it keeps it as a
 legend, sometimes with a shrine. In its lands the quest giver recognises the
 van on the first meeting and a villager speaks of the legend.
 
+### Quests and dialogue
+
+**Quests from tensions** (`gen/quests.lua`): a land's quest comes from its
+strongest tension. The tension kind calls for quest kinds (a drought with a
+dam upstream becomes a dispute between the villages upstream and
+downstream; a failing spring or fading magic a source to restore; a sick
+child someone to escort; a succession crisis word to carry to an heir) and
+the land's seed picks the kind and a template of it. The quest is filled
+with the land's real people: the giver, the two villagers who speak for the
+parties of a dispute, the recipient of a message or the one to escort (new
+villagers named in the people's language and dressed like them). The giver
+adds a line of lore about the trouble naming the place and, where the land
+knows them, its gods, saint, holidays and the events or rivals behind it
+("Since the Schism of Klafo, half of Ushet prays one way to Teeki and half
+another"). Eight kinds: `relight`, `gather`, `return`, `lost`, `message`,
+`mediate`, `escort` and `restore`.
+
+**Outcomes**: a dispute is settled for one side or by a compromise once the
+player has heard both; any quest can be given up. The land's change log
+keeps the outcome (`outcome`: result, favoured and wronged party), its
+people remember (`memory/characters.lua`: per character whether they met,
+how often they talked, favour from -3 to +3, the deed they are grateful for
+or the wrong they hold; for the whole community the deed and the title they
+call the player by: "the Lamplighter", "the Peacemaker", ...), and the
+parties of a dispute keep a reputation of the player across the multiverse
+(record `reputation`).
+
+**Dialogue** (`gen/dialogue/`): generation keeps each land's **lore**
+(`d.lore`): the place, country and nation, the culture's greeting in its
+language with its meaning, the word for a stranger, the faith's gods (and
+which is the moon), saint and virtue, up to three holidays, beasts and
+plants of the land, the people's versions of history and the news (the
+land's tensions). A small grammar (`grammar.lua`) assembles conversations
+from it: a greeting by what the speaker remembers (a stranger is welcomed,
+an acquaintance greeted again, a friend thanked by name for their deed, a
+wronged villager says little but why), a topic (news, an idiom with the
+local beasts and plants, history as they tell it, faith, holidays) and a
+farewell, often a blessing by their gods: a moon-worshipping people's
+farewell can invoke its moon deity by name. Alternatives that need slots a
+land does not know are skipped; choices are seeded per character and per
+conversation. Mods add alternatives with the content table
+`dialogue_rules`.
+
 The bible's planet sections end with **Today**: the echoes of greater
 histories, each country's strongest tension with its causes and
 stakeholders, and what each culture remembers differently; land

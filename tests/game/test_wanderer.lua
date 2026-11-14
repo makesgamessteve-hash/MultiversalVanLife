@@ -63,9 +63,8 @@ test.expect(#said >= 2, "and then tells of the trouble")
 local other = d.people[2]
 if other and not other.lines then
   H.use("Talk to " .. other.name)
-  local line = D.dialogue.current and D.dialogue.current.text or ""
-  test.expect(line:find("Wanderer", 1, true), "villagers know the legend: " .. line)
-  H.finish_dialogue()
+  local heard = table.concat(H.collect_lines(), " ")
+  test.expect(heard:find("Wanderer", 1, true), "villagers know the legend: " .. heard)
 end
 -- a second visit: the giver remembers you rather than the legend
 H.use("Talk to " .. giver.name)

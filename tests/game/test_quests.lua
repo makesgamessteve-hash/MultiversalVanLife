@@ -1,8 +1,10 @@
 -- Every base quest template can be completed through the game's own
--- interactions on three seeds, and completing it marks the land as helped.
+-- interactions on three seeds, and completing it marks the land as helped:
+-- the simple troubles and the advanced ones (carry a message, settle a
+-- dispute, escort someone, restore a failing source).
 local D = game.debug
 local gen = D.gen
-for _, template in ipairs({ "relight", "gather", "return", "lost" }) do
+for _, template in ipairs({ "relight", "gather", "return", "lost", "message", "mediate", "escort", "restore" }) do
   for _, seed in ipairs({ 101, 202, 303 }) do
     H.new_game_in_van(seed)
     local addr = H.land_with(template)
@@ -16,7 +18,7 @@ for _, template in ipairs({ "relight", "gather", "return", "lost" }) do
     -- items lie within reach of the giver, on the ground
     local giver = w.land_node.data.people[1]
     for _, f in ipairs(w.land_node.data.features) do
-      if f.role == "quest_item" or f.role == "quest_target" then
+      if f.role == "quest_item" or f.role == "quest_target" or f.role == "quest_source" then
         local d = math.sqrt((f.x - giver.x) ^ 2 + (f.z - giver.z) ^ 2)
         test.expect(d <= 62, f.id .. " within reach of the giver: " .. d)
       end

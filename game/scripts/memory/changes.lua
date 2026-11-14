@@ -7,6 +7,9 @@
 --   placed[id]  = objects the player put into the world (dropped items,
 --                 things built), with their own ids "placed/<n>"
 --   quest       = the land's quest progress
+--   characters  = what its people remember of the player, community = what
+--                 the whole place remembers (memory/characters.lua)
+--   outcome     = how the land's quest ended (helped, a side taken, given up)
 -- Chunks apply the log whenever they are built. Writes are buffered and
 -- flushed when leaving a land, at the end of the night, on saving and every
 -- 30 seconds.
@@ -23,7 +26,8 @@ function changes.open(addr)
   if log then return log end
   local rec = mvl.record_read(changes.record(addr)) or {}
   log = setmetatable({ address = addr, objects = rec.objects or {}, placed = rec.placed or {}, quest = rec.quest,
-                       next_id = rec.next_id or 1, dirty = false }, Log)
+                       next_id = rec.next_id or 1, characters = rec.characters or {}, community = rec.community,
+                       outcome = rec.outcome, dirty = false }, Log)
   changes.logs[addr] = log
   return log
 end
@@ -76,10 +80,17 @@ function Log:set_quest(q)
   self.dirty = true
 end
 
+-- How the land's quest ended: { kind, result, favoured, wronged, night }.
+function Log:set_outcome(o)
+  self.outcome = o
+  self.dirty = true
+end
+
 function Log:flush()
   if not self.dirty then return false end
   mvl.record_write(changes.record(self.address), { objects = self.objects, placed = self.placed, quest = self.quest,
-                                                   next_id = self.next_id })
+                                                   next_id = self.next_id, characters = self.characters,
+                                                   community = self.community, outcome = self.outcome })
   self.dirty = false
   return true
 end

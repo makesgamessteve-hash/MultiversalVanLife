@@ -8,5 +8,11 @@ gen.cosmos:content("quest_templates", {
     intro = { "The {folk} of {place} pick moonberries only on nights like this one.",
               "But the baskets tipped over on the hill! Could you find all {n} {part}s?" },
     progress = "{left} {part}s are still out there.",
-    done = "A full basket! The {folk} will feast tonight, thanks to you." },
+    done = "A full basket! The {folk} will feast tonight, thanks to you.",
+    deed = "saved the moonberry harvest" },
+})
+
+-- and a saying villagers may use (see the dialogue grammar in MODDING.md)
+gen.cosmos:content("dialogue_rules", {
+  { idiom = { "Moonberries ripen for the patient, my mother always said." } },
 })
