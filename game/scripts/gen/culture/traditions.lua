@@ -27,6 +27,7 @@ function T.region(P, k, pseed)
   local c = P.cells
   local out = { cells = 0, biomes = {}, resources = {}, species = {}, magic = 0 }
   local forest, bare, dry, coast, high = 0, 0, 0, 0, 0
+  local rocks = {}
   for i = 1, #c.elevation do
     if c.continent and c.continent[i] == k + 1 then
       out.cells = out.cells + 1
@@ -40,6 +41,7 @@ function T.region(P, k, pseed)
         if c.elevation[nb] <= 0 then coast = coast + 1 break end
       end
       out.magic = out.magic + (c.magic and c.magic[i] or 0)
+      if c.rock and c.elevation[i] > 0 then rocks[c.rock[i]] = (rocks[c.rock[i]] or 0) + 1 end
       local dep = c.deposit and c.deposit[i] or 0
       if dep == 1 then out.resources[METALS[mvl.hash(pseed, i, "ore") % #METALS + 1]] = true end
       if dep == 2 then out.resources[FUELS[mvl.hash(pseed, i, "fuel") % #FUELS + 1]] = true end
@@ -55,6 +57,11 @@ function T.region(P, k, pseed)
   local best, bn = nil, 0
   for b, cnt in pairs(out.biomes) do if cnt > bn or (cnt == bn and b < best) then best, bn = b, cnt end end
   out.biome = best or "barren"
+  local rk, rn = nil, 0
+  for i, cnt in pairs(rocks) do if cnt > rn or (cnt == rn and i < rk) then rk, rn = i, cnt end end
+  local planet = require("gen.levels.planet")
+  out.rock = rk and planet.ROCKS[rk].name or "granite"
+  out.rock_color = rk and planet.ROCKS[rk].color or { 168, 150, 146 }
   -- the living things of its biomes
   local L = P.life
   if L and L.by_biome then

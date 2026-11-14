@@ -131,6 +131,21 @@ function W:on_update(fn) world.updaters[#world.updaters + 1] = fn end
 
 -- NPC standing on the ground: t = { name, texture, x, z, w, h, tint }.
 function W:npc_at(t, talk)
+  -- a voxel person of their species and culture where the land knows them
+  local model
+  if t.body and self.streamer then
+    local b = t.body
+    model = self.streamer.models:acquire({
+      kind = "person", key = "person:" .. self.land_node.address .. ":" .. (b.seed or 0) .. ":" .. tostring(t.name),
+      anatomy = b.anatomy, hue = b.hue, dress = b.dress, accent = b.accent })
+    if model and model.mesh == 0 then model = nil end
+  end
+  if model then
+    local e = mvl.spawn({ mesh = model.mesh, pos = { t.x, self:height(t.x, t.z), t.z }, yaw = t.yaw or 0,
+                          solid = true, radius = 0.35 })
+    local it = self:interactable({ x = t.x, z = t.z, entity = e, name = t.name, prompt = "Talk to " .. t.name, use = talk })
+    return e, it
+  end
   local e, it = self:npc({ texture = t.texture, name = t.name, x = t.x, z = t.z, w = t.w, h = t.h, talk = talk })
   mvl.set_pos(e, t.x, self:height(t.x, t.z), t.z)
   if t.tint then mvl.set_color(e, t.tint[1], t.tint[2], t.tint[3], t.tint[4] or 1) end

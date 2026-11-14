@@ -16,7 +16,7 @@ local technology = require("gen.culture.technology")
 local util = require("gen.util")
 
 local C = { language = language, religion = religion, calendar = calendar, traditions = traditions,
-            society = society, technology = technology }
+            society = society, technology = technology, MONUMENT_LAND = 119 }
 
 local function title(s) return s:sub(1, 1):upper() .. s:sub(2) end
 
@@ -104,6 +104,25 @@ local function cultures(ctx)
         end
       end
     end
+    -- the faith's founder, remembered by a statue in a land of the first culture
+    local first
+    for _, c in ipairs(d.cultures) do if c.religion == rel.id and not first then first = c end end
+    if first then
+      local home
+      for id, c in ipairs(d.countries or {}) do if c.culture == first.id and not home then home = c end end
+      local pn = language.name(first.language, mvl.rng(mvl.hash(seed, "founder")), "person")
+      local founder = { name = pn.name, meaning = pn.meaning, role = "prophet", species = s.name,
+                        anatomy = util.copy(s.anatomy), hue = s.hue or 30,
+                        attributes = rel.form == "philosophy" and { "book" } or { "staff", "halo" } }
+      rel.founder = founder
+      founder.fact = ctx:fact("individual", { name = founder.name, role = "prophet", religion = rel.name,
+                                              species = s.name }, { rel.fact })
+      if home then
+        local target = ctx.node.address .. ".k" .. (home.continent - 1) .. ".n" .. home.index .. ".l" .. C.MONUMENT_LAND
+        ctx:commit(target, "monument", { individual = founder }, founder.fact)
+        founder.monument = target
+      end
+    end
     -- real gods: the deities of a widely followed faith
     local followers = 0
     for _, c in ipairs(d.countries or {}) do
@@ -151,6 +170,11 @@ function C.traditions_of(ctx, culture, s, rel, source, laws, rng)
     culture.tech.known[#culture.tech.known + 1] = "spaceflight"
     culture.tech.has.spaceflight, culture.tech.level = true, 10
   end
+  -- how they build, dress and look
+  culture.anatomy, culture.hue = util.copy(s.anatomy), s.hue or 30
+  culture.style = require("gen.culture.architecture").style(rng, s, r, rel, culture.values, culture.tech, r.rock_color,
+                                                            d.life.chemistry)
+  culture.region.rock = r.rock
 end
 
 -- The culture of a country (by its id on the planet), or nil.

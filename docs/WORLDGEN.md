@@ -355,6 +355,34 @@ living there; a metal or fuel cell's ore follows from a hash of the cell).
   skyships); strong psionics replace radio with farspeech. Spacefarers
   have reached spaceflight.
 
+## Cultures: architecture, dress and people
+
+Every culture has a style vector (`gen/culture/architecture.lua`; fields in
+docs/MODDING.md): stone where masons live among mountains or few trees,
+timber in forests, mud brick in dry lands, hides for herders without
+masonry; towers for flyers (with roof hatches: entrances from above),
+burrows for hives with mandibles, courtyards in dry hierarchical lands,
+longhouses for forest clans, round huts for herders; steep roofs where rain
+and snow fall, flat roofs in deserts, cones on round huts and towers, turf
+on burrows, domes under sky faiths in heat; thick walls in cold and heat;
+doors sized to the people; ornaments from the faith's first motif; dress
+from climate and body (robes, furs, wraps, tunics, harnesses for wings and
+chitin), dyed from local plants, with headdresses or sashes by values.
+
+Lands of a culture keep `architecture` (its style with the land's own
+bedrock as stone) and turn their settlement into generated buildings
+(`gen/visuals/buildings.lua`: houses, a workshop, a well and a temple
+facing the square, or the east for sky faiths); villagers have voxel bodies
+of their species in their dress (`gen/visuals/people.lua`). Buildings,
+people and statues go through the model cache; the hand-made voxel art
+remains the fallback.
+
+**Monuments**: each faith's founder (an `individual` fact: a prophet named
+in the culture's language, with the species' body and attributes) is
+promised a statue in a land of the culture's first country
+(`planet.kK.nN.l119`); the land honours the commitment with a statue on a
+plinth near its square, in its own stone.
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

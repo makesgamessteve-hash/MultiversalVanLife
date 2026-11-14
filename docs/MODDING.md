@@ -390,6 +390,63 @@ creature has its parts and is animated (legs in alternating pairs, flapping
 wings, swaying tails, slithering segments); further away it is its merged
 model. Plants near the player sway.
 
+## Buildings, people and statues
+
+**Style vectors** (`gen/culture/architecture.lua`): each culture has a
+`style` = `{material, plan, roof, pitch, wall, door = {h, w}, roof_entry,
+ornament, sky_faith, storeys, palette = {wall, wall_dark, roof, roof_dark,
+wood, accent}, dress = {garment, color, trim, status}}`. Materials are
+`stone`, `timber`, `mud brick` or `hide`; plans `square`, `round`,
+`courtyard`, `longhouse`, `burrow` or `tower`; roofs `gable`, `hip`,
+`flat`, `dome`, `cone` or `turf` (or any registered roof); ornaments
+`crescents`, `discs`, `flames`, `waves`, `spirals`. A land repaints stone
+walls in its own bedrock (`architecture.local_style`), and keeps the result
+in `land.data.architecture`.
+
+**Floor-plan grammar** (`gen/visuals/buildings.lua`): `buildings.build(kind,
+style, seed)` turns a kind (`house`, `workshop`, `temple`, `well`, `wall`)
+and a style into a voxel grid of at most 64 x 64 x 48 cells (1/8 m, Z up,
+door towards +y): the footprint of the plan, storeys of 22 voxels, a door
+sized to the people, windows, the roof, ornaments, a spire on temples of
+sky faiths and a roof hatch for winged peoples. Palette indices: 1 wall, 2
+wall shadow, 3 roof, 4 roof shadow, 5 wood, 6 accent, 7 openings, 8 hatch.
+`buildings.mesh(...)` returns the mesh, its footprint in metres and a hash.
+
+**People** (`gen/visuals/people.lua`): `people.build{anatomy, hue, dress,
+accent}` stands a species upright (two legs and arms, or a taur body when it
+has more limbs than hands), with wings, tail, eyes and mouth, in its dress;
+`statue = true, stone, attributes = {"staff", "crown", "book", "sword",
+"halo"}` makes a statue on a plinth. Add attributes through
+`people.ATTRIBUTES[name] = function(g, b) ... end`.
+
+**Adding a roof type.** Register a function in `buildings.ROOFS`; it draws
+onto the walls of the plan `p` (footprint `p.x0..p.x1`, `p.y0..p.y1`,
+`p.w`, `p.d`, `p.pitch`) from height `top` and returns the highest voxel.
+Styles with `roof = "<name>"` use it:
+
+<!-- example -->
+```lua
+local buildings = require("gen.visuals.buildings")
+buildings.ROOFS.onion = function(g, p, top)
+  local cx, cy = (p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2
+  g:ellipsoid(cx, cy, top + 6, p.w / 3, p.d / 3, 7, 3)    -- the bulb in roof colour
+  g:line(cx, cy, top + 12, cx, cy, top + 17, 0.6, 6)      -- a finial in the accent colour
+  return top + 17
+end
+local style = {
+  material = "stone", plan = "square", roof = "onion", pitch = 0.8, wall = 1, door = { h = 14, w = 7 },
+  roof_entry = false, ornament = "none", storeys = 2,
+  palette = { wall = { 200, 190, 170 }, wall_dark = { 150, 140, 125 }, roof = { 60, 120, 90 }, roof_dark = { 40, 90, 70 },
+              wood = { 112, 78, 48 }, accent = { 230, 200, 90 } },
+}
+local mesh, footprint = buildings.mesh("temple", style, 1)
+local temple = mvl.spawn{ mesh = mesh, pos = { 0, 0, -12 }, box = footprint }
+assert(mesh > 0 and mvl.exists(temple))
+mvl.destroy(temple)
+mvl.release_mesh(mesh)
+buildings.ROOFS.onion = nil
+```
+
 ## World memory
 
 Every place the player visits is stored in the save on the first visit and

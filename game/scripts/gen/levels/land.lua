@@ -379,6 +379,40 @@ function land.register(R)
         for i, p in ipairs(d.people) do
           local pn = culture.person_name(cul, mvl.hash(ctx.node.seed, "person", i))
           p.name, p.name_meaning, p.species = pn.name, pn.meaning, cul.species
+          -- a voxel body of their species in their culture's dress
+          p.body = { anatomy = util.copy(cul.anatomy), hue = cul.hue, dress = util.copy(cul.style.dress),
+                     accent = cul.style.palette.accent, seed = mvl.hash(ctx.node.seed, "body", i) % 3 }
+          -- the first waits for the van, the others face the square
+          local tx, tz = d.spots.square.x, d.spots.square.z
+          if i == 1 then tx, tz = d.spots.van.x, d.spots.van.z end
+          p.yaw = dm.round(dm.atan(-(tx - p.x), -(tz - p.z)), 4)
+        end
+        -- buildings in the culture's style, in the land's own stone
+        d.architecture = require("gen.culture.architecture").local_style(cul.style, d.materials and d.materials.stone)
+        local KIND = { house = "house", barn = "house", market_stall = "workshop", bookshelf = "workshop", well = "well" }
+        local temple = false
+        for _, f in ipairs(d.features) do
+          if f.role == "building" and KIND[f.voxel] then
+            f.building = KIND[f.voxel]
+            if not temple and f.building == "house" then f.building, temple = "temple", true end
+            f.variant = mvl.hash(ctx.node.seed, f.id) % 3
+            -- generated buildings have their door in front: face the square
+            -- (temples of sky faiths face the east, where the sky rises)
+            f.yaw = dm.round(f.yaw + dm.pi, 4)
+            if f.building == "temple" and cul.style.sky_faith then f.yaw = dm.round(-dm.pi / 2, 4) end
+          end
+        end
+        -- monuments promised by the planet: the statue of an individual
+        for _, c in ipairs(ctx:commitments("monument")) do
+          local who = c.data.data.individual
+          local sq = d.spots.square
+          local st = d.materials and d.materials.stone
+          d.features[#d.features + 1] = {
+            id = "monument", role = "monument", x = sq.x, z = sq.z - 3, yaw = 0, box = { 1.8, 1.4 },
+            statue = { anatomy = util.copy(who.anatomy), hue = who.hue, attributes = util.copy(who.attributes),
+                       name = who.name, role = who.role, stone = st and { st[1], st[3], st[4] } or nil },
+          }
+          ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
         end
       end
       quests.generate(ctx, d, provisional.style(d.style))

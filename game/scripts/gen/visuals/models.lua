@@ -23,6 +23,14 @@ end
 function Cache:tick() self.built = 0 end
 
 local function build(p)
+  if p.kind == "building" then
+    local mesh, box, hash = require("gen.visuals.buildings").mesh(p.building, p.style, p.seed)
+    return { mesh = mesh, box = box, hash = hash, count = mesh > 0 and 1 or 0, meshes = { mesh } }
+  end
+  if p.kind == "person" or p.kind == "statue" then
+    local mesh, hash = require("gen.visuals.people").mesh(p)
+    return { mesh = mesh, hash = hash, count = mesh > 0 and 1 or 0, meshes = { mesh } }
+  end
   if p.kind == "plant" then
     local mesh, hash = plants.mesh(p)
     return { mesh = mesh, hash = hash, count = mesh > 0 and 1 or 0, meshes = { mesh } }

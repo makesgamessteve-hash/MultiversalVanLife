@@ -162,11 +162,21 @@ function S:build(cx, cz, rec)
                         unlit = f.unlit, nofog = f.nofog, color = f.color, solid = f.radius ~= nil, radius = f.radius })
       else
         local s = f.scale or 1
+        local mesh, box, color = nil, f.box, f.color
+        -- generated buildings and statues (the hand-made voxel art is the fallback)
+        local model = self:feature_model(f, rec)
+        if model and model.mesh > 0 then
+          c.models = c.models or {}
+          c.models[#c.models + 1] = model.key
+          mesh, box, color = model.mesh, model.box or f.box, nil
+        elseif model then
+          self.models:release(model.key)
+        end
         e = mvl.spawn({
-          mesh = resolve_mesh(f), texture = f.texture and PAL.texture(d.materials, f.texture) or 0,
+          mesh = mesh or resolve_mesh(f), texture = f.texture and PAL.texture(d.materials, f.texture) or 0,
           pos = { wx, mvl.height(wx, wz) + (f.y or 0), wz }, yaw = f.yaw or 0,
-          scale = type(s) == "number" and { s, s, s } or s, color = f.color,
-          solid = f.box ~= nil or f.radius ~= nil, box = f.box, radius = f.radius,
+          scale = type(s) == "number" and { s, s, s } or s, color = color,
+          solid = box ~= nil or f.radius ~= nil, box = box, radius = f.radius,
         })
       end
       c.entities[#c.entities + 1] = e
@@ -401,6 +411,33 @@ end
 
 -- Builds everything within LOAD at once (on arrival).
 function S:fill(px, pz) return self:update(px, pz, math.huge) end
+
+-- The generated model of a building or statue feature (acquired), or nil.
+function S:feature_model(f, rec)
+  local d = rec.node.data
+  if f.building and d.architecture then
+    rec.style_key = rec.style_key or chunks.style_key(d.architecture)
+    return self.models:acquire({ kind = "building", key = "building:" .. rec.style_key .. ":" .. f.building .. ":" ..
+                                   (f.variant or 0), building = f.building, style = d.architecture, seed = f.variant or 0 })
+  end
+  if f.statue then
+    local q = f.statue
+    return self.models:acquire({ kind = "statue", key = "statue:" .. rec.node.address .. ":" .. tostring(q.name),
+                                 statue = true, anatomy = q.anatomy, hue = q.hue, stone = q.stone,
+                                 attributes = q.attributes })
+  end
+end
+
+-- A key for an architecture style (equal styles share their buildings).
+function chunks.style_key(st)
+  local p = st.palette
+  local parts = { st.material, st.plan, st.roof, st.pitch, st.wall, st.door.h, st.door.w, tostring(st.roof_entry),
+                  st.ornament, st.storeys, tostring(st.sky_faith) }
+  for _, k in ipairs({ "wall", "wall_dark", "roof", "roof_dark", "wood", "accent" }) do
+    parts[#parts + 1] = p[k][1] .. "/" .. p[k][2] .. "/" .. p[k][3]
+  end
+  return tostring(mvl.hash(table.concat(parts, ",")))
+end
 
 -- Destroys every chunk.
 function S:clear()
