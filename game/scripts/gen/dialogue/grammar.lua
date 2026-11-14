@@ -35,7 +35,9 @@ G.RULES = {
   change_line = { "Have you seen? #change#.", "So much has changed: #change#.", "You won't believe it: #change#." },
   rumour_line = { "Have you heard the story of #rumour#?", "They tell of #rumour#. Was that you?" },
   -- what there is to talk about
-  topic = { "#news_line#", "#news_line#", "#idiom#", "#history#", "#faith_line#", "#smalltalk#", "#holiday_line#" },
+  topic = { "#news_line#", "#news_line#", "#idiom#", "#history#", "#faith_line#", "#smalltalk#", "#holiday_line#",
+            "#saint_line#" },
+  saint_line = { "Our saint, #saint#? #saint_story#.", "#saint_story#. So my grandmother said." },
   news_line = { "Have you heard? #news#.", "Everyone's worried: #news#.", "Times are hard: #news#.", "They say #news#." },
   idiom = { "Stubborn as a #beast#, my grandmother used to say. She meant me.", "Patience: the #plant# doesn't hurry, and it still flowers.",
             "Don't count the #beast#s before they come home.", "A #beast# at night is a guest you didn't invite.",
@@ -84,17 +86,19 @@ function G.rules(R)
   return out
 end
 
--- Expands `symbol` with `slots` (strings or lists to pick from) using rng.
-function G.expand(rules, symbol, slots, rng, depth)
+-- Expands `symbol` with `slots` (strings or lists to pick from) using rng;
+-- `used` (optional) collects the slots it filled and with what.
+function G.expand(rules, symbol, slots, rng, depth, used)
   depth = depth or 0
   local alts = {}
   for _, alt in ipairs(rules[symbol] or {}) do if needs(rules, alt, slots, depth) then alts[#alts + 1] = alt end end
   if #alts == 0 then return nil end
   local text = alts[rng:int(1, #alts)]
   local out = text:gsub("#([%w_]+)#", function(name)
-    if rules[name] then return G.expand(rules, name, slots, rng, depth + 1) or "" end
+    if rules[name] then return G.expand(rules, name, slots, rng, depth + 1, used) or "" end
     local v = slots[name]
     if type(v) == "table" then v = v[rng:int(1, #v)] end
+    if used then used[name] = v end
     return tostring(v)
   end)
   -- sentences start with a capital
@@ -108,7 +112,7 @@ function G.slots(lore, mem)
   local s = {
     place = lore.place, news = lore.news and #lore.news > 0 and lore.news or nil, beast = lore.beasts, plant = lore.plants,
     memory = lore.memory, faith = lore.faith, deity = lore.deities, moon_deity = lore.moon_deity, saint = lore.saint,
-    virtue = lore.virtue, holiday = lore.holidays, stranger = lore.stranger,
+    virtue = lore.virtue, holiday = lore.holidays, stranger = lore.stranger, saint_story = lore.saint_story,
     greeting = lore.greeting and lore.greeting.word, greeting_meaning = lore.greeting and lore.greeting.meaning,
   }
   if mem then
@@ -120,8 +124,10 @@ function G.slots(lore, mem)
 end
 
 -- A conversation: hello (by memory), a topic and a farewell. `seed` is the
--- speaker's, `n` counts their conversations with the player.
+-- speaker's, `n` counts their conversations with the player. Also returns
+-- the slots used (what the speaker told about: saint, memory, deity...).
 function G.talk(R, lore, mem, seed, n, opts)
+  local used = {}
   local rules = G.rules(R)
   local slots = G.slots(lore, mem)
   local rng = mvl.rng(mvl.hash(seed, "talk", n))
@@ -133,15 +139,15 @@ function G.talk(R, lore, mem, seed, n, opts)
     elseif mem.rumour and not mem.met then hello = mem.rumour_rule == "villainise" and "hello_wary" or "hello_heard"
     elseif mem.met then hello = "hello_known" end
   end
-  local lines = { G.expand(rules, hello, slots, rng) or G.expand(rules, "hello", slots, rng) }
+  local lines = { G.expand(rules, hello, slots, rng, 0, used) or G.expand(rules, "hello", slots, rng, 0, used) }
   if hello ~= "hello_resent" then
     local topic = opts and opts.topic
-    if not topic and mem and mem.change then topic = G.expand(rules, "change_line", slots, rng) end
-    if not topic and mem and mem.rumour and rng:chance(0.3) then topic = G.expand(rules, "rumour_line", slots, rng) end
-    lines[#lines + 1] = topic or G.expand(rules, "topic", slots, rng)
-    lines[#lines + 1] = G.expand(rules, "farewell", slots, rng)
+    if not topic and mem and mem.change then topic = G.expand(rules, "change_line", slots, rng, 0, used) end
+    if not topic and mem and mem.rumour and rng:chance(0.3) then topic = G.expand(rules, "rumour_line", slots, rng, 0, used) end
+    lines[#lines + 1] = topic or G.expand(rules, "topic", slots, rng, 0, used)
+    lines[#lines + 1] = G.expand(rules, "farewell", slots, rng, 0, used)
   end
-  return lines
+  return lines, used
 end
 
 return G

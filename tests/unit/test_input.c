@@ -126,6 +126,36 @@ void test_touch_controls(void) {
     mvl_touch_apply(&t, &in);
     mvl_input_update(&in);
     CHECK(!mvl_input_down(&in, "interact"));
+    /* taps: a finger that hardly moves, not on a button */
+    mvl_touch_clear_taps(&t);
+    mvl_touch_down(&t, 4, 0.75f, 0.3f);
+    mvl_touch_move(&t, 4, 0.751f, 0.301f);
+    mvl_touch_up(&t, 4);
+    CHECK_EQ_INT(t.tap_count, 1);
+    CHECK_NEAR(t.taps[0][0], 0.75f, 1e-5);
+    CHECK_NEAR(t.taps[0][1], 0.3f, 1e-5);
+    mvl_touch_down(&t, 5, 0.6f, 0.3f); /* a drag is not a tap */
+    mvl_touch_move(&t, 5, 0.7f, 0.5f);
+    mvl_touch_up(&t, 5);
+    CHECK_EQ_INT(t.tap_count, 1);
+    mvl_touch_down(&t, 6, (2.0f - 0.17f) / 2.0f, 0.78f); /* nor is a button */
+    mvl_touch_up(&t, 6);
+    CHECK_EQ_INT(t.tap_count, 1);
+    for (int i = 0; i < MVL_TOUCH_MAX_TAPS + 2; ++i) { /* at most MAX are kept */
+        mvl_touch_down(&t, 10 + i, 0.1f, 0.2f);
+        mvl_touch_up(&t, 10 + i);
+    }
+    CHECK_EQ_INT(t.tap_count, MVL_TOUCH_MAX_TAPS);
+    mvl_touch_clear_taps(&t);
+    CHECK_EQ_INT(t.tap_count, 0);
+    mvl_touch_down(&t, 30, 0.5f, 0.5f);
+    mvl_touch_up(&t, 30);
+    mvl_touch_cancel_all(&t);
+    CHECK_EQ_INT(t.tap_count, 0);
+    mvl_touch_apply(&t, &in);
+    mvl_input_update(&in);
+    mvl_touch_apply(&t, &in);
+    mvl_input_update(&in);
     CHECK_NEAR(mvl_touch_button_x(&t, 0), 2.0f - 0.17f, 1e-5);
     t.buttons[0].anchor_right = 0;
     CHECK_NEAR(mvl_touch_button_x(&t, 0), 0.17f, 1e-5);

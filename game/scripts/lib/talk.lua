@@ -42,9 +42,12 @@ function T.lines(w, node, p, opts)
   return grammar.talk(require("gen").cosmos, node.data.lore, mem, mvl.hash(node.seed, p.id), n, opts)
 end
 
--- A villager's conversation.
+-- A villager's conversation; what they told about goes into the codex.
 function T.villager(w, node, p, opts)
-  T.say(p.name, T.lines(w, node, p, opts))
+  local lines, used = T.lines(w, node, p, opts)
+  T.say(p.name, lines)
+  local n = require("memory.codex").heard(node, used or {}, p)
+  if n > 0 then require("lib.hud").notify(n == 1 and "New in the codex" or (n .. " new in the codex")) end
 end
 
 return T

@@ -702,6 +702,21 @@ nation's opinion of the player.
 queue until their night; one signal a night is kept for the earliest due
 follow-up, so helped places call the player back.
 
+## The codex
+
+Each land of a people keeps the codex entries it can teach (`d.codex`,
+`gen/codex.lua`): the place (with what its name means), the people's
+species, nation, language (words with their meanings), faith (and why it is
+so: the sky, sea or mountains that inspired it), saint (as the faithful
+tell it, and what Juniper knows), the events they remember (their version
+and the true record), their traditions (rites, funerals, food, taboos,
+holidays, and why: their faith, the land and the events they commemorate)
+and the creatures around. Ids are the generator's fact ids, so the same
+saint or war is one entry wherever it is learned. Juniper knows the true
+story in the universes she wandered through (the Wanderer's universes), so
+there the codex shows legends beside what really happened. See
+[MODDING.md](MODDING.md#the-codex).
+
 ## Fingerprints
 
 `tests/game/test_gen_fingerprint.lua` compares fingerprints (hashes of the

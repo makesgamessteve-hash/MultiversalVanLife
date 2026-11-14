@@ -66,6 +66,34 @@ world.register({
       end)
     end
     LQ.start(w, node, gen.cosmos)
+    -- what the player learns here: the place and its people at once,
+    -- inscriptions by reading them, creatures by watching them
+    local codex = require("memory.codex")
+    local hud = require("lib.hud")
+    if codex.visit(node) > 0 then hud.notify("New in the codex: " .. d.name) end
+    local carved = {}
+    for _, f in ipairs(d.features) do if f.statue or f.trace then carved[#carved + 1] = f end end
+    for _, f in pairs(log.placed) do if f.statue or f.trace then carved[#carved + 1] = f end end
+    for _, f in ipairs(carved) do
+      w:interactable({ x = f.x, z = f.z, range = 3.2, prompt = "Read the inscription", use = function()
+        local text, e = codex.read(node, f)
+        if text then
+          dialogue.say({ speaker = "narrator", text = text })
+          hud.notify("In the codex: " .. e.name)
+        end
+      end })
+    end
+    local watch = 0
+    w:on_update(function(dt)
+      watch = watch + dt
+      if watch < 0.5 or not w.streamer then return end
+      watch = 0
+      local px, pz = require("lib.player").x, require("lib.player").z
+      for _, cr in ipairs(w.streamer.creatures:all()) do
+        local dx, dz = cr.x - px, cr.z - pz
+        if dx * dx + dz * dz < 100 and codex.observe(node, cr.sp.id) then hud.notify("You watch the " .. cr.sp.name) end
+      end
+    end)
     local v = d.spots.van
     story.place_van(w, v.x, v.z, v.yaw)
     return story.van_door.x, story.van_door.z, story.van_door.yaw

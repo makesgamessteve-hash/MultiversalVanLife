@@ -2,7 +2,8 @@
 // Serves the Emscripten build, loads it in headless Chromium (desktop and a
 // touch phone), checks that the game boots without errors, renders
 // something other than a blank canvas, keeps its save folder in IndexedDB
-// across a reload and enables touch controls on mobile.
+// across a reload, enables touch controls on mobile and opens the codex by
+// tapping on a phone.
 //   node tests/web/smoke.mjs <build-web-dir> [screenshot-dir]
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -89,7 +90,31 @@ await run('mobile', { ...devices['Pixel 7'] }, async (page) => {
   const box = await page.locator('canvas').boundingBox();
   const k = Math.min(1, box.width / box.height);
   await page.touchscreen.tap(box.x + box.width - 0.17 * k * box.height, box.y + box.height * (1 - 0.22 * k));
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1500);
+  // the codex on a phone: pause (the II button), tap "Codex", tap a tab,
+  // close it with X. The UI canvas is 240 units high, at least 400 wide.
+  const aspect = box.width / box.height;
+  const uh = Math.round(240 * aspect < 400 ? 400 / aspect : 240);
+  const uw = Math.round(uh * aspect);
+  const at = async (ux, uy) => {
+    await page.touchscreen.tap(box.x + ux / uw * box.width, box.y + uy / uh * box.height);
+    await page.waitForTimeout(400);
+  };
+  await page.touchscreen.tap(box.x + box.width - 0.08 * k * box.height, box.y + 0.1 * k * box.height);
+  await page.waitForTimeout(600);
+  const menuTop = Math.floor((uh - (34 + 4 * 14)) / 2);
+  await at(uw / 2, menuTop + 46);     // "Codex", the pause menu's second item
+  await at(63, 32);                   // the "Places" tab
+  if (shots) await page.screenshot({ path: join(shots, 'web-mobile-codex.png') });
+  await at(uw - 85, 15);              // X (left of the pause button) closes it
+  const codex = await page.evaluate(() => {
+    try {
+      return new TextDecoder().decode((Module.FS || FS).readFile('/save/records/codex.rec'));
+    } catch (e) {
+      return 'unreadable: ' + e;
+    }
+  });
+  if (!/opened/.test(codex)) return 'the codex did not open by tapping: ' + codex.slice(0, 200);
   return true;
 });
 

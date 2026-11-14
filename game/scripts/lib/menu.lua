@@ -25,6 +25,17 @@ end
 
 function Menu:update()
   if not self:selectable(self.index) then self:move(1) end
+  -- touch: tapping an item chooses it
+  for _, t in ipairs(mvl.taps()) do
+    for i, r in ipairs(self.rects or {}) do
+      if self:selectable(i) and t.x >= r[1] and t.x <= r[1] + r[3] and t.y >= r[2] and t.y <= r[2] + r[4] then
+        self.index = i
+        audio.sfx("ui_select", 0.7)
+        self.items[i].action()
+        return true
+      end
+    end
+  end
   if mvl.pressed("up") or (mvl.value("move_y") > 0.6 and not self.stick_held) then
     self:move(-1)
   elseif mvl.pressed("down") or (mvl.value("move_y") < -0.6 and not self.stick_held) then
@@ -67,6 +78,8 @@ function Menu:draw(y)
     if it.enabled == false then r, g, b = 0.4, 0.4, 0.45 elseif sel then r, g, b = 1, 0.85, 0.4 end
     local label = (sel and "> " or "  ") .. it.label
     mvl.text(bx + 16, iy + (i - 1) * 14, label, 1, r, g, b, 1)
+    self.rects = self.rects or {}
+    self.rects[i] = { bx, iy + (i - 1) * 14 - 2, bw, 14 }
   end
 end
 

@@ -69,8 +69,9 @@ void mvl_touch_down(mvl_touch *t, long long id, float nx, float ny) {
         }
     if (!f) return;
     f->id = id;
-    f->x = f->last_x = x;
-    f->y = f->last_y = y;
+    f->x = f->last_x = f->start_x = x;
+    f->y = f->last_y = f->start_y = y;
+    f->travel = 0.0f;
     for (int b = 0; b < t->button_count; ++b) {
         float dx = x - mvl_touch_button_x(t, b), dy = y - mvl_touch_button_y(t, b);
         float r = mvl_touch_button_r(t, b) * 1.25f; /* generous hit area */
@@ -108,6 +109,10 @@ void mvl_touch_move(mvl_touch *t, long long id, float nx, float ny) {
         t->look_dx += (x - f->last_x) * t->look_scale;
         t->look_dy += (y - f->last_y) * t->look_scale;
     }
+    {
+        float dx = x - f->start_x, dy = y - f->start_y, d = sqrtf(dx * dx + dy * dy);
+        if (d > f->travel) f->travel = d;
+    }
     f->last_x = f->x = x;
     f->last_y = f->y = y;
 }
@@ -117,14 +122,23 @@ void mvl_touch_up(mvl_touch *t, long long id) {
     if (!f) return;
     if (f->role == MVL_FINGER_STICK) t->stick_active = 0;
     if (f->role == MVL_FINGER_BUTTON && t->buttons[f->button].held > 0) t->buttons[f->button].held--;
+    /* a finger that hardly moved and was not on a button is a tap */
+    if (f->role != MVL_FINGER_BUTTON && f->travel < MVL_TOUCH_TAP_SLOP && t->tap_count < MVL_TOUCH_MAX_TAPS) {
+        t->taps[t->tap_count][0] = f->start_x / t->aspect;
+        t->taps[t->tap_count][1] = f->start_y;
+        t->tap_count++;
+    }
     f->role = MVL_FINGER_NONE;
 }
+
+void mvl_touch_clear_taps(mvl_touch *t) { t->tap_count = 0; }
 
 void mvl_touch_cancel_all(mvl_touch *t) {
     for (int i = 0; i < MVL_TOUCH_MAX_FINGERS; ++i) t->fingers[i].role = MVL_FINGER_NONE;
     for (int b = 0; b < t->button_count; ++b) t->buttons[b].held = t->buttons[b].tapped = 0;
     t->stick_active = 0;
     t->look_dx = t->look_dy = 0.0f;
+    t->tap_count = 0;
 }
 
 void mvl_touch_stick(const mvl_touch *t, float *x, float *y) {

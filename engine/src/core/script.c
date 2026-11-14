@@ -504,6 +504,23 @@ static int l_touch(lua_State *L) {
     return 1;
 }
 
+/* Taps since the last update, in UI pixels: { {x=, y=}, ... }. */
+static int l_taps(lua_State *L) {
+    mvl_engine *e = eng(L);
+    float w, h;
+    mvl_engine_ui_size(e, &w, &h);
+    lua_createtable(L, e->touch.tap_count, 0);
+    for (int i = 0; i < e->touch.tap_count; ++i) {
+        lua_createtable(L, 0, 2);
+        lua_pushnumber(L, e->touch.taps[i][0] * w);
+        lua_setfield(L, -2, "x");
+        lua_pushnumber(L, e->touch.taps[i][1] * h);
+        lua_setfield(L, -2, "y");
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
 /* --------------------------------------------------------------- audio */
 static int l_play(lua_State *L) {
     mvl_engine *e = eng(L);
@@ -855,7 +872,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"sky", l_sky}, {"bounds", l_bounds},
     {"move", l_move}, {"overlaps", l_overlaps},
     {"value", l_value}, {"down", l_down}, {"pressed", l_pressed}, {"released", l_released}, {"look", l_look},
-    {"touch", l_touch},
+    {"touch", l_touch}, {"taps", l_taps},
     {"play", l_play}, {"stop", l_stop}, {"stop_group", l_stop_group}, {"fade", l_fade}, {"playing", l_playing},
     {"group_volume", l_group_volume}, {"sound_length", l_sound_length},
     {"ui_size", l_ui_size}, {"rect", l_rect}, {"image", l_image}, {"text", l_text}, {"text_width", l_text_width},

@@ -151,6 +151,10 @@ function story.open_console(quiet)
     items[#items + 1] = { label = label, enabled = s.address ~= here, action = function() story.travel(s.address) end }
   end
   items[#items + 1] = { label = "Logbook", enabled = #progress.logbook() > 0, action = function() story.open_logbook() end }
+  items[#items + 1] = { label = "Codex", action = function()
+    story.menu = nil
+    require("lib.codex").open()
+  end }
   if progress.location() ~= "home" then
     items[#items + 1] = { label = "Home - end the night", action = function() story.travel("home") end }
   end

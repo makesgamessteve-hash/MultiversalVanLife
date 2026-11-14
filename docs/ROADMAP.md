@@ -35,7 +35,7 @@ Rules for every phase:
 | 20 | `p20-history-refinement-and-tensions` | 6 | history-generation, land-streaming | done |
 | 21 | `p21-tension-quests-and-dialogue` | 6 | generated-quests, world-memory | done |
 | 22 | `p22-consequences-and-revisits` | 5 | signals-and-codex, world-memory | done |
-| 23 | `p23-codex` | 4 | signals-and-codex, world-memory | planned |
+| 23 | `p23-codex` | 4 | signals-and-codex, world-memory | done |
 | 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | planned |
 
 ## Milestones

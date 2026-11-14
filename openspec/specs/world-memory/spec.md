@@ -64,3 +64,10 @@ Signals SHALL regularly call the player back to visited places when consequences
 #### Scenario: Called back
 - **WHEN** a land the player helped develops a new tension caused by that help
 - **THEN** a later night's signals include that land
+
+### Requirement: The Wanderer's chronicle
+The codex SHALL contain a chronicle of the player's deeds with the places, people and consequences they led to, updated whenever a consequence develops.
+
+#### Scenario: Consequence logged
+- **WHEN** a consequence of an earlier deed develops during a revisit
+- **THEN** the chronicle entry for that deed lists the new consequence

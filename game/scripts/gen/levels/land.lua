@@ -436,7 +436,7 @@ function land.register(R)
           d.features[#d.features + 1] = {
             id = "monument", role = "monument", x = sq.x, z = sq.z - 3, yaw = 0, box = { 1.8, 1.4 },
             statue = { anatomy = util.copy(who.anatomy), hue = who.hue, attributes = util.copy(who.attributes),
-                       name = who.name, role = who.role, stone = st and { st[1], st[3], st[4] } or nil },
+                       name = who.name, role = who.role, stone = st and { st[1], st[3], st[4] } or nil, fact = who.fact },
           }
           ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
         end
@@ -450,7 +450,7 @@ function land.register(R)
           local f = { id = "trace" .. k, role = "trace", x = dm.round(sq.x + dm.cos(a) * 45, 2),
                       z = dm.round(sq.z + dm.sin(a) * 45, 2), yaw = dm.round(a, 4),
                       trace = { kind = tr.kind, name = tr.name, year = tr.year, event = tr.event, culture = tr.culture,
-                                style = tr.style, seed = k } }
+                                style = tr.style, seed = k, fact = c.because and c.because[1] } }
           if tr.kind == "ruin" then f.box = { 6, 6 } end
           d.features[#d.features + 1] = f
           d.traces = d.traces or {}
@@ -462,6 +462,8 @@ function land.register(R)
       d.tensions = require("gen.history.tensions").for_land(planet.data, ctx.parent.summary.id, ctx.node.seed)
       -- what its people know and talk about (kept with the land for dialogue)
       d.lore = require("gen.dialogue.lore").build(d, cul, planet.data, ctx.parent.summary)
+      -- and what the player can learn here (codex entries)
+      d.codex = require("gen.codex").build(d, ctx.node.address, cul, planet, ctx.parent.summary)
       quests.generate(ctx, d, provisional.style(d.style), cul)
       if biome then
         d.biome_trees = biome.trees

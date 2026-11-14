@@ -51,6 +51,12 @@ function Lore.build(d, cul, P, country)
     if #L.deities == 0 then L.deities = nil end
     L.saint = rel.founder and rel.founder.name
     L.virtue = rel.doctrine and rel.doctrine.virtues[1]
+    -- the saint's story as the faithful tell it
+    if L.saint then
+      local god = rel.deities[1] and rel.deities[1].name
+      L.saint_story = string.format("%s brought us %s and taught us %s; %s", L.saint, rel.name, L.virtue or "patience",
+                                    god and (god .. " took them up into the sky alive") or "they never died")
+    end
   end
   local seen = {}
   for _, h in ipairs(cul.calendar and cul.calendar.holidays or {}) do

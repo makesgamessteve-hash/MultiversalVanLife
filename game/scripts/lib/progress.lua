@@ -11,6 +11,7 @@ end
 
 function progress.reset(seed)
   require("memory.changes").discard()
+  require("memory.codex").reset()
   mvl.save_clear()
   mvl.save_set("story.started", "1")
   mvl.save_set("story.seed", seed or progress.new_seed())

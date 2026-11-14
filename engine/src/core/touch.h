@@ -3,7 +3,9 @@
  * Layout units: y in [0,1] from top to bottom, x in [0,aspect] (both in
  * screen-height units, so circles stay round). The left half hosts a
  * floating movement stick, the right half drags to look around, and round
- * buttons trigger actions ("interact", "menu").
+ * buttons trigger actions ("interact", "menu"). A finger that goes down and
+ * up without moving, not on a button, is a tap: screens such as the codex
+ * read taps (where the player touched) to select what is under the finger.
  */
 #ifndef MVL_TOUCH_H
 #define MVL_TOUCH_H
@@ -12,6 +14,8 @@
 
 #define MVL_TOUCH_MAX_FINGERS 10
 #define MVL_TOUCH_MAX_BUTTONS 4
+#define MVL_TOUCH_MAX_TAPS 8
+#define MVL_TOUCH_TAP_SLOP 0.04f /* how far a tap may move (screen heights) */
 
 typedef enum { MVL_FINGER_NONE, MVL_FINGER_STICK, MVL_FINGER_LOOK, MVL_FINGER_BUTTON } mvl_finger_role;
 
@@ -20,6 +24,7 @@ typedef struct {
     mvl_finger_role role;
     int button;
     float x, y, last_x, last_y;
+    float start_x, start_y, travel; /* where it went down, and how far it moved */
 } mvl_finger;
 
 typedef struct {
@@ -44,6 +49,8 @@ typedef struct {
     float look_scale;   /* radians per screen height */
     float look_dx, look_dy;
     float applied[2 + MVL_TOUCH_MAX_BUTTONS]; /* last values written to input */
+    float taps[MVL_TOUCH_MAX_TAPS][2];        /* normalised [0,1] positions of recent taps */
+    int tap_count;
 } mvl_touch;
 
 void mvl_touch_init(mvl_touch *t, float aspect);
@@ -62,6 +69,8 @@ float mvl_touch_button_r(const mvl_touch *t, int i);
 /* Effective stick radius and resting centre (layout units). */
 float mvl_touch_stick_radius(const mvl_touch *t);
 void mvl_touch_stick_home(const mvl_touch *t, float *x, float *y);
+/* Forgets recorded taps (after each update tick). */
+void mvl_touch_clear_taps(mvl_touch *t);
 /* Stick deflection in [-1,1] (x right, y up). */
 void mvl_touch_stick(const mvl_touch *t, float *x, float *y);
 

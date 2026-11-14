@@ -11,6 +11,7 @@ local lines = require("lib.lines")
 local progress = require("lib.progress")
 local story = require("lib.story")
 local Menu = require("lib.menu")
+local codex = require("lib.codex")
 local gen = require("gen")
 
 require("worlds.home")
@@ -84,6 +85,10 @@ local function open_pause()
     world.load("home")
     audio.scape("title")
   end }
+  table.insert(items, 2, { label = "Codex", action = function()
+    game.state = "play"
+    codex.open()
+  end })
   pause_menu = Menu.new("PAUSED", items, { cancel = function() game.state = "play" end })
   game.state = "pause"
 end
@@ -115,8 +120,20 @@ function game.update(dt)
     return
   end
   -- play
+  if codex.active then
+    -- the codex covers the screen; the world waits
+    gen.update()
+    player.enabled = false
+    codex.update(dt)
+    hud.set_prompt(nil)
+    return
+  end
   if mvl.pressed("menu") and not story.menu and not dialogue.active() and not story.busy then
     open_pause()
+    return
+  end
+  if mvl.pressed("codex") and not story.menu and not dialogue.active() and not story.busy then
+    codex.open()
     return
   end
   gen.update()
@@ -144,12 +161,13 @@ function game.draw_ui()
   hud.draw(t)
   if story.menu then story.menu:draw() end
   dialogue.draw(t)
+  codex.draw(t)
   if game.state == "pause" then pause_menu:draw() end
 end
 
 -- Hooks used by automated game tests and the debug console.
 game.debug = {
-  world = world, player = player, dialogue = dialogue, story = story, progress = progress, hud = hud,
+  world = world, player = player, dialogue = dialogue, story = story, progress = progress, hud = hud, codex = codex,
   van = story.van, gen = gen,
   start = start_play,
   open_pause = open_pause,

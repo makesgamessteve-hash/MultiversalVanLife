@@ -201,6 +201,7 @@ void mvl_engine_frame(mvl_engine *e, double dt) {
         if (e->test_mode && !e->test_done) mvl_script_step_test(e);
         mvl_input_update(&e->input);
         mvl_script_call(e, "update", 1, e->fixed_dt);
+        mvl_touch_clear_taps(&e->touch); /* taps are read during the update that follows them */
         mvl_input_end_frame(&e->input);
         e->accumulator -= e->fixed_dt;
         e->time += e->fixed_dt;

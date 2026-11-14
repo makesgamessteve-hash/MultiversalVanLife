@@ -186,7 +186,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)` (grids also have `g:hash()`), `mesh_count()`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
 | Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `get_rotation(e)` (yaw, pitch, roll), `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
 | World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
-| Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])` |
+| Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])`, `taps()` (this update's taps: `{ {x, y} }` in UI units) |
 | Audio | `play(sound, vol, pan, loop, group)`, `stop`, `stop_group`, `fade(voice, vol, secs, stop)`, `playing`, `group_volume(g [, v])` |
 | UI | `ui_size()`, `rect`, `image`, `text(x, y, s, scale, r, g, b, a)`, `text_width`, `wrap(s, width)` |
 | Data | `config(key, default)`, `save_get`, `save_set`, `save_write`, `save_clear`, `record_read(name)`, `record_write(name, table)`, `record_list([prefix])`, `record_delete(name)`, `file_exists`, `read`, `mods()`, `run_mod(i)` |
@@ -581,6 +581,29 @@ assert(log:get(well.id).state == "painted" and log.placed[id].x == well.x + 3)
 log:flush()
 assert(mvl.record_read("changes/" .. w.land_node.address).objects[well.id].state == "painted")
 ```
+
+### The codex
+
+What the player learns goes into the codex (`memory/codex.lua`, record
+`codex`). Generated lands keep snapshots of the entries they can teach
+(`d.codex = { entries, keys }`, built by `gen/codex.lua`): each entry is
+`{ id, kind, name, gloss, text, believed, truth, links = { ids }, why = {
+{ name, category, id } }, universe }`, with kinds `place`, `species`,
+`faction`, `language`, `religion`, `individual`, `event`, `creature` and
+`tradition`; ids are fact ids where the generator has a fact. Entries are
+unlocked by visiting (`codex.visit(node)`: the place and its people),
+talking (`codex.heard(node, used, speaker)` with the slots a conversation
+used: a saint's story, a remembered event, the faith, a holiday, the
+greeting, a beast), reading inscriptions (`codex.read(node, feature)` on
+statues and traces) and observing creatures (`codex.observe(node,
+species_id)`). A mod can unlock its own: `codex.discover(entry, how, where,
+{ by, told })`. The codex screen (`lib/codex.lua`) shows them with links,
+the versions people told, Juniper's true version where she knows the
+universe (`codex.juniper_knows(entry)`), the why view (causes the player
+has not learned are "unknown"), and the Wanderer's chronicle of the
+player's deeds and what came of them (`codex.chronicle()` in
+`lib/codex.lua`). It opens from the van's console, the pause menu and the
+`codex` action, and works with keyboard, gamepad and taps.
 
 ## Saves and records
 
