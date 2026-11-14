@@ -9,9 +9,14 @@
 -- 19) will split cultures further and found new religions.
 local language = require("gen.culture.language")
 local religion = require("gen.culture.religion")
+local calendar = require("gen.culture.calendar")
+local traditions = require("gen.culture.traditions")
+local society = require("gen.culture.society")
+local technology = require("gen.culture.technology")
 local util = require("gen.util")
 
-local C = { language = language, religion = religion }
+local C = { language = language, religion = religion, calendar = calendar, traditions = traditions,
+            society = society, technology = technology }
 
 local function title(s) return s:sub(1, 1):upper() .. s:sub(2) end
 
@@ -57,6 +62,7 @@ local function cultures(ctx)
     rel.id = #d.religions + 1
     rel.species = s.name
     d.religions[rel.id] = rel
+    rel.fact = ctx:fact("religion", { name = rel.name, form = rel.form, species = s.name }, rel.because)
     -- regions: up to three continents, or one country for colonists
     local regions = {}
     if s.origin == "colony" then
@@ -84,6 +90,7 @@ local function cultures(ctx)
       culture.fact = ctx:fact("culture", { name = culture.name, meaning = culture.meaning, species = s.name,
                                            continent = reg.continent, religion = rel.name }, s.fact and { s.fact } or nil)
       d.cultures[cid] = culture
+      C.traditions_of(ctx, culture, s, rel, source, laws, rng)
       -- its countries
       for id, c in ipairs(d.countries or {}) do
         if c.continent == reg.continent + 1 and not country_taken[id] then
@@ -103,7 +110,6 @@ local function cultures(ctx)
       if c.culture and d.cultures[c.culture].religion == rel.id then followers = followers + 1 end
     end
     rel.countries = followers
-    rel.fact = ctx:fact("religion", { name = rel.name, form = rel.form, species = s.name }, rel.because)
     if laws.gods == "real" and followers >= 3 then
       for _, deity in ipairs(rel.deities) do
         deity.real = true
@@ -111,6 +117,39 @@ local function cultures(ctx)
                               { rel.fact })
       end
     end
+  end
+end
+
+-- Calendar, customs, values, society and technology of a culture.
+function C.traditions_of(ctx, culture, s, rel, source, laws, rng)
+  local d = ctx.data
+  local r = traditions.region(d, culture.continent, ctx.seed)
+  local H = require("gen.visuals.sky").heavens(d)
+  culture.region = { biome = r.biome, dry = r.dry, mountains = r.mountains, coast = r.coast,
+                     soil = r.soil, magic = r.magic }
+  culture.calendar = calendar.generate(H, culture.language, rng, 0)
+  culture.customs = traditions.customs(rng, d, s, r, rel, source)
+  culture.values = society.values(rng, s, r, rel)
+  culture.society = society.society(rng, culture.values, s, rel, culture.language, culture.customs)
+  -- what the land offers for technology (colonists arrived by starship)
+  local herd, draught, crops = false, false, false
+  for _, sp in ipairs(r.species) do
+    if sp.role == "grazer" and sp.size >= 0.4 then herd = true end
+    if sp.role == "grazer" and sp.size >= 1.2 then draught = true end
+    if sp.kind == "plant" and (sp.form == "herb" or sp.form == "shrub") then crops = true end
+  end
+  local eras = s.spacefaring and 12 or rng:int(2, 8)
+  local resources = {}
+  for k in pairs(r.resources) do resources[k] = true end
+  culture.conditions = { crops = crops, herd = herd, draught = draught, coast = r.coast >= 0.1,
+                         air = d.atmosphere.pressure, stability = 0.3 + rng:next() * 0.6, eras = eras,
+                         magic = laws.magic ~= "none" and r.magic or 0, source = laws.magic ~= "none" and laws.magic or nil,
+                         psionics = laws.psionics or 0, mineral = d.magic_mineral, resources = resources,
+                         trade = s.spacefaring and { iron = true, copper = true, tin = true, coal = true, oil = true } or nil }
+  culture.tech = technology.reachable(culture.conditions)
+  if s.spacefaring and not culture.tech.has.spaceflight then
+    culture.tech.known[#culture.tech.known + 1] = "spaceflight"
+    culture.tech.has.spaceflight, culture.tech.level = true, 10
   end
 end
 
@@ -146,6 +185,22 @@ function C.describe(P)
                                   table.concat(lang.phonology.consonants, " "),
                                   lang.phonology.tonal and ", long tones" or "", table.concat(lang.changes, ", "),
                                   table.concat(words, ", "))
+  end
+  out[#out + 1] = ""
+  out[#out + 1] = "Ways of life:"
+  for _, c in ipairs(P.cultures) do
+    local cu = c.customs
+    local taboo = {}
+    for _, tb in ipairs(cu.taboos) do taboo[#taboo + 1] = tb.what .. " (" .. tb.reason .. ")" end
+    local food = {}
+    for _, f in ipairs(cu.food) do food[#food + 1] = f.text end
+    out[#out + 1] = string.format("- **%s**: %s. Funerals: %s. Food: %s. Taboos: %s. Values: %s; %s; strangers are %s; " ..
+                                  "laws: %s. Technology: %s (%s)%s.", c.name, calendar.describe(c.calendar),
+                                  c.customs.funerals[1].text, #food > 0 and table.concat(food, "; ") or "whatever can be found",
+                                  #taboo > 0 and table.concat(taboo, "; ") or "none", society.describe(c.values),
+                                  c.society.structure, c.society.strangers, table.concat(c.society.laws, "; "),
+                                  technology.AGES[c.tech.level], table.concat(c.tech.known, ", "),
+                                  #c.tech.traditions > 0 and ("; " .. table.concat(c.tech.traditions, "; ")) or "")
   end
   out[#out + 1] = ""
   out[#out + 1] = "Religions:"

@@ -29,7 +29,7 @@ Rules for every phase:
 | 14 | `p14-life-and-ecosystems` | 5 | land-streaming, life-generation | done |
 | 15 | `p15-voxel-flora-and-fauna` | 6 | life-generation, procedural-visuals | done |
 | 16 | `p16-languages-and-religions` | 6 | culture-generation | done |
-| 17 | `p17-traditions-society-technology` | 5 | culture-generation | planned |
+| 17 | `p17-traditions-society-technology` | 5 | culture-generation | done |
 | 18 | `p18-architecture-and-people` | 5 | culture-generation, procedural-visuals | planned |
 | 19 | `p19-history-engine` | 7 | history-generation, prime-universe | planned |
 | 20 | `p20-history-refinement-and-tensions` | 6 | history-generation, land-streaming | planned |

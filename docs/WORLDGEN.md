@@ -315,6 +315,46 @@ principles), virtues, taboos, an afterlife, clergy and sacred site kinds.
 In universes whose gods are real, the deities of a faith followed in three
 or more countries are real (`deity` facts that history can call on).
 
+## Cultures: traditions, society and technology
+
+Each culture (`C.traditions_of` in `gen/culture.lua`) looks at its region
+(`traditions.region`: the biomes, forests, bare and dry land, coasts,
+mountains, soil, magic, ores and fuels of its continent, and the species
+living there; a metal or fuel cell's ore follows from a hash of the cell).
+
+- **Calendar** (`gen/culture/calendar.lua`): days are the world's days, or
+  sleeps of a standard day where days are long against the year or the
+  world is locked; months follow the most prominent moon (lunar, or
+  lunisolar with strong seasons; solar without moons), named in the
+  culture's language. Holidays fall on astronomical dates computed from the
+  sky's orbits: solstices and equinoxes, every moon's full moons (dates are
+  exact: the sky shows a full moon that night), nights when two moons are
+  full together, an eclipse season. `traditions.commemorate(culture,
+  {name, t, fact})` adds a holiday for a historic event on its date.
+- **Customs** (`gen/culture/traditions.lua`): birth, coming-of-age and
+  pairing rites from the species' biology; funerals chosen among those the
+  land allows (no burial in the earth where mountains leave little soil;
+  sea burial needs coasts, pyres need wood, sky burial high places or
+  wings), steered by the faith's afterlife and linked to omen facts of the
+  land; food from local plants and herds; water sharing in deserts; taboos
+  on real local species (sacred to a god, or dangerous) and the faith's own
+  taboos, each with its reason.
+- **Values and society** (`gen/culture/society.lua`): five axes from -1 to
+  1 (hierarchy, honour, tradition, the collective, hospitality) from social
+  instinct, diet, lifespan, dryness and dangers; from them a social
+  structure (hive court, theocracy, monarchy, chiefdoms, noble houses,
+  councils, assemblies), laws, the treatment of strangers and factions
+  (rulers, the faithful, traders, commons) for history.
+- **Technology** (`gen/culture/technology.lua`): a graph from fire to
+  spaceflight; each step needs its predecessors and what the land or trade
+  offers (copper and tin for bronze, iron for iron working, fuel for steel
+  and steam, crops, beasts to herd and draw carts, coasts, air to fly), and
+  each era of development opens about 1.4 tiers. Where magic is common,
+  magical traditions grow beside the machines (magelight beside
+  electricity); where it is strong they replace them (magelight, scrying,
+  skyships); strong psionics replace radio with farspeech. Spacefarers
+  have reached spaceflight.
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

@@ -33,7 +33,7 @@ local COSMOS = {
   ["u0.g0.c0.s0"] = "eebc898325d8a267",
   ["u7.g40.c2.s0"] = "8a344d56d65fb15a",
   -- a rocky planet: physics and the C kernels (grid, tectonics, climate, rivers, territories)
-  ["u1.g2.c3.s1.p0"] = "d0e44e4844445093",
+  ["u1.g2.c3.s1.p0"] = "8dfadc0d56766b65",
 }
 local C = gen.run.new(gen.cosmos, { seed = 20261113, mods = {} })
 addrs = {}
