@@ -270,7 +270,14 @@ local function continent_pass(ctx)
   ctx.data.name = ctx.summary.name
   for id, c in ipairs(planet.countries) do
     if c.continent == k then
-      ctx:child(c.index, { name = names.make(ctx:random("country" .. id), "world"), id = id, capital = c.capital })
+      -- named in the language of its culture, where it has one
+      local cul = c.culture and planet.cultures[c.culture]
+      local s = { name = names.make(ctx:random("country" .. id), "world"), id = id, capital = c.capital }
+      if cul then
+        local n = require("gen.culture.language").name(cul.language, ctx:random("country" .. id), "country")
+        s.name, s.meaning, s.culture = n.name, n.meaning, cul.name
+      end
+      ctx:child(c.index, s)
     end
   end
 end
@@ -437,6 +444,8 @@ function G.describe_planet(node)
   if d.sky then text = text .. "\n\n" .. require("gen.visuals.sky").describe(d.sky) end
   local lives = require("gen.life").describe(d)
   if lives then text = text .. "\n\n" .. lives end
+  local peoples = require("gen.culture").describe(d)
+  if peoples then text = text .. "\n\n" .. peoples end
   if not d.cells or not d.cells.temp then return text end
   local c = d.cells
   local lo, hi, wet, land = math.huge, -math.huge, 0, 0

@@ -29,6 +29,21 @@ local function origin(G, rng)
   end
   local c = #options > 0 and options[rng:int(1, #options)] or rng:int(0, galaxy.data.clusters - 1)
   local cluster = G:generate(gaddr .. ".c" .. c)
+  -- the worlds of a spacefaring people call out more often than empty ones
+  local sf = cluster.data.spacefarers
+  if sf and rng:chance(0.75) then
+    local homes = { sf.homeworld }
+    for _, j in ipairs(sf.colonies) do homes[#homes + 1] = j end
+    local saddr = cluster.address .. ".s" .. homes[rng:int(1, #homes)]
+    local system = G:generate(saddr)
+    for _, id in ipairs(system.fact_order) do
+      local f = system.facts[id]
+      if f.kind == "settled" then
+        return { planet = saddr .. ".p" .. f.data.planet, galaxy = galaxy, summary = system.children[f.data.planet],
+                 universe = "u" .. u }
+      end
+    end
+  end
   local saddr = cluster.address .. ".s" .. rng:int(0, cluster.data.stars - 1)
   local system = G:generate(saddr)
   local rocky = {}
@@ -57,6 +72,22 @@ end
 local function dry_land(G, o, rng)
   local planet = G:generate(o.planet)
   if not planet.data.continents or planet.data.continents == 0 then return nil end
+  -- where a people lives, a land of theirs
+  local peopled = {}
+  for id, c in ipairs(planet.data.countries or {}) do if c.culture then peopled[#peopled + 1] = c end end
+  for _ = 1, #peopled > 0 and 4 or 0 do
+    local c = peopled[rng:int(1, #peopled)]
+    local country = G:generate(o.planet .. ".k" .. (c.continent - 1) .. ".n" .. c.index)
+    if country.data.district then
+      for _ = 1, 24 do
+        local l = rng:int(0, 255)
+        local gx, gz = landgen.grid(l)
+        if landgen.raw_height(country.data.terrain, gx * landgen.SIZE, gz * landgen.SIZE) > 3 then
+          return country.address .. ".l" .. l, planet, country
+        end
+      end
+    end
+  end
   for _ = 1, 4 do
     local k = rng:int(0, planet.data.continents - 1)
     local cont = G:generate(o.planet .. ".k" .. k)
@@ -71,7 +102,7 @@ local function dry_land(G, o, rng)
           local l = rng:int(0, 255)
           local gx, gz = landgen.grid(l)
           if landgen.raw_height(country.data.terrain, gx * landgen.SIZE, gz * landgen.SIZE) > 3 then
-            return country.address .. ".l" .. l
+            return country.address .. ".l" .. l, planet, country
           end
         end
       end
@@ -80,12 +111,14 @@ local function dry_land(G, o, rng)
 end
 
 local function candidate(G, o, rng)
-  local addr = dry_land(G, o, rng)
+  local addr, planet, country = dry_land(G, o, rng)
   if not addr then return nil end
   local land_seed = address.seed(G.seed, addr)
   local t = quests.pick(G.registry, land_seed)
+  local named = require("gen.culture").land_name(planet.data, country.summary.id, land_seed)
   return {
-    address = addr, name = provisional.settlement_name(land_seed), planet = o.summary.name,
+    address = addr, name = named and named.name or provisional.settlement_name(land_seed), planet = o.summary.name,
+    meaning = named and named.meaning, peopled = named ~= nil,
     galaxy = o.galaxy.address, galaxy_name = o.galaxy.data.name, universe = o.universe,
     trouble = t.id, short = t.short or t.id, severity = quests.severity(land_seed),
   }
@@ -107,7 +140,7 @@ function S.tonight(G, night, visited, recent)
     local o = origins[i] or origin(G, extra)
     local c = o and candidate(G, o, rng)
     if c then
-      c.score = c.severity + (visited[c.galaxy] and 0 or 0.6) + (recent[c.trouble] and 0 or 0.4)
+      c.score = c.severity + (visited[c.galaxy] and 0 or 0.6) + (recent[c.trouble] and 0 or 0.4) + (c.peopled and 1 or 0)
       cands[#cands + 1] = c
       galaxies_seen[c.galaxy] = true
     end

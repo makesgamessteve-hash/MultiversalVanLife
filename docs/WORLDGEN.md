@@ -271,6 +271,50 @@ body plans) repainted in each species' colours remain the fallback.
 Animals move with behaviours suited to their role and react to the player
 (`lib/creatures.lua`); grazers flee as a herd.
 
+## Cultures: languages and religions
+
+`gen/culture.lua` (planet pass `cultures`, after `sapients`) gives every
+intelligent species of a world (native, committed or colonists) a
+proto-language and a religion; its peoples live on up to three continents
+(the largest free ones; colonists in one country), each a culture speaking a
+daughter language. Countries belong to the culture of their continent and
+are named in its language; lands of a culture name their settlement and
+people in it, and signals prefer the lands of peoples (the worlds of a
+cluster's spacefarers are found without generating others).
+
+**Languages** (`gen/culture/language.lua`): a sound inventory of 9 to 16
+consonants sampled from a feature table, filtered by the speakers' mouth
+(sapients have `anatomy.mouth`: lips; beaks for feathered, shelled and
+plated peoples, mandibles for chitinous ones, who have no lip sounds and
+click instead), 3 to 5 vowels plus long tonal vowels for peoples who live by
+hearing, syllable templates (CV, CVC, V, VC, CCV, CVV) and allowed clusters.
+A lexicon gives each of about 300 meanings (sky, land, nature, beasts, kin,
+colours, numbers, motion, the sacred, places, qualities, virtues) a unique
+readable root (short for basic words). `language.name(lang, rng, kind)`
+composes place, person, god and country names from two roots by meaning
+templates and keeps the gloss ("Where the Blood flows", "Fire Mother");
+names are checked for readability (letters only, no three consonants or
+vowels in a row, enough vowels) and against a short blocklist of English
+look-alikes. `language.split(lang, seed)` applies 2 to 5 regular sound
+changes (lenition, vowel shift, raising, cluster loss, final loss,
+palatalisation, h-loss) to every root; `language.kinship(a, b)` measures
+how many meanings two languages express alike.
+
+**Religions** (`gen/culture/religion.lua`): 28 motifs with a source and a
+salience test: the sky (twin moon gods, moon pantheons, a moon mother,
+eclipse omens when moons cover the sun, ember, burning or fatherly suns, the
+holy twilight of locked worlds, the river of stars, a veiled heaven), the
+land (a fire mother where volcanic arcs rise, a flood father of great
+rivers, a sea mother, sacred water in deserts, a dying god of hard seasons,
+the sky mountain), biology (rebirth for short lives, ancestors for long
+ones, the world egg, the divider for budding peoples, a queen mother for
+hives, the great hunt, soul wings) and magic and psionics. A religion takes
+2 to 4 of the strongest (with some chance), each linked to an `omen` fact of
+its source, and gets deities named in the founders' language (or
+principles), virtues, taboos, an afterlife, clergy and sacred site kinds.
+In universes whose gods are real, the deities of a faith followed in three
+or more countries are real (`deity` facts that history can call on).
+
 ## Skies and palettes
 
 **Skies** (`gen/visuals/sky.lua`): the planet pass `sky` stores what a solid

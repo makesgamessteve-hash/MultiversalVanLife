@@ -41,7 +41,9 @@ local function physiology(rng, l, ancestor, gravity)
     anatomy = { limbs = l.limbs, hands = hands, wings = flies(l), tail = l.tail, eyes = l.eyes, covering = l.covering,
                 segments = l.segments, height = dm.round(height, 2),
                 build = dm.round((ancestor and ancestor.stockiness or 1) * (0.9 + rng:next() * 0.2), 3),
-                manipulators = hands > 0 and (hands .. " hands") or "mouth and tendrils" },
+                manipulators = hands > 0 and (hands .. " hands") or "mouth and tendrils",
+                mouth = (l.covering == "feathers" or l.covering == "shell" or l.covering == "plates") and "beak" or
+                        (l.covering == "chitin" and "mandibles" or "lips") },
     senses = { l.senses[1], l.senses[2] },
     lifespan = math.floor(25 + height * 20 + rng:next() * 90),
     reproduction = l.birth, diet = diet, social = social,

@@ -368,6 +368,19 @@ function land.register(R)
       local height = function(x, z) return land.raw_height(T, x + cx, z + cz) end
       local ax, az = dry_spot(d, height)
       provisional.settlement(ctx, d, d.style, height, ax, az)
+      -- a people of the planet lives here: names in their language
+      local culture = require("gen.culture")
+      local planet = ctx:ancestor("planet")
+      local cul = culture.of_country(planet.data, ctx.parent.summary.id)
+      if cul then
+        local n = culture.land_name(planet.data, ctx.parent.summary.id, ctx.node.seed)
+        d.name, d.name_meaning = n.name, n.meaning
+        d.culture = { id = cul.id, name = cul.name, species = cul.species, religion = planet.data.religions[cul.religion].name }
+        for i, p in ipairs(d.people) do
+          local pn = culture.person_name(cul, mvl.hash(ctx.node.seed, "person", i))
+          p.name, p.name_meaning, p.species = pn.name, pn.meaning, cul.species
+        end
+      end
       quests.generate(ctx, d, provisional.style(d.style))
       if biome then
         d.biome_trees = biome.trees
@@ -399,8 +412,10 @@ function land.register(R)
                                              d.country, d.continent, d.climate.temperature, d.climate.precipitation,
                                              d.coast and ", on the coast" or "",
                                              #(d.rivers or {}) > 0 and ", by a river" or "") or ""
-      return string.format("%s, a %s settlement of %d people%s. Trouble: %s.", d.name, d.style, #d.people, where,
-                           d.quest.short)
+      local who = d.culture and string.format(" (\"%s\"), a settlement of the %s of %s, followers of %s,",
+                                             d.name_meaning, d.culture.species, d.culture.name, d.culture.religion) or
+                  string.format(", a %s settlement", d.style)
+      return string.format("%s%s %d people%s. Trouble: %s.", d.name, who, #d.people, where, d.quest.short)
     end
     return string.format("Rolling %s, crossed by %s.", d.style, #d.roads > 0 and d.roads[1].name or "no road")
   end)
