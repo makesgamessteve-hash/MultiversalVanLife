@@ -51,3 +51,6 @@ Rules for every phase:
   budget and the web travel frame check guard every push.
 
 All 24 phases are done; the main specs in `openspec/specs/` describe the game as shipped.
+
+Next, under discussion: [living planets](concepts/living-planets.md), a plan for every place on a
+planet and dense, lived-in settlements (proposed phases 25–32).
