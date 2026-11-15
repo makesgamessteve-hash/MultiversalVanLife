@@ -328,6 +328,137 @@ local function farm(ctx, d, country)
   end
 end
 
+-- ------------------------------------------------- buildings at human scale
+-- The hand-made models used where no people's architecture is known, and how
+-- much they are enlarged to human scale (their size in metres at scale 1).
+land.FALLBACK = {
+  house = { w = 6, d = 5, scale = 1.6 }, barn = { w = 5, d = 4, scale = 2.4 },
+  market_stall = { w = 3, d = 2, scale = 1.3 }, bookshelf = { w = 2, d = 0.75, scale = 1.2 },
+  well = { w = 1.75, d = 1.75, scale = 1.4 },
+}
+
+-- Do two boxes { x, z, hw, hd, yaw } (half sizes) overlap?
+local function boxes_overlap(a, b)
+  local axes = {}
+  for _, q in ipairs({ a, b }) do
+    local c, s = dm.cos(q.yaw), dm.sin(q.yaw)
+    axes[#axes + 1] = { c, -s }
+    axes[#axes + 1] = { s, c }
+  end
+  local dx, dz = b.x - a.x, b.z - a.z
+  for _, ax in ipairs(axes) do
+    local function extent(q)
+      local c, s = dm.cos(q.yaw), dm.sin(q.yaw)
+      return q.hw * math.abs(c * ax[1] - s * ax[2]) + q.hd * math.abs(s * ax[1] + c * ax[2])
+    end
+    if math.abs(dx * ax[1] + dz * ax[2]) > extent(a) + extent(b) then return false end
+  end
+  return true
+end
+land.boxes_overlap = boxes_overlap
+
+-- Is the point (x, z) inside box q (grown by `margin`)?
+local function inside_box(q, x, z, margin)
+  local c, s = dm.cos(q.yaw), dm.sin(q.yaw)
+  local dx, dz = x - q.x, z - q.z
+  local lx, lz = c * dx - s * dz, s * dx + c * dz
+  return math.abs(lx) <= q.hw + margin and math.abs(lz) <= q.hd + margin
+end
+land.inside_box = inside_box
+
+-- Lays a settlement's buildings out by their real footprints: in rings
+-- around the square, their doors facing it (temples of sky faiths face the
+-- east), never overlapping, off the lane to the van, on dry ground, each on
+-- levelled ground and clear of trees. Buildings that do not fit are left out.
+function land.layout_buildings(ctx, d, height)
+  local sq, van = d.spots and d.spots.square, d.spots and d.spots.van
+  if not sq or not van then return end
+  local B = require("gen.visuals.buildings")
+  local list = {}
+  for _, f in ipairs(d.features) do
+    if f.building and d.architecture then
+      local p = B.plan(f.building, d.architecture, f.variant or 0)
+      f.box = { dm.round(p.metres.w, 3), dm.round(p.metres.d, 3) }
+      list[#list + 1] = f
+    elseif f.role == "building" and land.FALLBACK[f.voxel] then
+      local s = land.FALLBACK[f.voxel]
+      f.scale = s.scale
+      f.box = { dm.round(s.w * s.scale, 3), dm.round(s.d * s.scale, 3) }
+      f.radius = nil
+      list[#list + 1] = f
+    end
+  end
+  table.sort(list, function(a, b)
+    local ta, tb = a.building == "temple", b.building == "temple"
+    if ta ~= tb then return ta end
+    local aa, ab = a.box[1] * a.box[2], b.box[1] * b.box[2]
+    if aa ~= ab then return aa > ab end
+    return a.id < b.id
+  end)
+  local rng = ctx:random("layout")
+  local to_van = dm.atan(van.z - sq.z, van.x - sq.x)
+  local lane = {}
+  local lx, lz = van.x - sq.x, van.z - sq.z
+  local llen = math.sqrt(lx * lx + lz * lz)
+  for k = 0, math.floor(llen / 2) do
+    local t = k * 2 / math.max(llen, 1e-6)
+    lane[#lane + 1] = { sq.x + lx * t, sq.z + lz * t }
+  end
+  local placed, keep = {}, {}
+  for _, f in ipairs(list) do
+    local hw, hd = f.box[1] / 2, f.box[2] / 2
+    local sky = f.building == "temple" and d.architecture and d.architecture.sky_faith
+    local spot
+    for ring = 0, 5 do
+      if spot then break end
+      local r = 11 + hd + ring * 14 + rng:next() * 2
+      local step = math.min(0.4, (2 * hw + 3) / r * 0.5)
+      -- the temple across the square from the van, the others along both
+      -- sides of the way in (the van arrives into the village)
+      local first = f.building == "temple" and dm.pi or 0.75
+      for k = 0, math.floor(dm.pi / step) do
+        if spot then break end
+        for _, sgn in ipairs({ 1, -1 }) do
+          local a = to_van + sgn * (first + (f.building == "temple" and -k or k) * step)
+          local bx, bz = sq.x + dm.cos(a) * r, sq.z + dm.sin(a) * r
+          local yaw = sky and -dm.pi / 2 or dm.atan(dm.cos(a), dm.sin(a))
+          local q = { x = bx, z = bz, hw = hw, hd = hd, yaw = yaw }
+          local ok = height(bx, bz) > 1.2
+          for _, o in ipairs(placed) do
+            if ok and boxes_overlap({ x = o.x, z = o.z, hw = o.hw + 1.5, hd = o.hd + 1.5, yaw = o.yaw }, q) then ok = false end
+          end
+          for _, pt in ipairs(lane) do if ok and inside_box(q, pt[1], pt[2], 2.5) then ok = false end end
+          if ok and inside_box(q, van.x, van.z, 6) then ok = false end
+          for _, rv in ipairs(ok and d.rivers or {}) do
+            for i = 1, #rv.points - 1 do
+              local p1, p2 = rv.points[i], rv.points[i + 1]
+              if ok and (inside_box(q, p1[1], p1[2], rv.width + 4) or
+                         inside_box(q, (p1[1] + p2[1]) / 2, (p1[2] + p2[2]) / 2, rv.width + 4)) then ok = false end
+            end
+          end
+          if ok then spot = q break end
+        end
+      end
+    end
+    if spot then
+      f.x, f.z, f.yaw = dm.round(spot.x, 2), dm.round(spot.z, 2), dm.round(spot.yaw, 4)
+      placed[#placed + 1] = { x = f.x, z = f.z, hw = hw, hd = hd, yaw = f.yaw }
+      local r = math.sqrt(hw * hw + hd * hd)
+      add_flat(d, f.x, f.z, r + 0.5, 4, height(f.x, f.z))
+      d.clear = d.clear or {}
+      d.clear[#d.clear + 1] = { x = f.x, z = f.z, r = dm.round(r + 1.5, 2) }
+    else
+      keep[f] = false
+    end
+  end
+  -- what did not fit is not built
+  local out = {}
+  for _, f in ipairs(d.features) do if keep[f] ~= false then out[#out + 1] = f end end
+  d.features = out
+  d.buildings_left_out = 0
+  for _ in pairs(keep) do d.buildings_left_out = d.buildings_left_out + 1 end
+end
+
 local function countryside(ctx, d)
   local rng = ctx:rng()
   d.clear = {}
@@ -390,17 +521,13 @@ function land.register(R)
         end
         -- buildings in the culture's style, in the land's own stone
         d.architecture = require("gen.culture.architecture").local_style(cul.style, d.materials and d.materials.stone)
-        local KIND = { house = "house", barn = "house", market_stall = "workshop", bookshelf = "workshop", well = "well" }
+        local KIND = { house = "house", barn = "barn", market_stall = "workshop", bookshelf = "inn", well = "well" }
         local temple = false
         for _, f in ipairs(d.features) do
           if f.role == "building" and KIND[f.voxel] then
             f.building = KIND[f.voxel]
             if not temple and f.building == "house" then f.building, temple = "temple", true end
             f.variant = mvl.hash(ctx.node.seed, f.id) % 3
-            -- generated buildings have their door in front: face the square
-            -- (temples of sky faiths face the east, where the sky rises)
-            f.yaw = dm.round(f.yaw + dm.pi, 4)
-            if f.building == "temple" and cul.style.sky_faith then f.yaw = dm.round(-dm.pi / 2, 4) end
           end
         end
         -- people of the planet's history who live here now
@@ -441,6 +568,8 @@ function land.register(R)
           ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
         end
       end
+      -- buildings at human scale, laid out by their footprints
+      land.layout_buildings(ctx, d, height)
       -- traces history left here: ruins, battlefields, wrecks, craters, shrines
       local sq = d.spots.square
       for k, c in ipairs(ctx:commitments("trace")) do

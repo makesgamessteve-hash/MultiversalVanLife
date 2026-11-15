@@ -392,7 +392,24 @@ chitin), dyed from local plants, with headdresses or sashes by values.
 Lands of a culture keep `architecture` (its style with the land's own
 bedrock as stone) and turn their settlement into generated buildings
 (`gen/visuals/buildings.lua`: houses, a workshop, a well and a temple
-facing the square, or the east for sky faiths); villagers have voxel bodies
+facing the square, or the east for sky faiths).
+
+**Human scale.** Buildings are planned in metres from the height of their
+people (`style.height`): storeys of at least 3 m (1.75 x the height), doors
+of at least 2 m (1.25 x the height) and wide enough for the player, and
+footprints from `buildings.KINDS` scaled by the people's height — a
+village house of humans is about 10 x 8 m with two storeys, a giant
+people's (2.5 m) has 4.4 m storeys and 3.1 m doors. Grids reach 256 voxels
+a side (32 m); longer halls are joined modules of up to 24 m
+(`buildings.parts`). The voxel mesher merges coplanar faces of one colour
+into rectangles of up to 16 voxels, so a house is a few thousand triangles
+and builds in a few milliseconds. `land.layout_buildings` places the
+buildings by their footprints (rotated boxes): rings around the square,
+the temple across from the van, the others along both sides of the way in,
+1.5 m apart, off the lane, the van and the rivers, each on its own
+flattened ground; a building that finds no place is left out
+(`buildings_left_out`). Quests, aftermath scenes and villagers keep clear of
+the footprints. Villagers have voxel bodies
 of their species in their dress (`gen/visuals/people.lua`). Buildings,
 people and statues go through the model cache; the hand-made voxel art
 remains the fallback.

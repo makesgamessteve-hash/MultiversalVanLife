@@ -418,9 +418,13 @@ function S:feature_model(f, rec)
   if f.building and d.architecture then
     rec.style_key = rec.style_key or chunks.style_key(d.architecture)
     -- a building may have fallen into ruin since (world memory)
+    -- (a module of a long building carries its part: width and door)
+    local part = f.part
     return self.models:acquire({ kind = "building", key = "building:" .. rec.style_key .. ":" .. f.building .. ":" ..
-                                   (f.variant or 0) .. (f.ruined and ":ruined" or ""), building = f.building,
-                                 style = d.architecture, seed = f.variant or 0, ruined = f.ruined })
+                                   (f.variant or 0) .. (f.ruined and ":ruined" or "") ..
+                                   (part and (":" .. part.length .. ":" .. tostring(part.door)) or ""),
+                                 building = f.building, style = d.architecture, seed = f.variant or 0, ruined = f.ruined,
+                                 part = part })
   end
   if f.trace then
     local tr = f.trace

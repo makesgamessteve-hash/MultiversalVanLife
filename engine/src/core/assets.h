@@ -77,7 +77,10 @@ void mvl_voxels_default_palette(uint32_t *palette);
 /* Runtime voxel modelling (voxgrid.c). Coordinates are voxel space (Z up),
  * colours are palette indices 1..255 (0 clears). Shapes are clipped to the
  * grid. Grids are at most MVL_VOXGRID_MAX on each axis. */
-#define MVL_VOXGRID_MAX 128
+#define MVL_VOXGRID_MAX 256
+/* Meshing merges coplanar faces of one colour into quads of at most this
+ * many voxels a side. */
+#define MVL_VOX_MERGE 16
 int mvl_voxels_alloc(mvl_voxels *v, int sx, int sy, int sz);
 void mvl_voxels_set(mvl_voxels *v, int x, int y, int z, uint8_t c);
 void mvl_voxels_fill_box(mvl_voxels *v, int x0, int y0, int z0, int x1, int y1, int z1, uint8_t c);

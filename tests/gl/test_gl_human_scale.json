@@ -1,0 +1,5 @@
+[{"file": "human_scale.tga", "region": [0.36, 0.2, 0.64, 0.35], "max": {"blue": 0.02}},
+ {"file": "human_scale.tga", "region": [0.4, 0.18, 0.6, 0.21], "max": {"blue": 0.05}},
+ {"file": "human_scale.tga", "region": [0.488, 0.47, 0.515, 0.58], "min": {"dark": 0.8}},
+ {"file": "human_scale.tga", "region": [0.567, 0.53, 0.583, 0.56], "min": {"green": 0.4}},
+ {"file": "human_scale.tga", "region": [0.0, 0.0, 1.0, 0.15], "min": {"blue": 0.99}}]

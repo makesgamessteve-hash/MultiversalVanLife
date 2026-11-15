@@ -168,7 +168,12 @@ local function place(rng, d, cx, cz, rmin, rmax)
     local ok = true
     for _, f in ipairs(d.features) do
       local dx, dz = f.x - x, f.z - z
-      if dx * dx + dz * dz < 16 then ok = false break end
+      if f.box and f.box[1] > 2 then
+        -- buildings: not inside or right against their walls
+        local c, s = dm.cos(f.yaw or 0), dm.sin(f.yaw or 0)
+        local lx, lz = c * dx - s * dz, s * dx + c * dz
+        if math.abs(lx) <= f.box[1] / 2 + 2 and math.abs(lz) <= f.box[2] / 2 + 2 then ok = false break end
+      elseif dx * dx + dz * dz < 16 then ok = false break end
     end
     if ok then return x, z end
   end

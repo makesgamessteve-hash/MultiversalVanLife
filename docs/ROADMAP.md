@@ -37,7 +37,7 @@ Rules for every phase:
 | 22 | `p22-consequences-and-revisits` | 5 | signals-and-codex, world-memory | done |
 | 23 | `p23-codex` | 4 | signals-and-codex, world-memory | done |
 | 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | done |
-| 25 | `p25-human-scale-buildings` | 4 | procedural-visuals | planned |
+| 25 | `p25-human-scale-buildings` | 4 | procedural-visuals | done |
 | 26 | `p26-planet-atlas` | 4 | planet-generation | planned |
 | 27 | `p27-surface-grid-and-regions` | 5 | multiverse-generation, land-streaming, save-games | planned |
 | 28 | `p28-settlement-network-and-roads` | 5 | settlements (new), history-generation | planned |

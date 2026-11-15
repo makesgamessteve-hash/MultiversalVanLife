@@ -28,7 +28,7 @@ local function build(p)
     return { mesh = mesh, box = box, hash = hash, count = mesh > 0 and 1 or 0, meshes = { mesh } }
   end
   if p.kind == "building" then
-    local mesh, box, hash = require("gen.visuals.buildings").mesh(p.building, p.style, p.seed, p.ruined)
+    local mesh, box, hash = require("gen.visuals.buildings").mesh(p.building, p.style, p.seed, p.ruined, p.part)
     return { mesh = mesh, box = box, hash = hash, count = mesh > 0 and 1 or 0, meshes = { mesh } }
   end
   if p.kind == "person" or p.kind == "statue" then

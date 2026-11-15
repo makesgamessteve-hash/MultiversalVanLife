@@ -84,7 +84,7 @@ function A.style(rng, s, r, rel, v, tech, rock, chemistry)
   local accent = ({ { 180, 60, 50 }, { 60, 90, 170 }, { 200, 160, 60 }, { 70, 130, 90 }, { 140, 80, 150 } })[hue % 5 + 1]
   local h = a.height or 1.7
   return {
-    material = material, plan = plan, roof = roof, pitch = pitch,
+    material = material, plan = plan, roof = roof, pitch = pitch, height = dm.round(h, 2),
     wall = (COLD[biome] or DRY[biome]) and 2 or 1,
     door = { h = math.floor(dm.clamp(h * 1.15 / 0.125, 10, 40)), w = math.floor(dm.clamp(4 + (a.build or 1) * 3 + (a.wings and 4 or 0), 5, 14)) },
     roof_entry = a.wings or false,

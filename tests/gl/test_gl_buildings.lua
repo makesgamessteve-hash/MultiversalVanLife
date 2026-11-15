@@ -29,6 +29,8 @@ local styles = {
 }
 local hashes = {}
 -- three styles, each a house and a temple, in one row facing the camera
+-- (spaced by their real footprints: buildings are sized to their people)
+local row_items, total = {}, 0
 for row, st in ipairs(styles) do
   for col, kind in ipairs({ "house", "temple", "workshop", "well" }) do
     local mesh, box, hash = B.mesh(kind, st, row)
@@ -36,13 +38,19 @@ for row, st in ipairs(styles) do
     test.expect(not hashes[hash], "every building differs")
     hashes[hash] = true
     if col <= 2 then
-      mvl.spawn({ mesh = mesh, pos = { -22.5 + ((row - 1) * 2 + col - 1) * 9, 0, -20 }, yaw = math.pi, unlit = true })
+      row_items[#row_items + 1] = { mesh = mesh, w = box[1], d = box[2] }
+      total = total + box[1] + 3
     else
       mvl.release_mesh(mesh)
     end
   end
 end
-mvl.camera(0, 4, 8, 0, -0.08, 70)
+local x = -total / 2
+for _, it in ipairs(row_items) do
+  mvl.spawn({ mesh = it.mesh, pos = { x + it.w / 2, 0, -30 }, yaw = math.pi, unlit = true })
+  x = x + it.w + 3
+end
+mvl.camera(0, 8, 45, 0, -0.08, 70)
 test.wait(3)
 test.screenshot("buildings.tga")
 test.wait(2)

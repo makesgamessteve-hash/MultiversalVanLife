@@ -157,7 +157,11 @@ function X:spot(rmin, rmax)
     local ok = true
     for _, f in ipairs(taken) do
       local dx, dz = (f.x or 0) - x, (f.z or 0) - z
-      if dx * dx + dz * dz < 25 then ok = false break end
+      if f.box and f.box[1] > 2 then
+        local c, s = math.cos(f.yaw or 0), math.sin(f.yaw or 0)
+        local lx, lz = c * dx - s * dz, s * dx + c * dz
+        if math.abs(lx) <= f.box[1] / 2 + 3 and math.abs(lz) <= f.box[2] / 2 + 3 then ok = false break end
+      elseif dx * dx + dz * dz < 25 then ok = false break end
     end
     if ok then return math.floor(x * 100 + 0.5) / 100, math.floor(z * 100 + 0.5) / 100 end
   end

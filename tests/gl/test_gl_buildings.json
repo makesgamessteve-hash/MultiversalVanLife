@@ -1,7 +1,7 @@
-[{"file": "buildings.tga", "region": [0.13, 0.42, 0.21, 0.52], "max": {"blue": 0.2}},
- {"file": "buildings.tga", "region": [0.25, 0.42, 0.35, 0.52], "max": {"blue": 0.2}},
- {"file": "buildings.tga", "region": [0.41, 0.42, 0.46, 0.52], "max": {"blue": 0.3}},
- {"file": "buildings.tga", "region": [0.53, 0.42, 0.6, 0.52], "max": {"blue": 0.3}},
- {"file": "buildings.tga", "region": [0.675, 0.44, 0.715, 0.52], "max": {"blue": 0.3}},
- {"file": "buildings.tga", "region": [0.79, 0.44, 0.86, 0.52], "max": {"blue": 0.3}},
- {"file": "buildings.tga", "region": [0.0, 0.0, 1.0, 0.3], "min": {"blue": 0.99}}]
+[{"file": "buildings.tga", "region": [0.265, 0.46, 0.305, 0.51], "max": {"blue": 0.2}},
+ {"file": "buildings.tga", "region": [0.33, 0.42, 0.4, 0.51], "max": {"blue": 0.2}},
+ {"file": "buildings.tga", "region": [0.445, 0.47, 0.48, 0.51], "max": {"blue": 0.3}},
+ {"file": "buildings.tga", "region": [0.51, 0.41, 0.59, 0.51], "max": {"blue": 0.3}},
+ {"file": "buildings.tga", "region": [0.622, 0.45, 0.643, 0.5], "max": {"blue": 0.3}},
+ {"file": "buildings.tga", "region": [0.67, 0.37, 0.71, 0.5], "max": {"blue": 0.3}},
+ {"file": "buildings.tga", "region": [0.0, 0.0, 1.0, 0.25], "min": {"blue": 0.99}}]

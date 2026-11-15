@@ -276,11 +276,13 @@ mvl.release_mesh(mesh)                          -- free the slot when the chunk 
 
 ### Runtime voxel models
 
-`mvl.voxels(sx, sy, sz)` returns a grid (up to 128 per axis, Z up like
+`mvl.voxels(sx, sy, sz)` returns a grid (up to 256 per axis, Z up like
 MagicaVoxel) with methods `set`, `get`, `box`, `sphere`, `ellipsoid`,
 `cylinder` (vertical), `line`, `mirror_x` (copy the low-X half onto the
 high-X half), `replace`, `color(index, r, g, b[, a])`, `count`, `size`,
-`mesh(voxel_size)` and `free`. Colours are palette indices 1..255.
+`mesh(voxel_size)` and `free`. Colours are palette indices 1..255. Meshing
+merges the visible faces of one colour on one plane into rectangles of up
+to 16 voxels a side, so large flat walls cost few triangles.
 
 <!-- example -->
 ```lua
@@ -495,14 +497,27 @@ wood, accent}, dress = {garment, color, trim, status}}`. Materials are
 walls in its own bedrock (`architecture.local_style`), and keeps the result
 in `land.data.architecture`.
 
-**Floor-plan grammar** (`gen/visuals/buildings.lua`): `buildings.build(kind,
-style, seed)` turns a kind (`house`, `workshop`, `temple`, `well`, `wall`)
-and a style into a voxel grid of at most 64 x 64 x 48 cells (1/8 m, Z up,
-door towards +y): the footprint of the plan, storeys of 22 voxels, a door
-sized to the people, windows, the roof, ornaments, a spire on temples of
-sky faiths and a roof hatch for winged peoples. Palette indices: 1 wall, 2
-wall shadow, 3 roof, 4 roof shadow, 5 wood, 6 accent, 7 openings, 8 hatch.
-`buildings.mesh(...)` returns the mesh, its footprint in metres and a hash.
+**Floor-plan grammar** (`gen/visuals/buildings.lua`): buildings are sized
+in metres from the height of the people who build them (`style.height`,
+1.7 m for humans) and then turned into voxels (1/8 m, Z up, door towards
++y). `buildings.sizes(style)` gives the storey (3 m or 1.75 x the height),
+the door (2 m or 1.25 x the height, wide enough for the player) and a
+scale for footprints. `buildings.KINDS` holds the footprint range of each
+kind in metres at human height (`w`, `d` as `{min, max}`, `storeys` added to
+the style's, `min` storeys) — `cottage`, `house`, `workshop`, `barn`, `inn`,
+`hall`, `temple`, plus `well` and `wall`; a mod can change them or add
+kinds. `buildings.plan(kind, style, seed [, opts])` is the plan (in voxels,
+with `p.metres = {w, d, storey, door, door_w, walls}`), `buildings.build(...)`
+fills a grid of at most 256 x 256 x 256 cells (a 30 m square), and
+`buildings.parts(kind, style, seed, length)` splits a building longer than
+24 m into modules that join seamlessly (one with the door; `opts.length`,
+`opts.door`, `opts.gable`). Palette indices: 1 wall, 2 wall shadow, 3 roof,
+4 roof shadow, 5 wood, 6 accent, 7 openings, 8 hatch.
+`buildings.mesh(kind, style, seed [, ruined, opts])` returns the mesh, its
+footprint in metres, a hash and the plan. Lands lay buildings out by their
+footprints (`land.layout_buildings`): rings around the square, temple
+across from the van, the rest along the way in, never overlapping, clear
+of the lane, the van and rivers, each on its own flattened ground.
 
 **People** (`gen/visuals/people.lua`): `people.build{anatomy, hue, dress,
 accent}` stands a species upright (two legs and arms, or a taur body when it

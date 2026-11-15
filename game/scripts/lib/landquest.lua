@@ -399,6 +399,11 @@ function LQ.start(w, node, R)
         say_as(follower.name, text("arrive"))
         say_as(giver.name, text("done"))
       else
+        -- home: they step aside and stand beside the giver
+        local ang = math.atan(p.z - giver.z, p.x - giver.x)
+        p.x, p.z = giver.x + math.cos(ang) * 2.8, giver.z + math.sin(ang) * 2.8
+        mvl.set_pos(s.lost_entity, p.x, w:height(p.x, p.z), p.z)
+        s.lost_it.x, s.lost_it.z = p.x, p.z
         complete()
       end
       return true

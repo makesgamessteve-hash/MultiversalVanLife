@@ -1,4 +1,5 @@
 /* Unit tests: runtime voxel modelling. MIT License. */
+#include <math.h>
 #include "test.h"
 #include "core/assets.h"
 
@@ -50,7 +51,8 @@ void test_voxgrid_shapes(void) {
     mvl_voxels_set_color(&v, 0, 1, 1, 1, 1);
     mvl_voxels_set_color(&v, 300, 1, 1, 1, 1);
     mvl_voxels_free(&v);
-    /* mesh face counts: one voxel = 6 faces, two touching = 10 faces */
+    /* mesh face counts: one voxel = 6 faces; two touching voxels of one
+     * colour merge into a box of 6 faces, of two colours they keep 10 */
     CHECK(mvl_voxels_alloc(&v, 4, 4, 4));
     mvl_voxels_set(&v, 1, 1, 1, 1);
     CHECK(mvl_voxels_mesh(&v, 1.0f, &m));
@@ -58,7 +60,45 @@ void test_voxgrid_shapes(void) {
     mvl_mesh_free(&m);
     mvl_voxels_set(&v, 2, 1, 1, 1);
     CHECK(mvl_voxels_mesh(&v, 0.5f, &m));
+    CHECK_EQ_INT(m.count, 36);
+    CHECK_NEAR(m.max[0] - m.min[0], 1.0, 1e-6); /* still two voxels long */
+    mvl_mesh_free(&m);
+    mvl_voxels_set(&v, 2, 1, 1, 2);
+    CHECK(mvl_voxels_mesh(&v, 0.5f, &m));
     CHECK_EQ_INT(m.count, 60);
+    mvl_mesh_free(&m);
+    mvl_voxels_free(&v);
+    /* a solid 3x3x3 cube is 6 quads */
+    CHECK(mvl_voxels_alloc(&v, 3, 3, 3));
+    mvl_voxels_fill_box(&v, 0, 0, 0, 2, 2, 2, 5);
+    CHECK(mvl_voxels_mesh(&v, 1.0f, &m));
+    CHECK_EQ_INT(m.count, 36);
+    mvl_mesh_free(&m);
+    mvl_voxels_free(&v);
+    /* merging stops at MVL_VOX_MERGE voxels a side: a bar of 40 is cut in 3 */
+    CHECK(mvl_voxels_alloc(&v, 40, 1, 1));
+    mvl_voxels_fill_box(&v, 0, 0, 0, 39, 0, 0, 3);
+    CHECK(mvl_voxels_mesh(&v, 1.0f, &m));
+    CHECK_EQ_INT(m.count, (2 + 4 * 3) * 6);
+    CHECK_NEAR(m.max[0] - m.min[0], 40.0, 1e-5);
+    mvl_mesh_free(&m);
+    mvl_voxels_free(&v);
+    /* a hole in a wall keeps the faces around it, and the mesh covers the
+     * same surface as one face per voxel would */
+    CHECK(mvl_voxels_alloc(&v, 5, 1, 5));
+    mvl_voxels_fill_box(&v, 0, 0, 0, 4, 0, 4, 1);
+    mvl_voxels_set(&v, 2, 0, 2, 0);
+    CHECK(mvl_voxels_mesh(&v, 1.0f, &m));
+    {
+        double front = 0;
+        for (int i = 0; i < m.count; i += 3) {
+            const float *a = m.v[i].pos, *b = m.v[i + 1].pos, *c = m.v[i + 2].pos;
+            double ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], wx = c[0] - a[0], wy = c[1] - a[1], wz = c[2] - a[2];
+            double nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+            if (m.v[i].normal[2] > 0.5f) front += 0.5 * sqrt(nx * nx + ny * ny + nz * nz);
+        }
+        CHECK_NEAR(front, 24.0, 1e-4); /* 25 voxels minus the hole */
+    }
     mvl_mesh_free(&m);
     mvl_voxels_free(&v);
 }

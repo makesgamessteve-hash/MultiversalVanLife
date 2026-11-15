@@ -142,7 +142,16 @@ function P.settlement(ctx, d, style_name, height, ax, az)
     if i == 1 then
       px, pz = dm.round(vx + (sx - vx) * 0.45 + rng:float(-2, 2), 2), dm.round(vz + (sz - vz) * 0.45, 2)
     else
-      px, pz = dm.round(sx + rng:float(-6, 6), 2), dm.round(sz + rng:float(-6, 6), 2)
+      -- around the square, never standing on each other's toes
+      for _ = 1, 12 do
+        px, pz = dm.round(sx + rng:float(-6, 6), 2), dm.round(sz + rng:float(-6, 6), 2)
+        local apart = true
+        for j = 1, i - 1 do
+          local q = d.people[j]
+          if (q.x - px) ^ 2 + (q.z - pz) ^ 2 < 4 then apart = false end
+        end
+        if apart then break end
+      end
     end
     d.people[i] = { id = "person" .. i, name = names.make(ctx:random("person" .. i), "world"),
                     texture = style.npcs[rng:int(1, #style.npcs)], x = px, z = pz,
