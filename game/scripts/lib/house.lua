@@ -179,9 +179,10 @@ function house.floor_local(x, z, y)
   return best or below or y
 end
 
--- The same in world coordinates.
+-- The same in world coordinates; far below the house lies the garden.
 function house.floor(x, z, y)
   local P = house.P
+  if y < P[2] - 500 then return require("lib.garden").height(x, z) end
   return P[2] + house.floor_local(x - P[1], z - P[3], y - P[2])
 end
 
@@ -197,11 +198,15 @@ function house.room_at(x, z, y)
   return best
 end
 
--- Where the player is: "front" (the cab and the hall, which look out of the
--- van) or "house".
+-- Where the player is (pocket metres): "front" (the cab and the hall, which
+-- look out of the van), "conservatory" (its door shows the garden), "house"
+-- or, far below, "garden".
 function house.zone(x, z, y)
+  if y < -500 then return "garden" end
   local r = house.room_at(x, z, y)
-  return (r and house.front[r.id]) and "front" or "house"
+  if r and house.front[r.id] then return "front" end
+  if r and r.id == "conservatory" then return "conservatory" end
+  return "house"
 end
 
 local function dist(r, x, z)

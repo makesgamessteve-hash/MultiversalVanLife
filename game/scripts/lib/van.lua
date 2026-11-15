@@ -6,6 +6,7 @@
 -- while travelling.
 local audio = require("lib.audio")
 local house = require("lib.house")
+local garden = require("lib.garden")
 local plan = require("gen.house.plan")
 
 local van = {
@@ -27,7 +28,12 @@ van.SEAT = SP.seat                -- the driver's seat in the cab
 van.RADIO = SP.radio
 van.ATLAS = SP.atlas
 van.ENTRY = SP.entry              -- where the player stands after entering
-van.BOUNDS = 4000                 -- the house has walls, not edges
+van.BOUNDS = 60000                -- the house and the garden have walls and hedges, not edges
+van.garden = garden
+-- the garden door: its plane in the conservatory (pocket) and in the
+-- garden's back of the house (both look out along -X)
+local GD = garden.G.DOOR
+van.GARDEN_PORTAL = { 5, 6 }       -- portal numbers (1-based) of the door, both ways
 
 local function local_to_pocket(x, y, z) return van.P[1] + x, van.P[2] + y, van.P[3] + z end
 
@@ -75,6 +81,7 @@ function van.build()
   local px, py, pz = van.P[1], van.P[2], van.P[3]
   house.fixed = van.fixed
   house.build(van.P, require("lib.progress").seed())
+  garden.setup(require("lib.progress").seed())
   van.entities.between = build_between()
   -- filled in place: the world module holds a reference to this table
   local function fixed(t)
@@ -86,8 +93,6 @@ function van.build()
   fixed({ x = SP.door[1], z = SP.door[2], range = 1.6, prompt = "Step outside", use = function() van.on_door() end })
   fixed({ x = SP.seat[1], z = SP.seat[2], range = 1.5, prompt = "Sit in the driver's seat",
           use = function() van.on_seat() end })
-  fixed({ x = SP.garden[1], z = SP.garden[2], range = 1.8, prompt = "Open the garden door",
-          use = function() van.on_garden() end })
   van.update_windows()
 end
 
@@ -96,7 +101,6 @@ function van.on_radio() end
 function van.on_atlas() end
 function van.on_door() end
 function van.on_seat() end
-function van.on_garden() end
 
 -- Moves the van exterior (called when a world places the van at ground
 -- height y).
@@ -123,6 +127,14 @@ function van.update_windows()
     end
     if def.target then mvl.portal(i - 1, def) else mvl.portal(i - 1) end
   end
+  -- the garden door, both ways: the conservatory looks out into the garden,
+  -- the back of the house in the garden looks into the conservatory
+  local hx, hy, hz = local_to_pocket(SP.garden[1], 1.375, SP.garden[2])
+  local gy = garden.G.Y + 1.375
+  mvl.portal(van.GARDEN_PORTAL[1] - 1, { pos = { hx, hy, hz }, yaw = math.pi / 2, w = 2.25, h = 2.75,
+                                         target = { GD.x, gy, GD.z }, target_yaw = math.pi / 2 })
+  mvl.portal(van.GARDEN_PORTAL[2] - 1, { pos = { GD.x, gy, GD.z }, yaw = -math.pi / 2, w = 2.0, h = 2.5,
+                                         target = { hx, hy, hz }, target_yaw = -math.pi / 2 })
 end
 
 -- ------------------------------------------------------ light and sky
@@ -130,6 +142,18 @@ end
 -- sky in the cab and the hall (whose windows look out), a warm dusk deeper
 -- in the house (far rooms fade into it), the road between worlds' night
 -- while travelling.
+-- the garden's own golden afternoon
+van.GARDEN_ENV = {
+  reset = true, sky_top = { 0.36, 0.56, 0.86 }, sky_horizon = { 0.9, 0.82, 0.64 }, fog_color = { 0.84, 0.8, 0.68 },
+  fog_near = 70, fog_far = 240, ambient = { 0.55, 0.55, 0.5 }, sun_dir = { 0.55, -0.55, 0.35 }, sun_color = { 1.0, 0.88, 0.66 },
+  stars = 0,
+}
+van.GARDEN_SKY = {
+  sun = { dir = { -0.55, 0.55, -0.35 }, color = { 1, 0.9, 0.7 }, size = 0.035, glow = 0.6 },
+  light = { -0.55, 0.55, -0.35 },
+  moons = { { dir = { 0.6, 0.35, 0.5 }, color = { 0.9, 0.9, 0.95 }, size = 0.02 } },
+}
+
 van.HOUSE_ENV = {
   reset = true, sky_top = { 0.12, 0.08, 0.06 }, sky_horizon = { 0.2, 0.14, 0.1 }, fog_color = { 0.2, 0.14, 0.1 },
   fog_near = 24, fog_far = 46, ambient = { 1, 1, 1 }, sun_dir = { -0.3, -1, -0.2 }, sun_color = { 0.4, 0.38, 0.34 },
@@ -144,12 +168,22 @@ function van.world_loaded()
 end
 
 function van.apply_env()
-  local want = van.travelling and "between" or (van.inside and van.zone == "house" and "house") or "world"
+  local want = "world"
+  if van.travelling then
+    want = "between"
+  elseif van.inside and (van.zone == "garden" or van.zone == "conservatory") then
+    want = "garden"
+  elseif van.inside and van.zone == "house" then
+    want = "house"
+  end
   if want == van.env then return end
   van.env = want
   if want == "between" then
     mvl.environment(van.BETWEEN_ENV)
     mvl.sky(van.BETWEEN_SKY)
+  elseif want == "garden" then
+    mvl.environment(van.GARDEN_ENV)
+    mvl.sky(van.GARDEN_SKY)
   elseif want == "house" then
     mvl.environment(van.HOUSE_ENV)
     mvl.sky({})
@@ -181,6 +215,7 @@ function van.enter(player, world)
   van.player = player
   house.set_seed(require("lib.progress").seed())
   house.set_wings(require("lib.progress").souvenirs())
+  garden.setup(require("lib.progress").seed())
   van.inside = true
   van.zone = "front"
   player.indoors = true
@@ -197,6 +232,7 @@ end
 function van.exit(player, world, x, z, yaw)
   van.inside = false
   house.release_all()           -- only the core stays while the player is out
+  garden.clear()
   van.apply_env()
   player.indoors = false
   player.base_y = 0
@@ -205,16 +241,64 @@ function van.exit(player, world, x, z, yaw)
   audio.set_ambient(world.ambient())
 end
 
+-- Walking through the garden door: from the conservatory into the garden
+-- in front of the back of the house, and back. Keeps the way the player
+-- looks.
+function van.to_garden(pl)
+  local dz = pl.z - (van.P[3] + SP.garden[2])
+  local x, z = GD.x - 0.6, GD.z + dz
+  local yaw, pitch = pl.yaw, pl.pitch
+  house.release_all()
+  garden.update(x, z, garden.LOAD, math.huge)
+  pl.base_y = garden.height(x, z)
+  pl.place(x, z, yaw)
+  pl.pitch = pitch
+  audio.sfx("door", 0.5)
+end
+
+function van.to_house(pl)
+  local dz = pl.z - GD.z
+  local x, z = van.P[1] + SP.garden[1] + 0.6, van.P[3] + SP.garden[2] + dz
+  local yaw, pitch = pl.yaw, pl.pitch
+  pl.base_y = van.P[2]
+  pl.place(x, z, yaw)
+  pl.pitch = pitch
+  house.fill(x - van.P[1], z - van.P[3])
+  audio.sfx("door", 0.5)
+end
+
 function van.update(dt)
   if not van.built then return end
   local pl = van.player
   if van.inside and pl then
     local lx, lz, ly = pl.x - van.P[1], pl.z - van.P[3], (pl.base_y or van.P[2]) - van.P[2]
-    house.update(lx, lz)
     local zone = house.zone(lx, lz, ly)
+    if zone == "conservatory" and lx < SP.garden[1] + 0.25 and math.abs(lz - SP.garden[2]) < 0.9 then
+      van.to_garden(pl)
+      zone = "garden"
+    elseif zone == "garden" and pl.x > GD.x - 0.05 and math.abs(pl.z - GD.z) < 0.8 then
+      van.to_house(pl)
+      zone = "conservatory"
+    end
+    if zone == "garden" then
+      garden.update(pl.x, pl.z)
+    else
+      house.update(lx, lz)
+      if zone == "conservatory" then
+        garden.update(GD.x - 16, GD.z, garden.NEAR)   -- what the door shows
+      elseif garden.count > 0 then
+        garden.clear()
+      end
+    end
     if zone ~= van.zone then
+      local was = van.zone
       van.zone = zone
       van.apply_env()
+      if zone == "garden" then
+        audio.scape("garden")
+      elseif was == "garden" then
+        audio.scape("van")
+      end
     end
   end
   local b = van.entities.between

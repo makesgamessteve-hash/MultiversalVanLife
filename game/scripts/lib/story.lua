@@ -125,7 +125,6 @@ van.on_radio = function() story.open_radio() end
 van.on_atlas = function() story.open_atlas() end
 van.on_door = function() story.exit_van() end
 van.on_seat = function() require("lib.drive").sit() end
-van.on_garden = function() dialogue.say("van_garden_waking") end
 
 
 -- Reading the sign of a wing of the house.

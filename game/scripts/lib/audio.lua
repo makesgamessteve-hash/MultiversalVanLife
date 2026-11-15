@@ -11,6 +11,7 @@ local audio = { ambient = nil, ambient_path = nil, FADE_OUT = 1.2, FADE_IN = 1.5
 audio.SCAPES = {
   title = { path = "music/title.mp3", volume = 0.55 },
   van = { path = "sounds/van_hum.wav", volume = 0.45 },
+  garden = { path = "sounds/ambient_fen.wav", volume = 0.4 },
 }
 
 function audio.sfx(name, volume, pan)

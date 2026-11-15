@@ -123,10 +123,20 @@ static int l_noise3(lua_State *L) {
 }
 
 /* ------------------------------------------------------------- terrain */
+/* The terrain slot at stack index i (default 0). */
+static mvl_terrain *slot_arg(lua_State *L, int i) {
+    int slot = (int)luaL_optinteger(L, i, 0);
+    luaL_argcheck(L, slot >= 0 && slot < MVL_TERRAIN_SLOTS, i, "terrain slot out of range");
+    return &mvl_script_engine(L)->terrain[slot];
+}
+
 static int l_terrain(lua_State *L) {
-    mvl_engine *e = mvl_script_engine(L);
-    mvl_terrain *t = &e->terrain;
+    mvl_terrain *t;
+    int slot;
     luaL_checktype(L, 1, LUA_TTABLE);
+    slot = field_int(L, 1, "slot", 0);
+    if (slot < 0 || slot >= MVL_TERRAIN_SLOTS) return luaL_error(L, "terrain slot out of range");
+    t = &mvl_script_engine(L)->terrain[slot];
     mvl_terrain_free(t);
     mvl_terrain_init(t, (uint32_t)field_int(L, 1, "seed", 0));
     t->base = field_num(L, 1, "base", t->base);
@@ -206,8 +216,7 @@ static int l_terrain(lua_State *L) {
 }
 
 static int l_height(lua_State *L) {
-    lua_pushnumber(L, mvl_terrain_height(&mvl_script_engine(L)->terrain, (float)luaL_checknumber(L, 1),
-                                         (float)luaL_checknumber(L, 2)));
+    lua_pushnumber(L, mvl_terrain_height(slot_arg(L, 3), (float)luaL_checknumber(L, 1), (float)luaL_checknumber(L, 2)));
     return 1;
 }
 
@@ -216,9 +225,10 @@ static int l_terrain_chunk(lua_State *L) {
     int cx = (int)luaL_checkinteger(L, 1), cz = (int)luaL_checkinteger(L, 2);
     float size = (float)luaL_optnumber(L, 3, 32);
     int cells = (int)luaL_optinteger(L, 4, 16);
+    mvl_terrain *t = slot_arg(L, 5);
     mvl_mesh m;
     char name[64];
-    if (!mvl_terrain_build_chunk(&e->terrain, cx, cz, size, cells, &m)) return luaL_error(L, "invalid chunk parameters");
+    if (!mvl_terrain_build_chunk(t, cx, cz, size, cells, &m)) return luaL_error(L, "invalid chunk parameters");
     snprintf(name, sizeof name, "<terrain %d %d>", cx, cz);
     lua_pushinteger(L, mvl_res_mesh_from_data(&e->res, name, &m));
     mvl_mesh_free(&m);

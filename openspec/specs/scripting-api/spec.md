@@ -114,3 +114,11 @@ so floors of a building stacked above each other do not block each other.
 #### Scenario: A wall upstairs
 - **WHEN** a wall with a height of 3.5 m stands on a floor 3.6 m above the player's feet
 - **THEN** the player walks under it without being blocked
+
+### Requirement: Terrain slots
+Scripts SHALL be able to configure up to four independent terrain height fields (slots), query the height and build
+chunk meshes of any of them; slot 0 is the default.
+
+#### Scenario: Two terrains
+- **WHEN** slot 0 and slot 1 are configured differently
+- **THEN** heights and chunks of each follow its own configuration

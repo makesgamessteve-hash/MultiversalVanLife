@@ -1,7 +1,7 @@
 # Procedural multiverse roadmap
 
-The procedural multiverse is built in small phases (1–25 done, 26–33 planned; Juniper's interior V1–V4 come
-before 26). Each phase is a separate
+The procedural multiverse is built in small phases (1–25 and V1–V4 done, 26–33 planned; Juniper's interior V1–V4
+came before 26). Each phase is a separate
 OpenSpec change in `openspec/changes/`, implemented, tested and archived on its own,
 so the main specs in `openspec/specs/` always describe the game as shipped.
 
@@ -58,7 +58,7 @@ The van's interior is rebuilt as a home without end before phase 26 (see the
 | V1 | `v1-cosy-core` | 6 | van-interior (new), van-windows, story-and-worlds, scripting-api | done |
 | V2 | `v2-endless-house` | 4 | van-interior | done |
 | V3 | `v3-souvenir-wings` | 3 | van-interior | done |
-| V4 | `v4-garden-planet` | 4 | van-interior, scripting-api | planned |
+| V4 | `v4-garden-planet` | 4 | van-interior, scripting-api | done |
 
 ## Milestones
 

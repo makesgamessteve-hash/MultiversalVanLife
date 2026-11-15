@@ -70,9 +70,9 @@ for _, room in ipairs(plan.core()) do
 end
 -- the cab's seats, radio and atlas can be reached
 test.expect(reach(13.0, 0), "between the seats in the cab")
--- the gallery opens into the house beyond; the garden door is shut
+-- the gallery opens into the house beyond; the garden door into the garden
 test.expect(reach(0, 16.5) and reach(0, -16.5), "the gallery's ends open into the house beyond the core")
-test.expect(not reach(-16.5, -8.75), "the garden door is shut")
+test.expect(not reach(-16.5, -8.75), "the garden door leads into the garden, not into the house beyond")
 
 -- --------------------------------------------------------- upstairs
 -- walks forward for `frames` (Juniper's lines are skipped)

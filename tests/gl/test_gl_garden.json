@@ -1,0 +1,5 @@
+[{"file": "door.tga", "region": [0.44, 0.56, 0.56, 0.68], "min": {"green": 0.2}},
+ {"file": "door.tga", "region": [0.44, 0.42, 0.56, 0.48], "max": {"green": 0.05}, "mean": {"min": 120}},
+ {"file": "garden.tga", "region": [0.2, 0.0, 0.8, 0.2], "min": {"cool": 0.5}},
+ {"file": "garden.tga", "region": [0.0, 0.75, 0.4, 1.0], "min": {"green": 0.5}},
+ {"file": "back.tga", "region": [0.45, 0.6, 0.55, 0.72], "max": {"dark": 0.1, "green": 0.3}}]

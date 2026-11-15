@@ -150,7 +150,7 @@ int mvl_engine_init(mvl_engine *e, const mvl_engine_desc *d) {
 
     mvl_res_init(&e->res, &e->vfs, d->gfx);
     mvl_scene_init(&e->scene);
-    mvl_terrain_init(&e->terrain, 0);
+    for (int i = 0; i < MVL_TERRAIN_SLOTS; ++i) mvl_terrain_init(&e->terrain[i], 0);
     mvl_ui_init(&e->ui);
     e->ui.font_texture = mvl_res_texture(&e->res, mvl_kv_get_str(&e->config, "ui.font", "textures/font.tga"));
     mvl_mixer_init(&e->mixer, d->audio_rate > 0 ? d->audio_rate : 44100);
@@ -183,7 +183,7 @@ void mvl_engine_shutdown(mvl_engine *e) {
     mvl_script_shutdown(e);
     mvl_mixer_stop_all(&e->mixer);
     mvl_res_shutdown(&e->res);
-    mvl_terrain_free(&e->terrain);
+    for (int i = 0; i < MVL_TERRAIN_SLOTS; ++i) mvl_terrain_free(&e->terrain[i]);
     mvl_kv_free(&e->config);
     mvl_kv_free(&e->options);
     mvl_kv_free(&e->save);

@@ -217,7 +217,7 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Resources | `texture(path)`, `mesh(path [, voxel_size])`, `plane_mesh(sx, sz, tx, tz)`, `box_mesh(sx, sy, sz)`, `ribbon_mesh({x, y, z, ...}, width [, v_scale])`, `mesh_bounds(id)`, `sound(path)`, `sound_length(id)`, `release_mesh(id)`, `release_texture(id)` |
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Planets | `planet_grid(level)`, `planet_cell(level, i)`, `planet_neighbours(level, i)`, `planet_nearest(level, x, y, z)`, `planet_sample(level, values, x, y, z)`, `planet_plates(level, seed, n)`, `planet_tectonics{level, seed, plates, continental}`, `planet_climate{level, elevation, axis, tilt_sin, locked, sub, mean, span, lapse, water, iterations}` → `{temp, tmin, tmax, precip, wind}`, `planet_rivers{level, elevation, precip}` → `{filled, flow_to, flow, lake}`, `planet_territory(level, seeds, cost)` → owner per cell, `planet_components(level, mask)` → ids, count (cells and plates are numbered from 1; 0 means none) |
-| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)` (grids also have `g:hash()`), `mesh_count()`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
+| Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}` (with `slot = 0..3`: independent height fields, 0 is the land's), `height(x, z [, slot])`, `terrain_chunk(cx, cz [, size, cells, slot])`, `voxels(sx, sy, sz)` (grids also have `g:hash()`), `mesh_count()`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
 | Entities | `spawn{...}` (with `parent = e`; a solid one with `height = h` blocks only feet between its base less 0.4 m and its top, so storeys above each other do not block each other; `snap = false` draws it without vertex snapping, for large merged voxel surfaces), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `get_rotation(e)` (yaw, pitch, roll), `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
 | World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `environment_save()` → a copy of the sky, fog and light, `environment_load(copy)`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
 | Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])`, `taps()` (this update's taps: `{ {x, y} }` in UI units) |
@@ -589,6 +589,17 @@ their wings in the order of the visits: a grand hall or a courtyard with a
 statue of one of them, walls of their material (`stone`, `panels` for
 timber, `brick` for mud brick, `hide`) in their colours with friezes of
 their ornament, doorways for their height, their plants and a sign.
+
+**The garden** (`gen/house/garden.lua`, `lib/garden.lua`): the
+conservatory's door opens onto a garden without end, 1,600 m below the house
+on terrain slot 1 (`garden.G.SLOT`) with its own golden-afternoon sky:
+a formal garden of hedges and flower beds by the back of the house, then
+meadows, woods, orchards and ponds by region, and a path winding away from
+the door. Its 32 m chunks are described from the game's seed
+(`garden.G.chunk(seed, cx, cz)`) and streamed round the player in the garden,
+or round the door while the player is in the conservatory. The door is a
+pair of portals: walking through it moves the player between the
+conservatory and the lawn in front of the back of the house.
 
 **Adding a piece of furniture.** Register it in `furniture.PIECES`: its size
 in voxels (1/8 m) and a draw function using a pen in the piece's own frame

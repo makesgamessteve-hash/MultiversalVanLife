@@ -42,7 +42,7 @@ typedef struct mvl_engine {
     mvl_kv config;
     mvl_kv save;
     mvl_kv options;          /* command line tool options (mvl.option) */
-    mvl_terrain terrain;     /* height field configured by scripts */
+    mvl_terrain terrain[MVL_TERRAIN_SLOTS]; /* height fields configured by scripts (slot 0: the land) */
     char save_dir[MVL_PATH_MAX];  /* save folder: index file + records/ */
     char save_path[MVL_PATH_MAX]; /* the index file */
     int save_sync_pending;        /* something was written since the last on_save */

@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #define MVL_TERRAIN_MAX_FLATS 128
+#define MVL_TERRAIN_SLOTS 4 /* independent height fields (e.g. a land and the van's garden) */
 #define MVL_TERRAIN_PALETTE 4
 
 typedef struct {

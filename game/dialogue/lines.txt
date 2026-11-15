@@ -20,7 +20,6 @@ van_milestone | juniper  | Three more places helped. You know, I think you're th
 van_lost_signal | juniper | Hm. The signal faded before we could reach it. Let's stay where we are.
 van_new_wing | juniper | While you were out I made room for the {people}: a whole new wing, through the gallery. Go and have a look.
 house_wing_sign | narrator | The wing of the {name}, {species} of {planet}. It grew here after the visit to {land} on night {night}.
-van_garden_waking | juniper | Not that one yet, dear. The garden is still waking up. Give it a little while.
 mabel_1      | mabel    | Evening, dear. Strange old van at your gate, isn't it? Wasn't there an hour ago.
 mabel_2      | mabel    | My grandmother always said the night sky was full of doors. I never knew what she meant.
 mabel_3      | mabel    | You look like someone who's been somewhere far away. Good for you.

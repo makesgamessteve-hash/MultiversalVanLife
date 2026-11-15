@@ -231,7 +231,7 @@ local CORE = {
     style = STYLES.conservatory, light = { 1, 1, 0.95 },
     doors = {
       { side = "e", at = -8.75, w = 2.0, h = 2.5, shape = "arch" },
-      { side = "w", at = -8.75, w = 2.25, h = 2.75, closed = true, glass = true, garden = true },
+      { side = "w", at = -8.75, w = 2.25, h = 2.75, garden = true },
     },
     items = {
       { piece = "rug", x = -8.75, z = -8.75, w = 4.0, d = 3.0 },
@@ -363,7 +363,7 @@ plan.SPOTS = {
   radio = { 15.0, 0 },
   atlas = { 13.375, -1.0 },
   seat = { 13.375, 1.0 },
-  garden = { -15.5, -8.75 },
+  garden = { -15.875, -8.75 },             -- the garden door (its plane, the middle of the doorway)
 }
 
 -- The windows that look out of the van (portal index -> pocket position,

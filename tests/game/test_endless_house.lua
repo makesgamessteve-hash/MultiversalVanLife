@@ -25,7 +25,7 @@ local OPP = { n = "s", s = "n", e = "w", w = "e" }
 local function neighbours(r)
   local out = {}
   for _, d in ipairs(r.doors or {}) do
-    if not d.closed then
+    if not d.closed and not d.garden then  -- the garden door leads into the garden
       local x, z
       if d.side == "n" then x, z = d.at, r.z1 + 0.1
       elseif d.side == "s" then x, z = d.at, r.z0 - 0.1
