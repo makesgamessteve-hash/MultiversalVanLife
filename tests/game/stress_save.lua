@@ -11,9 +11,9 @@ local G = D.gen.world
 local addrs = {}
 for _, s in ipairs(D.story.signals()) do
   local paddr = s.address:match("^(.-%.p%d+)")
-  for _, c in ipairs(G:generate(paddr).data.countries or {}) do
-    for i = 0, 11 do
-      if #addrs < 200 then addrs[#addrs + 1] = paddr .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l" .. i end
+  for cid in ipairs(G:generate(paddr).data.countries or {}) do
+    for _, addr in ipairs(H.country_lands(paddr, cid, 12)) do
+      if #addrs < 200 then addrs[#addrs + 1] = addr end
     end
   end
 end

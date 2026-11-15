@@ -110,7 +110,11 @@ static int l_noise(lua_State *L) {
     float x = (float)luaL_checknumber(L, 1), y = (float)luaL_checknumber(L, 2);
     uint32_t seed = (uint32_t)luaL_optinteger(L, 3, 0);
     int oct = (int)luaL_optinteger(L, 4, 1);
-    lua_pushnumber(L, mvl_fbm2(x, y, seed, oct, (float)luaL_optnumber(L, 5, 2.0), (float)luaL_optnumber(L, 6, 0.5)));
+    int period = (int)luaL_optinteger(L, 7, 0);
+    if (period > 0) /* lattice repeating every `period` cells (lacunarity 2), as a terrain's `period` */
+        lua_pushnumber(L, mvl_fbm2_periodic(x, y, period, period, seed, oct, (float)luaL_optnumber(L, 6, 0.5)));
+    else
+        lua_pushnumber(L, mvl_fbm2(x, y, seed, oct, (float)luaL_optnumber(L, 5, 2.0), (float)luaL_optnumber(L, 6, 0.5)));
     return 1;
 }
 
@@ -147,6 +151,7 @@ static int l_terrain(lua_State *L) {
     t->gain = field_num(L, 1, "gain", t->gain);
     t->origin_x = field_num(L, 1, "origin_x", 0);
     t->origin_z = field_num(L, 1, "origin_z", 0);
+    t->period = field_int(L, 1, "period", 0);
     t->color_low = field_num(L, 1, "color_low", t->color_low);
     t->color_high = field_num(L, 1, "color_high", t->color_high);
     t->slope_start = field_num(L, 1, "slope_start", t->slope_start);
@@ -210,6 +215,45 @@ static int l_terrain(lua_State *L) {
         mvl_terrain_set_map(t, data, w, h, field_num(L, top, "x0", 0), field_num(L, top, "z0", 0),
                             field_num(L, top, "cell", 1));
         free(data);
+    }
+    lua_pop(L, 1);
+    /* map tiles: { { w, h, x0, z0, cell, data = {...}, amp = {...} (optional) }, ... } */
+    lua_getfield(L, 1, "tiles");
+    if (lua_istable(L, -1)) {
+        int list = lua_gettop(L), n = (int)lua_rawlen(L, list);
+        for (int k = 1; k <= n; ++k) {
+            int top, w, h, ok;
+            float *data, *amp = NULL;
+            lua_rawgeti(L, list, k);
+            top = lua_gettop(L);
+            w = field_int(L, top, "w", 0);
+            h = field_int(L, top, "h", 0);
+            if (w < 4 || h < 4 || w * h > 1 << 20) return luaL_error(L, "terrain tiles need w, h >= 4");
+            data = (float *)malloc(sizeof(float) * (size_t)w * (size_t)h * 2);
+            if (!data) return luaL_error(L, "out of memory");
+            lua_getfield(L, top, "data");
+            for (int i = 0; i < w * h; ++i) {
+                lua_rawgeti(L, -1, i + 1);
+                data[i] = (float)lua_tonumber(L, -1);
+                lua_pop(L, 1);
+            }
+            lua_pop(L, 1);
+            lua_getfield(L, top, "amp");
+            if (lua_istable(L, -1)) {
+                amp = data + (size_t)w * (size_t)h;
+                for (int i = 0; i < w * h; ++i) {
+                    lua_rawgeti(L, -1, i + 1);
+                    amp[i] = (float)lua_tonumber(L, -1);
+                    lua_pop(L, 1);
+                }
+            }
+            lua_pop(L, 1);
+            ok = mvl_terrain_add_tile(t, data, amp, w, h, field_num(L, top, "x0", 0), field_num(L, top, "z0", 0),
+                                      field_num(L, top, "cell", 1));
+            free(data);
+            if (!ok) return luaL_error(L, "too many terrain tiles (max %d)", MVL_TERRAIN_MAX_TILES);
+            lua_pop(L, 1);
+        }
     }
     lua_pop(L, 1);
     return 0;

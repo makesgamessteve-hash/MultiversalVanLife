@@ -8,7 +8,8 @@ local G = gen.run.new(gen.cosmos, { seed = 909, mods = {} })
 
 local function lum(c) return c[1] + c[2] + c[3] end
 
--- Countries (with a dry land) of rocky worlds around stars of `class` (or any).
+-- Countries of rocky worlds around stars of `class` (or any): fn(planet,
+-- country id, capital cell).
 local function each_country(class, fn)
   for s = 0, 400 do
     local saddr = "u" .. (1 + s % 9) .. ".g" .. (s % 13) .. ".c" .. (s % 3) .. ".s" .. (s % 7)
@@ -17,15 +18,9 @@ local function each_country(class, fn)
       for i = 0, sys.data.planets - 1 do
         if sys.children[i].kind == "rocky" then
           local p = G:generate(saddr .. ".p" .. i)
-          for k = 0, (p.data.continents or 0) - 1 do
-            local cont = G:generate(p.address .. ".k" .. k)
-            for _, n in ipairs(gen.util.sorted_keys(cont.children)) do
-              local c = G:generate(cont.address .. ".n" .. n)
-              if c.data.district then
-                local r = fn(p, c)
-                if r then return r end
-              end
-            end
+          for cid, c in ipairs(p.data.countries or {}) do
+            local r = fn(p, cid, c.capital)
+            if r then return r end
           end
         end
       end
@@ -33,19 +28,18 @@ local function each_country(class, fn)
   end
 end
 
-local function dry_land(c)
-  for l = 0, 255, 7 do
-    local gx, gz = gen.land.grid(l)
-    if gen.land.raw_height(c.data.terrain, gx * 2048, gz * 2048) > 3 then return G:generate(c.address .. ".l" .. l) end
-  end
+-- A dry land of a country near its capital.
+local function dry_land(p, cid)
+  local a = gen.country_land(p, cid, 1)
+  return a and G:generate(a)
 end
 
 local GREEN = { ["temperate forest"] = true, rainforest = true, ["seasonal forest"] = true, grassland = true,
                 taiga = true, wetland = true }
 local function leafy_land(class)
-  return each_country(class, function(p, c)
-    if GREEN[c.data.biome] and p.data.water == "liquid" then
-      local land = dry_land(c)
+  return each_country(class, function(p, cid, cell)
+    if GREEN[gen.geography.BIOMES[p.data.cells.biome[cell]].id] and p.data.water == "liquid" then
+      local land = dry_land(p, cid)
       if land and land.data.materials and land.data.materials.foliage then return land end
     end
   end)
@@ -84,10 +78,10 @@ test.expect(PAL.texture(red.data.materials, "grass") ~= PAL.texture(yellow.data.
 
 -- ------------------------------------------------------------ local stone
 local RS = P.ROCK["red sandstone"]
-local sand = each_country(nil, function(p, c)
-  if p.data.cells.rock[c.data.district.cell] == RS then
-    local land = dry_land(c)
-    if land and land.data.place and land.data.place.cell == c.data.district.cell then return land end
+local sand = each_country(nil, function(p, cid, cell)
+  if p.data.cells.rock[cell] == RS then
+    local land = dry_land(p, cid)
+    if land and land.data.place and p.data.cells.rock[land.data.place.cell] == RS then return land end
   end
 end)
 test.expect(sand, "a land on red sandstone")

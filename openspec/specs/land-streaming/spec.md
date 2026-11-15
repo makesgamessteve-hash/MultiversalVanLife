@@ -58,3 +58,10 @@ Each land SHALL place the ruins, battlefields, monuments, craters and shrines it
 #### Scenario: Ruin of an older era
 - **WHEN** a land's history contains a city destroyed centuries ago
 - **THEN** its ruins appear at the city's location in the architecture style of that era
+
+### Requirement: Continuous travel
+Lands of neighbouring regions and countries SHALL stream in seamlessly, with terrain, rivers and coasts continuous across land, region and country borders.
+
+#### Scenario: Crossing a border
+- **WHEN** the player drives from one country into the next
+- **THEN** the terrain continues without a seam and the lands on the other side belong to the other country, its people and its language

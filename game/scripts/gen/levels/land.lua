@@ -1,11 +1,16 @@
 -- Multiversal Van Life - countries and lands (MIT).
 --
--- A country holds what its lands share: one continuous terrain and its road
--- network. Its lands lie on a 16 x 16 grid of 2048 m squares; land index
--- i sits at grid (i % 16, i // 16), centred on (gx * 2048, gz * 2048) in
--- country coordinates. A land's description (features, fields, roads, flat
--- areas, flora, spots) uses land-local metres around its centre; gen/chunks
--- turns it into the walkable world.
+-- Lands lie on 16 x 16 grids of 2048 m squares; land index i sits at grid
+-- (i % 16, i // 16). Since the surface grid a land belongs to a region
+-- (gen/levels/region.lua): it is centred on its face position, samples the
+-- region's ground on its own crop of the planet-wide lattice, takes the
+-- rivers and lakes the region plan gives and belongs to the country the
+-- atlas puts there. In multiverses from before the grid a land belongs to a
+-- country's district, which holds one continuous terrain and its road
+-- network, the land centred on (gx * 2048, gz * 2048) in country
+-- coordinates. A land's description (features, fields, roads, flat areas,
+-- flora, spots) uses land-local metres around its centre; gen/chunks turns
+-- it into the walkable world.
 local dm = require("gen.dmath")
 local prime = require("gen.prime")
 local util = require("gen.util")
@@ -32,8 +37,9 @@ local function map_at(m, x, z)
   return m.data[z * m.w + x + 1]
 end
 
-function land.sample_map(m, x, z)
+function land.sample_map(m, x, z, data)
   local gx, gz = (x - m.x0) / m.cell, (z - m.z0) / m.cell
+  if data then m = { w = m.w, h = m.h, data = data } end
   local fx, fz = math.floor(gx), math.floor(gz)
   local sx, sz = gx - fx, gz - fz
   local rows = {}
@@ -44,11 +50,22 @@ function land.sample_map(m, x, z)
   return cubic(rows[1], rows[2], rows[3], rows[4], sz)
 end
 
--- Terrain height before any flattening, in country coordinates.
+-- Terrain height before any flattening, in country (or face) coordinates,
+-- as the engine computes it (terrain.c): the detail noise, periodic on the
+-- surface grid and scaled by the map's roughness, plus the map.
 function land.raw_height(t, x, z)
-  local h = t.base + t.amp * mvl.noise(x * t.freq, z * t.freq, t.seed, t.octaves, t.lacunarity, t.gain)
-  if t.map then h = h + land.sample_map(t.map, x, z) end
-  return h
+  local k, add = 1, 0
+  if t.map then
+    add = land.sample_map(t.map, x, z)
+    if t.map.amp then k = math.max(0, land.sample_map(t.map, x, z, t.map.amp)) end
+  end
+  local n
+  if t.period then
+    n = mvl.noise((x % t.wrap) * t.freq, (z % t.wrap) * t.freq, t.seed, t.octaves, 2, t.gain, t.period)
+  else
+    n = mvl.noise(x * t.freq, z * t.freq, t.seed, t.octaves, t.lacunarity, t.gain)
+  end
+  return t.base + t.amp * k * n + add
 end
 
 local NEIGHBOURS = { "Mabel", "Agnes", "Walter", "Edith", "Arthur", "Hazel", "Ruth", "Albert", "Ivy", "Frank",
@@ -162,15 +179,20 @@ local function clip_rivers(d, country)
 end
 
 -- Where the land lies on its planet: cell, biome, climate, continent, country.
-local function place_on_planet(ctx, d, country)
+local function place_on_planet(ctx, d, country, view)
   local planet = ctx:ancestor("planet")
   local dist = country.district
-  if not dist or not planet.data.cells then return end
+  if not (dist or country.direction) or not planet.data.cells then return end
   local cells = planet.data.cells
-  local half = land.SIZE * land.GRID / 2 - land.SIZE / 2
-  local u, v = (d.center[1] - half) / dist.radius, -(d.center[2] - half) / dist.radius
-  local c, e, n = dist.centre, dist.east, dist.north
-  local x, y, z = c[1] + e[1] * u + n[1] * v, c[2] + e[2] * u + n[2] * v, c[3] + e[3] * u + n[3] * v
+  local x, y, z
+  if country.direction then
+    x, y, z = country.direction[1], country.direction[2], country.direction[3]
+  else
+    local half = land.SIZE * land.GRID / 2 - land.SIZE / 2
+    local u, v = (d.center[1] - half) / dist.radius, -(d.center[2] - half) / dist.radius
+    local c, e, n = dist.centre, dist.east, dist.north
+    x, y, z = c[1] + e[1] * u + n[1] * v, c[2] + e[2] * u + n[2] * v, c[3] + e[3] * u + n[3] * v
+  end
   local cell = mvl.planet_nearest(planet.data.grid, x, y, z)
   if cells.elevation[cell] <= 0 then
     -- on the shore: the land side tells the biome and climate
@@ -193,8 +215,8 @@ local function place_on_planet(ctx, d, country)
                 warmest = dm.round(cells.tmax[cell] - 273.15, 1), precipitation = cells.precip[cell] }
   d.materials = require("gen.visuals.palette").materials(planet.data, cell, biome, d.climate)
   d.habitats = require("gen.life.habitats").for_land(planet.data, cell, biome, planet.seed)
-  d.continent = ctx:ancestor("continent").data.name
-  d.country = ctx.parent.summary.name
+  d.continent = view.continent
+  d.country = view.summary.name
   d.coast = false
   for _, nb in ipairs(mvl.planet_neighbours(planet.data.grid, cell)) do
     if cells.elevation[nb] <= 0 then d.coast = true end
@@ -205,7 +227,10 @@ end
 -- A dry, open spot near the land's middle for a settlement (land-local).
 local function dry_spot(d, height)
   local function ok(x, z)
-    if height(x, z) < 2.5 then return false end
+    local h = height(x, z)
+    if h < 2.5 then return false end
+    local level = d.lakes and require("gen.levels.region").lake_at(d.lakes, x, z, 200)
+    if level and h < level + 2.5 then return false end
     for _, r in ipairs(d.rivers or {}) do
       for i = 1, #r.points - 1 do
         local a, b = r.points[i], r.points[i + 1]
@@ -228,7 +253,7 @@ local function dry_spot(d, height)
       if ok(x, z) then return x, z end
     end
   end
-  return 0, 0
+  return nil
 end
 
 -- Where the road crosses local x (for lanes joining it).
@@ -470,15 +495,174 @@ local function countryside(ctx, d)
   end
 end
 
+-- A settlement with people and a trouble around (ax, az): named in the
+-- language of the people living here, its people of history, monuments,
+-- traces, troubles, lore, codex entries and quest.
+local function settle(ctx, d, view, height, ax, az)
+  provisional.settlement(ctx, d, d.style, height, ax, az)
+  -- a people of the planet lives here: names in their language
+  local culture = require("gen.culture")
+  local planet = ctx:ancestor("planet")
+  local cul = culture.of_country(planet.data, view.summary.id)
+  if cul then
+    local n = culture.land_name(planet.data, view.summary.id, ctx.node.seed)
+    d.name, d.name_meaning = n.name, n.meaning
+    d.culture = { id = cul.id, name = cul.name, species = cul.species, religion = planet.data.religions[cul.religion].name }
+    d.nation = view.summary.nation
+    for i, p in ipairs(d.people) do
+      local pn = culture.person_name(cul, mvl.hash(ctx.node.seed, "person", i))
+      p.name, p.name_meaning, p.species = pn.name, pn.meaning, cul.species
+      -- a voxel body of their species in their culture's dress
+      p.body = { anatomy = util.copy(cul.anatomy), hue = cul.hue, dress = util.copy(cul.style.dress),
+                 accent = cul.style.palette.accent, seed = mvl.hash(ctx.node.seed, "body", i) % 3 }
+      -- the first waits for the van, the others face the square
+      local tx, tz = d.spots.square.x, d.spots.square.z
+      if i == 1 then tx, tz = d.spots.van.x, d.spots.van.z end
+      p.yaw = dm.round(dm.atan(-(tx - p.x), -(tz - p.z)), 4)
+    end
+    -- buildings in the culture's style, in the land's own stone
+    d.architecture = require("gen.culture.architecture").local_style(cul.style, d.materials and d.materials.stone)
+    local KIND = { house = "house", barn = "barn", market_stall = "workshop", bookshelf = "inn", well = "well" }
+    local temple = false
+    for _, f in ipairs(d.features) do
+      if f.role == "building" and KIND[f.voxel] then
+        f.building = KIND[f.voxel]
+        if not temple and f.building == "house" then f.building, temple = "temple", true end
+        f.variant = mvl.hash(ctx.node.seed, f.id) % 3
+      end
+    end
+    -- people of the planet's history who live here now
+    for k, c in ipairs(ctx:commitments("resident")) do
+      local who = c.data.data.individual
+      local sq = d.spots.square
+      local lines = { string.format("I am %s, %s of the %s.", who.name, who.role, who.nation) }
+      for i = #who.deeds, math.max(1, #who.deeds - 2), -1 do
+        local deed = who.deeds[i]
+        lines[#lines + 1] = string.format("%d years ago I %s.", math.floor(deed.ago + 0.5), deed.text)
+      end
+      local person = { id = "resident" .. k, name = who.name, name_meaning = who.meaning, legend = true,
+                       role = who.role, nation = who.nation, lines = lines,
+                       x = dm.round(sq.x + 4 + k * 2, 2), z = dm.round(sq.z + 3, 2) }
+      person.yaw = dm.round(dm.atan(-(sq.x - person.x), -(sq.z - person.z)), 4)
+      if who.anatomy then
+        person.body = { anatomy = util.copy(who.anatomy), hue = who.hue, dress = who.dress, accent = who.accent,
+                        seed = k }
+      end
+      person.texture, person.species = d.people[1] and d.people[1].texture or "npc_farmer", cul.species
+      d.people[#d.people + 1] = person
+      ctx:honour(c, ctx:fact("resident", { name = who.name, role = who.role }, c))
+    end
+    -- the legend of the Wanderer
+    if cul.wanderer then
+      d.wanderer = { years_ago = cul.wanderer.years_ago, told = cul.wanderer.told }
+    end
+    -- monuments promised by the planet: the statue of an individual
+    for _, c in ipairs(ctx:commitments("monument")) do
+      local who = c.data.data.individual
+      local sq = d.spots.square
+      local st = d.materials and d.materials.stone
+      d.features[#d.features + 1] = {
+        id = "monument", role = "monument", x = sq.x, z = sq.z - 3, yaw = 0, box = { 1.8, 1.4 },
+        statue = { anatomy = util.copy(who.anatomy), hue = who.hue, attributes = util.copy(who.attributes),
+                   name = who.name, role = who.role, stone = st and { st[1], st[3], st[4] } or nil, fact = who.fact },
+      }
+      ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
+    end
+  end
+  -- buildings at human scale, laid out by their footprints
+  land.layout_buildings(ctx, d, height)
+  -- traces history left here: ruins, battlefields, wrecks, craters, shrines
+  local sq = d.spots.square
+  for k, c in ipairs(ctx:commitments("trace")) do
+    local tr = c.data.data
+    if k <= 3 then
+      local a = k * 2.1 + 0.7
+      local f = { id = "trace" .. k, role = "trace", x = dm.round(sq.x + dm.cos(a) * 45, 2),
+                  z = dm.round(sq.z + dm.sin(a) * 45, 2), yaw = dm.round(a, 4),
+                  trace = { kind = tr.kind, name = tr.name, year = tr.year, event = tr.event, culture = tr.culture,
+                            style = tr.style, seed = k, fact = c.because and c.because[1] } }
+      if tr.kind == "ruin" then f.box = { 6, 6 } end
+      d.features[#d.features + 1] = f
+      d.traces = d.traces or {}
+      d.traces[#d.traces + 1] = { kind = tr.kind, name = tr.name, year = tr.year, culture = tr.culture }
+    end
+    ctx:honour(c, ctx:fact("trace", { name = tr.name, kind = tr.kind }, c))
+  end
+  -- the troubles of the present: the land's trouble is the strongest
+  d.tensions = require("gen.history.tensions").for_land(planet.data, view.summary.id, ctx.node.seed)
+  -- what its people know and talk about (kept with the land for dialogue)
+  d.lore = require("gen.dialogue.lore").build(d, cul, planet.data, view.summary)
+  -- and what the player can learn here (codex entries)
+  d.codex = require("gen.codex").build(d, ctx.node.address, cul, planet, view.summary)
+  quests.generate(ctx, d, provisional.style(d.style), cul)
+end
+
+-- What a land of the surface grid takes from its region and planet, shaped
+-- like a country district: its terrain (with the land's crop of the lattice),
+-- the region's rivers and lakes, no roads yet, where it lies on the sphere,
+-- and the country the atlas puts there (with its summary, as its continent
+-- lists it).
+local function grid_view(ctx, d)
+  local region = require("gen.levels.region")
+  local grid = require("gen.plan.grid")
+  local rnode = ctx.parent
+  local planet = ctx:ancestor("planet")
+  local P = planet.data
+  local info = region.info(P)
+  local f, gx, gz = grid.land_of(info.g, rnode.index, ctx.node.index)
+  local cx, cz = grid.land_centre(info.g, gx, gz)
+  d.grid, d.face, d.center, d.region = { gx, gz }, f, { cx, cz }, rnode.address
+  d.face_lands = info.g.N * grid.LANDS
+  local T = region.land_terrain(P, info, f, rnode.data, gx, gz, region.noise_seed(planet))
+  T.palette = { { 70, 98, 50 }, { 100, 116, 70 }, { 128, 126, 98 }, { 150, 150, 140 } }
+  T.color_low, T.color_high, T.slope_color, T.slope_start, T.color_noise, T.uv_scale = -20, 120, { 96, 86, 70 }, 0.22,
+                                                                                         0.1, 4
+  local x, y, z = grid.to_sphere(info.g, f, cx, -cz)
+  local view = { data = { terrain = T, roads = {}, rivers = rnode.data.rivers, direction = { x, y, z } },
+                 summary = {} }
+  -- lakes near the land, in land-local metres
+  d.lakes = {}
+  for _, lake in ipairs(rnode.data.lakes) do
+    local dx, dz = lake.x - cx, lake.z - cz
+    local reach = lake.rmax + region.LAKE_BLEND + land.SIZE
+    if math.abs(dx) < reach and math.abs(dz) < reach then
+      d.lakes[#d.lakes + 1] = { x = dm.round(dx, 2), z = dm.round(dz, 2), radii = util.copy(lake.radii),
+                                rmax = lake.rmax, level = lake.level }
+    end
+  end
+  local cid = rnode.data.land_country[ctx.node.index + 1]
+  if cid and cid > 0 then
+    view.summary = require("gen.levels.geography").country_summary(planet, cid) or {}
+    local c = P.countries[cid]
+    local cont = c and planet.children[c.continent - 1]
+    view.continent = cont and cont.name
+  end
+  return view
+end
+
 function land.register(R)
-  R:pass("country", "terrain", { run = country_terrain })
+  R:pass("country", "terrain", { run = function(ctx)
+    -- since the surface grid, a country has no district (its lands lie in regions)
+    if (ctx.node.version or 1) >= 2 and not prime.inside(ctx.node.address) then return end
+    country_terrain(ctx)
+  end })
 
   R:pass("land", "layout", { run = function(ctx)
-    local country = ctx.parent.data
     local d = ctx.data
-    local gx, gz = land.grid(ctx.node.index)
-    d.size, d.grid, d.center = land.SIZE, { gx, gz }, { gx * land.SIZE, gz * land.SIZE }
-    d.terrain = util.copy(country.terrain)
+    local view
+    if ctx.parent.kind == "region" then
+      view = grid_view(ctx, d)
+      d.size = land.SIZE
+      d.terrain = view.data.terrain
+    else
+      view = { data = ctx.parent.data, summary = ctx.parent.summary }
+      local cont = ctx:ancestor("continent")
+      view.continent = cont and cont.data.name
+      local gx, gz = land.grid(ctx.node.index)
+      d.size, d.grid, d.center = land.SIZE, { gx, gz }, { gx * land.SIZE, gz * land.SIZE }
+      d.terrain = util.copy(view.data.terrain)
+    end
+    local country = view.data
     d.features, d.flats, d.roads, d.fields = {}, {}, {}, {}
     d.style = ctx.node.address == prime.FARM and "farm" or (country.style or "countryside")
     clip_roads(ctx, d, country)
@@ -493,107 +677,18 @@ function land.register(R)
       -- a settlement with people and a trouble on dry ground near the middle
       local T = country.terrain
       local cx, cz = d.center[1], d.center[2]
-      local biome = place_on_planet(ctx, d, country)
+      local biome = place_on_planet(ctx, d, country, view)
       clip_rivers(d, country)
       if biome then d.style = biome.family end
       local height = function(x, z) return land.raw_height(T, x + cx, z + cz) end
       local ax, az = dry_spot(d, height)
-      provisional.settlement(ctx, d, d.style, height, ax, az)
-      -- a people of the planet lives here: names in their language
-      local culture = require("gen.culture")
-      local planet = ctx:ancestor("planet")
-      local cul = culture.of_country(planet.data, ctx.parent.summary.id)
-      if cul then
-        local n = culture.land_name(planet.data, ctx.parent.summary.id, ctx.node.seed)
-        d.name, d.name_meaning = n.name, n.meaning
-        d.culture = { id = cul.id, name = cul.name, species = cul.species, religion = planet.data.religions[cul.religion].name }
-        d.nation = ctx.parent.summary.nation
-        for i, p in ipairs(d.people) do
-          local pn = culture.person_name(cul, mvl.hash(ctx.node.seed, "person", i))
-          p.name, p.name_meaning, p.species = pn.name, pn.meaning, cul.species
-          -- a voxel body of their species in their culture's dress
-          p.body = { anatomy = util.copy(cul.anatomy), hue = cul.hue, dress = util.copy(cul.style.dress),
-                     accent = cul.style.palette.accent, seed = mvl.hash(ctx.node.seed, "body", i) % 3 }
-          -- the first waits for the van, the others face the square
-          local tx, tz = d.spots.square.x, d.spots.square.z
-          if i == 1 then tx, tz = d.spots.van.x, d.spots.van.z end
-          p.yaw = dm.round(dm.atan(-(tx - p.x), -(tz - p.z)), 4)
-        end
-        -- buildings in the culture's style, in the land's own stone
-        d.architecture = require("gen.culture.architecture").local_style(cul.style, d.materials and d.materials.stone)
-        local KIND = { house = "house", barn = "barn", market_stall = "workshop", bookshelf = "inn", well = "well" }
-        local temple = false
-        for _, f in ipairs(d.features) do
-          if f.role == "building" and KIND[f.voxel] then
-            f.building = KIND[f.voxel]
-            if not temple and f.building == "house" then f.building, temple = "temple", true end
-            f.variant = mvl.hash(ctx.node.seed, f.id) % 3
-          end
-        end
-        -- people of the planet's history who live here now
-        for k, c in ipairs(ctx:commitments("resident")) do
-          local who = c.data.data.individual
-          local sq = d.spots.square
-          local lines = { string.format("I am %s, %s of the %s.", who.name, who.role, who.nation) }
-          for i = #who.deeds, math.max(1, #who.deeds - 2), -1 do
-            local deed = who.deeds[i]
-            lines[#lines + 1] = string.format("%d years ago I %s.", math.floor(deed.ago + 0.5), deed.text)
-          end
-          local person = { id = "resident" .. k, name = who.name, name_meaning = who.meaning, legend = true,
-                           role = who.role, nation = who.nation, lines = lines,
-                           x = dm.round(sq.x + 4 + k * 2, 2), z = dm.round(sq.z + 3, 2) }
-          person.yaw = dm.round(dm.atan(-(sq.x - person.x), -(sq.z - person.z)), 4)
-          if who.anatomy then
-            person.body = { anatomy = util.copy(who.anatomy), hue = who.hue, dress = who.dress, accent = who.accent,
-                            seed = k }
-          end
-          person.texture, person.species = d.people[1] and d.people[1].texture or "npc_farmer", cul.species
-          d.people[#d.people + 1] = person
-          ctx:honour(c, ctx:fact("resident", { name = who.name, role = who.role }, c))
-        end
-        -- the legend of the Wanderer
-        if cul.wanderer then
-          d.wanderer = { years_ago = cul.wanderer.years_ago, told = cul.wanderer.told }
-        end
-        -- monuments promised by the planet: the statue of an individual
-        for _, c in ipairs(ctx:commitments("monument")) do
-          local who = c.data.data.individual
-          local sq = d.spots.square
-          local st = d.materials and d.materials.stone
-          d.features[#d.features + 1] = {
-            id = "monument", role = "monument", x = sq.x, z = sq.z - 3, yaw = 0, box = { 1.8, 1.4 },
-            statue = { anatomy = util.copy(who.anatomy), hue = who.hue, attributes = util.copy(who.attributes),
-                       name = who.name, role = who.role, stone = st and { st[1], st[3], st[4] } or nil, fact = who.fact },
-          }
-          ctx:honour(c, ctx:fact("monument", { name = "the statue of " .. who.name, individual = who.name }, c))
-        end
+      if not ax and d.region then
+        -- a land under water (the sea or a lake): no one lives here
+        d.wild, d.people = true, {}
+        d.name = view.summary.name and ("the waters of " .. view.summary.name) or "open water"
+      else
+        settle(ctx, d, view, height, ax or 0, az or 0)
       end
-      -- buildings at human scale, laid out by their footprints
-      land.layout_buildings(ctx, d, height)
-      -- traces history left here: ruins, battlefields, wrecks, craters, shrines
-      local sq = d.spots.square
-      for k, c in ipairs(ctx:commitments("trace")) do
-        local tr = c.data.data
-        if k <= 3 then
-          local a = k * 2.1 + 0.7
-          local f = { id = "trace" .. k, role = "trace", x = dm.round(sq.x + dm.cos(a) * 45, 2),
-                      z = dm.round(sq.z + dm.sin(a) * 45, 2), yaw = dm.round(a, 4),
-                      trace = { kind = tr.kind, name = tr.name, year = tr.year, event = tr.event, culture = tr.culture,
-                                style = tr.style, seed = k, fact = c.because and c.because[1] } }
-          if tr.kind == "ruin" then f.box = { 6, 6 } end
-          d.features[#d.features + 1] = f
-          d.traces = d.traces or {}
-          d.traces[#d.traces + 1] = { kind = tr.kind, name = tr.name, year = tr.year, culture = tr.culture }
-        end
-        ctx:honour(c, ctx:fact("trace", { name = tr.name, kind = tr.kind }, c))
-      end
-      -- the troubles of the present: the land's trouble is the strongest
-      d.tensions = require("gen.history.tensions").for_land(planet.data, ctx.parent.summary.id, ctx.node.seed)
-      -- what its people know and talk about (kept with the land for dialogue)
-      d.lore = require("gen.dialogue.lore").build(d, cul, planet.data, ctx.parent.summary)
-      -- and what the player can learn here (codex entries)
-      d.codex = require("gen.codex").build(d, ctx.node.address, cul, planet, ctx.parent.summary)
-      quests.generate(ctx, d, provisional.style(d.style), cul)
       if biome then
         d.biome_trees = biome.trees
         d.texture_override = biome.texture

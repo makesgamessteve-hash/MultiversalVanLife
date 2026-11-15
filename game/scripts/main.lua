@@ -36,7 +36,7 @@ local function start_play(new_game)
   -- a new session: places and their changes are read back from the save
   require("memory.changes").reset()
   drive.reset()
-  gen.start(progress.seed())
+  gen.start(progress.seed(), { version = progress.version() })
   game.state = "play"
   player.enabled = true
   local loc = progress.location()
@@ -131,7 +131,7 @@ function game.init()
   if mvl.option("stats") or mvl.option("budget") then return gen.stats.cli(gen.cosmos, gen.run) end
   lines.load()
   -- the title shows the save's own farm (places are stored on first sight)
-  gen.start(progress.has_save() and progress.seed() or 1)
+  gen.start(progress.has_save() and progress.seed() or 1, { version = progress.version() })
   story.van.build()
   build_title()
   world.load("home")

@@ -15,6 +15,7 @@ function progress.reset(seed)
   mvl.save_clear()
   mvl.save_set("story.started", "1")
   mvl.save_set("story.seed", seed or progress.new_seed())
+  mvl.save_set("story.version", require("gen").VERSION)
   mvl.save_set("story.night", 1)
   mvl.save_set("story.location", "home")
 end
@@ -28,6 +29,11 @@ function progress.seed()
   end
   return math.floor(s)
 end
+
+-- The generator version of the save's multiverse: 1 for multiverses from
+-- before the surface grid (saves without a version), whose lands lie in
+-- country districts; later ones explore the planet-wide grid.
+function progress.version() return tonumber(mvl.save_get("story.version", "1")) or 1 end
 
 function progress.night() return tonumber(mvl.save_get("story.night", "1")) or 1 end
 function progress.location() return mvl.save_get("story.location", "home") end

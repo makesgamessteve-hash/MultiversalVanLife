@@ -20,22 +20,12 @@ for s = 0, 200 do
       if not found and sys.children[i].kind == "rocky" then
         local p = G:generate(saddr .. ".p" .. i)
         if p.data.life and p.data.life.complexity == "animals" then
-          for k = 0, (p.data.continents or 0) - 1 do
-            local cont = G:generate(p.address .. ".k" .. k)
-            for _, n in ipairs(gen.util.sorted_keys(cont.children)) do
-              local c = G:generate(cont.address .. ".n" .. n)
-              if not found and c.data.district then
-                for l = 0, 255, 9 do
-                  local gx, gz = gen.land.grid(l)
-                  if gen.land.raw_height(c.data.terrain, gx * 2048, gz * 2048) > 3 then
-                    local land = G:generate(c.address .. ".l" .. l)
-                    local h = land.data.habitats
-                    if h and #h == 2 and (FOREST[h[1].biome] ~= FOREST[h[2].biome]) and #h[1].plants > 0 and
-                       #h[2].plants > 0 then found = land end
-                    break
-                  end
-                end
-              end
+          for cid in ipairs(p.data.countries or {}) do
+            for _, a in ipairs(found and {} or H.country_lands(p.address, cid, 3, G)) do
+              local land = G:generate(a)
+              local h = land.data.habitats
+              if not found and h and #h == 2 and (FOREST[h[1].biome] ~= FOREST[h[2].biome]) and #h[1].plants > 0 and
+                 #h[2].plants > 0 then found = land end
             end
           end
         end

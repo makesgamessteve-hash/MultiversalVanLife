@@ -85,9 +85,9 @@ if not other then
   for _, s in ipairs(D.story.signals()) do
     local G = D.gen.world
     local p = G:generate(s.address:match("^(.-%.p%d+)"))
-    for _, c in ipairs(p.data.countries or {}) do
-      if c.culture and not other then
-        local addr = p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l0"
+    for cid, c in ipairs(p.data.countries or {}) do
+      local addr = c.culture and not other and D.gen.country_land(p, cid, 1)
+      if addr then
         local so = W.souvenir(G:generate(addr), "?", 1)
         if so and so.name ~= sv.name then other = so end
       end

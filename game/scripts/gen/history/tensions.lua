@@ -214,9 +214,8 @@ function T.trouble(G, addr)
   local quests = require("gen.quests")
   local address = require("gen.address")
   local seed = address.seed(G.seed, addr)
-  local country = G:generate(address.parent(addr))
   local planet = G:generate(addr:match("^(.-%.p%d+)"))
-  local list = T.for_land(planet.data, country.summary.id, seed)
+  local list = T.for_land(planet.data, require("gen.levels.region").country_id(G, addr), seed)
   local tmpl = quests.choose(G.registry, seed, list and list[1].quest)
   return tmpl, list
 end

@@ -2,7 +2,8 @@
 --
 -- A deed (how a quest ended) becomes an event of the land's history and a
 -- story with a fame: great deeds (severe troubles, settled disputes) are
--- told far away. Lands of the same country hear of a deed at once, the
+-- told far away. Lands of the same country hear of a deed at once (on the
+-- surface grid, the lands the country holds; in a district, its lands), the
 -- rest of the planet after two nights if its fame is 0.5 or more, the rest
 -- of the galaxy after four if 0.8 or more. Each people tells it its own
 -- way: its own folk glorify the player, those who were wronged villainise
@@ -23,6 +24,20 @@ SP.REACH = {
   { level = "galaxy", delay = 4, fame = 0.8 },
 }
 
+-- What a land counts as its country for stories: on the surface grid the
+-- planet and the country the land lies in (or its region, outside every
+-- country), in a district the country's address.
+local function country_key(addr)
+  if addr:match("%.r%d+%.l%d+$") then
+    local G = require("gen").world
+    local ok, cid = false, nil
+    if G then ok, cid = pcall(require("gen.levels.region").country_id, G, addr) end
+    if ok and cid and cid > 0 then return addr:match("^(.-%.p%d+)") .. "#" .. cid end
+  end
+  return addr:match("^(.*)%.l%d+$")
+end
+SP.country_key = country_key
+
 local function record(name, default)
   local r = mvl.record_read(name)
   return r or default
@@ -38,7 +53,7 @@ function SP.record(deed)
   local fame = deed.result == "abandoned" and 0.2 or
                math.min(1, 0.3 + (deed.severity or 0.5) * 0.6 + (deed.kind == "mediate" and 0.15 or 0))
   deed.fame = math.floor(fame * 1000 + 0.5) / 1000
-  deed.country = deed.address:match("^(.*)%.l%d+$")
+  deed.country = country_key(deed.address)
   deed.planet = deed.address:match("^(.-%.p%d+)")
   deed.galaxy = deed.address:match("^(u%d+%.g%d+)")
   r.list[#r.list + 1] = deed
@@ -50,7 +65,7 @@ end
 -- How far apart two places are, by the levels of the hierarchy.
 local function reach(deed, addr)
   if addr == deed.address then return nil end
-  if addr:sub(1, #deed.country + 1) == deed.country .. "." then return SP.REACH[1] end
+  if country_key(addr) == deed.country then return SP.REACH[1] end
   if addr:sub(1, #deed.planet + 1) == deed.planet .. "." then return SP.REACH[2] end
   if addr:sub(1, #deed.galaxy + 1) == deed.galaxy .. "." then return SP.REACH[3] end
 end

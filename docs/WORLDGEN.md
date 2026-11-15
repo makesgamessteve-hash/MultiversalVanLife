@@ -20,29 +20,39 @@ small.
 [languages and religions](#cultures-languages-and-religions) ·
 [traditions, society and technology](#cultures-traditions-society-and-technology) ·
 [architecture and people](#cultures-architecture-dress-and-people) ·
-[history](#history) · [skies](#skies-and-palettes) · [lands](#lands-and-chunks) ·
+[history](#history) · [skies](#skies-and-palettes) · [the surface grid](#the-surface-grid) ·
+[lands](#lands-and-chunks) ·
 [signals](#signals-provisional-worlds-and-quests) · [world memory](#world-memory) ·
 [the codex](#the-codex) · [variety, budgets and save size](#variety-budgets-and-save-size) ·
 [fingerprints](#fingerprints) · [example](#example)
 
 ## Levels and addresses
 
-The cosmos has nine levels. Every place has an **address** listing its
+The cosmos has ten levels. Every place has an **address** listing its
 index on each level below the multiverse:
 
-| Level | Prefix | Example address |
-|---|---|---|
-| multiverse | – | `""` (the empty address) |
-| universe | `u` | `u3` |
-| galaxy | `g` | `u3.g12` |
-| star cluster | `c` | `u3.g12.c4` |
-| star system | `s` | `u3.g12.c4.s1` |
-| planet | `p` | `u3.g12.c4.s1.p2` |
-| continent | `k` | `u3.g12.c4.s1.p2.k0` |
-| country | `n` | `u3.g12.c4.s1.p2.k0.n5` |
-| land | `l` | `u3.g12.c4.s1.p2.k0.n5.l7` |
+| Level | Prefix | Parent | Example address |
+|---|---|---|---|
+| multiverse | – | | `""` (the empty address) |
+| universe | `u` | multiverse | `u3` |
+| galaxy | `g` | universe | `u3.g12` |
+| star cluster | `c` | galaxy | `u3.g12.c4` |
+| star system | `s` | cluster | `u3.g12.c4.s1` |
+| planet | `p` | system | `u3.g12.c4.s1.p2` |
+| continent | `k` | planet | `u3.g12.c4.s1.p2.k0` |
+| country | `n` | continent | `u3.g12.c4.s1.p2.k0.n5` |
+| region | `r` | planet | `u3.g12.c4.s1.p2.r40961` |
+| land | `l` | region (or country) | `u3.g12.c4.s1.p2.r40961.l7` |
 
-`gen.address` parses, formats and compares addresses (`parent`, `child`,
+Below a planet the hierarchy branches: continents and countries hold its
+politics, culture and history, the regions of the [surface
+grid](#the-surface-grid) its ground, and a land lies in a region. In
+multiverses from before the grid (version 1) lands lie in a country's
+district instead (`...p2.k0.n5.l7`). A scheme names each level's parent
+levels (`{ "land", "l", parent = { "country", "region" } }`); the first
+child level listed is a level's main one (a planet's continents), the one
+its `ctx:child` lists and caps. `gen.address` parses, formats and compares
+addresses (`parent`, `child` with an optional level name, `level_of`,
 `path`, `common`, `is_ancestor`).
 
 ## Seeds
@@ -53,6 +63,10 @@ A place's seed depends only on the save's multiverse seed and its address:
 seed("")           = the save's seed (index.ini: story.seed)
 seed(parent.child) = hash(seed(parent), level, index)
 ```
+
+where `level` is the child level's number (its position in the scheme:
+universe 1 ... land 8, region 9), so a region and the continent with the
+same index have different seeds.
 
 Each generation **pass** draws from its own random stream,
 `hash(seed(place), pass name)`. Adding or removing a pass therefore never
@@ -139,7 +153,10 @@ capital, a battle site, an artifact's resting place), it records a
 **commitment** on the target address, even several levels down. The target's
 passes read `ctx:commitments(kind)`, generate what was promised and mark it
 with `ctx:honour(c, fact_id)`. An unhonoured commitment is a consistency
-error.
+error. A planet promises its countries residents, monuments and traces of
+history in lands chosen from its plan (`gen.region.promised_land`): the
+k-th dry land of the country around its capital, a different one for each
+kind of promise (in version 1, fixed lands 115 to 119 of the district).
 
 ## Budgets and caps
 
@@ -151,9 +168,13 @@ children and facts (`registry:caps(level, { children = n, facts = n })`).
 
 ## Versions and mods
 
-Every generated place records the generator version (`gen.VERSION`) and the
-sorted list of active mods. Phase 10 uses this to keep visited places as
-they were when the generator changes.
+Every generated place records the generator version and the sorted list of
+active mods; visited lands are stored as they were first found (world
+memory). A save records its multiverse's version (`story.version`; saves
+without one are version 1) and `gen.start(seed, { version = ... })` generates
+it accordingly: version 1 multiverses keep their country districts, their
+signals and promises as before, version 2 (`gen.VERSION`) multiverses live
+on the surface grid.
 
 ## Consistency checks
 
@@ -195,8 +216,9 @@ the last bit between platforms). Generators use `gen.dmath` instead:
 | planet | Physics from star and orbit (radius, gravity, composition, air, seas, temperatures, day, tilt, year, tidal locking, starlight); on solid worlds a geodesic grid of 10,242 cells (`mvl.planet_*` kernels in `planet.c`) with tectonic plates, elevation (mountains where plates collide, trenches and island arcs at subduction, ridges and rifts where they part), geological settings, rocks, deposits (metal, fuel, gem, magical minerals) and a magic map following the universe's source. |
 | planet (surface) | Climate per cell: temperature (annual mean, coldest and warmest season) from latitude, tilt (or the substellar point of a tidally locked world), height and the sea's moderation; prevailing winds (trade winds, westerlies, polar easterlies) carrying moisture from the sea, raining it out on windward slopes and leaving rain shadows behind mountains. Hydrology: depressions filled into lakes, every cell draining downhill to the sea, flow accumulated from rainfall, rivers where the flow is in the top 7%, the 12 largest named. A biome per cell (below). Continents (connected land), countries grown from capitals across each continent (mountains and rivers are slower to cross). |
 | continent | Its name, size and its countries (name, capital). |
-| country | The explored district: a window of the planet's surface about 37 km across, centred on the country's shore, else a river, else its capital. Its terrain follows the planet's elevation (sampled every 1024 m, heights near the sea steepened five-fold so shores are walkable) with local detail on top, the biome's palette, a river along the planet's river with its water level falling downstream, and the direction of the open sea. Lands lie on a 16 × 16 grid of 2048 m squares. Without a planet (Prime) a provisional terrain and road network. |
-| land | A description, not geometry: its place on the planet (cell, latitude, longitude, climate, biome, continent, country, coast), style, terrain, features (buildings, props) with positions, fields, roads, rivers clipped from the country (beds carved under their water), flat areas under them, flora, spots (spawn, van, gate) and people. |
+| country | Its people, nation and history (the continent lists its summary). In version 1 multiverses also its explored district: a window of the planet's surface about 37 km across, centred on the country's shore, else a river, else its capital, with a terrain following the planet's elevation (sampled every 1024 m, heights near the sea steepened five-fold), a river along the planet's river and the direction of the open sea; lands lie on its 16 × 16 grid of 2048 m squares. Without a planet (Prime) a provisional terrain and road network. |
+| region | A 32 km square of the [surface grid](#the-surface-grid): the rivers and lakes through it and the country of each of its 16 × 16 lands. |
+| land | A description, not geometry: its place on the planet (cell, latitude, longitude, climate, biome, continent, country, coast), style, terrain (its crop of the region's ground), features (buildings, props) with positions, fields, roads, rivers and lakes from its region (beds carved under their water), flat areas under them, flora, spots (spawn, van, gate) and people. A land under water has no people (`wild`). |
 
 ### Biomes
 
@@ -663,12 +685,76 @@ use, the nearest settlements (km and compass direction) and the nearest
 route; `gen.plan.tell(answer)` makes a sentence of it ("the town of X is
 120 km to the north-east").
 
+## The surface grid
+
+Every point of a planet's surface lies in exactly one **region** of a grid
+on a cube sphere (`gen/plan/grid.lua`): the six faces of a cube blown up
+onto the sphere, each cut into N × N regions of 32 km (N from the radius:
+about 300 for an Earth-sized planet, half a million regions, of which a game
+touches a few dozen), each region into the 16 × 16 lands of 2 km the game
+streams:
+
+```
+planet.rR.lL      R = face × N² + row × N + column      L = 16 × row + column
+```
+
+Positions on a face are equal-angle coordinates in metres (a metre on the
+face is close to a metre on the ground everywhere); the game's world
+coordinates on a face are those coordinates (x east, z south), so the lands
+of a face tile one plane. `gen.land_at(G, planet, lat, lon)` names the land
+at any place, `grid.locate`, `grid.land_of` and `grid.address` convert
+between directions, face positions and addresses.
+
+**Regions** (`gen/levels/region.lua`) exist on demand for every index of
+the grid (a skeleton, nothing listed by the planet). A region's plan holds:
+
+- **rivers**: the planet's flow from cell to cell along lines wandering on
+  the sphere (`mvl.noise` along each segment), points about every kilometre,
+  the water level running down from cell to cell and never above the ground
+  minus 3 m, ending at the sea or in a lake, each named after the planet's
+  great river it belongs to;
+- **lakes**: around each lake cell, a shoreline traced on the planet's
+  ground (16 rays from the centre to where the ground first rises to the
+  filled level), the water at that level;
+- **countries**: the country of each land (that of the planet cell nearest
+  its centre, none at sea), so borders run along the cell boundaries and
+  two countries can meet inside a region.
+
+**The ground** is one function of the planet's surface: the planet's
+elevation steepened near sea level, lake basins (a bowl under the water, a
+shore rising 9 m over 300 m, low ground around raised so the water stays in
+its basin), river valleys pulled towards their water, and a roughness (70 m
+in mountain belts and volcanic arcs, 40 m on high ground, 12 m in the
+lowlands, 6 m under the sea; none on lakes and rivers) that scales the
+engine's detail noise. Each land samples it on its own crop of a lattice of
+256 m in face coordinates, with three cells beyond its square on each side
+(`terrain.map` with heights and `amp` factors); the detail noise is
+periodic (every 65,536 m), so world coordinates are wrapped and stay small.
+Because everything is computed from positions on the sphere, neighbouring
+lands hold the same samples where their crops overlap and the ground is
+continuous across land, region and face borders; the detail noise fades out
+over the last 2 km before a face edge, where two faces' coordinates meet.
+The statistics tool checks a region border and two face edges on every
+seed (`seam_ground_max`, `seam_river_points`; `gen/plan/seams.lua`).
+
+**Lands of a region** take its rivers and lakes (in land-local metres), the
+planet's biome, climate and materials at their centre, and their country's
+people: name, culture, nation, tensions, lore and codex come from the
+country the atlas puts there (`gen.geography.country_summary`). Signals
+pick a dry land in a peopled country; `gen.country_land(planet, id, k)`
+gives the k-th dry land of a country around its capital (in version 1 the
+district's land k - 1), `gen.region.country_id(G, addr)` a land's country.
+
 ## Lands and chunks
 
 `gen/chunks.lua` turns land descriptions into the walkable world. A world
 calls `w:land(node, provider)`; world coordinates are then metres around
-that land's centre, and neighbouring lands of the same country lie at
-multiples of 2048 m (`provider(gx, gz)` generates them on approach).
+that land's centre, and neighbouring lands lie at multiples of 2048 m
+(`provider(gx, gz)` generates them on approach, `gen.neighbour_land`): on
+the surface grid every land of the anchor's cube face, across land, region
+and country borders, without a loading screen; in a version 1 district the
+lands of its country. The walkable area ends at the edge of the anchor's
+face (each face has its own coordinates).
 
 - **Chunks** are 32 m squares of 16 × 16 terrain cells. Those within 3
   chunks of the player are built, nearest first, one per tick; those beyond
@@ -677,11 +763,16 @@ multiples of 2048 m (`provider(gx, gz)` generates them on approach).
 - **Content** of a chunk is the land's features, fields and road pieces
   whose centre lies in it, plus flora seeded by `hash(land seed, chunk)`, so
   a discarded chunk comes back identical.
-- **Terrain** is one height field per country (`mvl.terrain` with
-  `origin_x/origin_z` set to the anchor land's centre) plus the flat areas
-  of every active land: discs under buildings, fields and the van, and
-  graded segments under roads (`{x, z, x2, z2, height, height2}`). Chunk
-  borders share their vertices exactly, so there are no cracks
+- **Terrain** is one height field (`mvl.terrain`) plus flat areas: discs
+  under buildings, fields and the van, and graded segments under roads
+  (`{x, z, x2, z2, height, height2}`). On the surface grid it is made of the
+  terrain crops (`tiles`) of the lands within two lands of the player and
+  the flat areas of those within one (at most 512, the nearest kept),
+  updated whenever the player enters another land, with the noise origin
+  set to the anchor land's centre wrapped by the noise period; in a district
+  it is the country's terrain (`origin_x/origin_z` the anchor land's centre)
+  plus the flat areas of every active land. Chunk borders share their
+  vertices exactly, so there are no cracks
   (`tests/gl/test_gl_chunk_seams.lua`).
 - **Roads** are draped ribbons (`mvl.ribbon_mesh`) drawn as decals on their
   graded flats.
@@ -689,7 +780,9 @@ multiples of 2048 m (`provider(gx, gz)` generates them on approach).
   surface is drawn over it; the player wades in up to 1 m deep and no
   further. Rivers are ribbons of water at their own falling level, drawn in
   every chunk they cross, over beds carved into the terrain (graded
-  segments 2 m below the water); no flora grows in water or on river beds.
+  segments 2 m below the water); a lake's water is drawn at its level over
+  every chunk within its shoreline whose ground dips below it; no flora
+  grows in water or on river beds.
 - The player and every object stand on `mvl.height(x, z)`; while the player
   is inside the van, the land streams around the parked van so its windows
   look out at a complete world.
@@ -847,7 +940,9 @@ exact bytes of generated places) of reference addresses, of the test
 hierarchy and of the cosmos from the multiverse to star systems, with stored
 values on every CI platform, so a platform that generates a different
 multiverse from the same seed fails CI. When a generator change is intended,
-update the stored values in the same commit.
+update the stored values in the same commit. The cosmos is checked twice: as
+version 1 (unchanged since before the surface grid, which old saves rely
+on) and as version 2 down to a region and a land of the grid.
 
 ## Example
 

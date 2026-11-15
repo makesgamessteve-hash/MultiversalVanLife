@@ -17,7 +17,8 @@
 -- (--bias biome and --delay LEVEL:MS make them fail on purpose)
 local S = {}
 
-S.LEVELS = { "multiverse", "universe", "galaxy", "cluster", "system", "planet", "continent", "country", "land" }
+S.LEVELS = { "multiverse", "universe", "galaxy", "cluster", "system", "planet", "continent", "country", "region",
+             "land" }
 
 -- --------------------------------------------------------------- variety
 -- A peopled rocky planet of multiverse G (nil if none was found nearby).
@@ -58,7 +59,7 @@ end
 function S.collect(registry, run, n, first)
   local st = { planets = 0, biome_sig = {}, biomes = {}, body_plans = {}, religion_sources = {}, tech_levels = {},
                tension_kinds = {}, land_uses = {}, settlement_ranks = {}, settled = 0, with_roads = 0, with_lanes = 0,
-               settlements = 0 }
+               settlements = 0, seam_ground = 0, seam_rivers = 0, seams = 0 }
   first = first or 1
   for seed = first, first + n - 1 do
     local G = run.new(registry, { seed = seed, mods = {} })
@@ -96,6 +97,13 @@ function S.collect(registry, run, n, first)
         if a.roads > 0 then st.with_roads = st.with_roads + 1 end
         if a.sea_lanes > 0 then st.with_lanes = st.with_lanes + 1 end
       end
+      -- the surface grid: ground and rivers continue across region and face borders
+      local sm = (G.version or 1) >= 2 and require("gen.plan.seams").planet(G, p)
+      if sm then
+        st.seams = st.seams + 1
+        st.seam_ground = math.max(st.seam_ground, sm.region, sm.face, sm.pole)
+        st.seam_rivers = st.seam_rivers + sm.river_points
+      end
     end
   end
   return st
@@ -126,6 +134,7 @@ function S.metrics(st)
     land_uses = distinct(st.land_uses), settlement_ranks = distinct(st.settlement_ranks),
     settled_planets = st.settled, planets_with_roads = st.with_roads, planets_with_sea_lanes = st.with_lanes,
     settlements_per_planet = st.planets > 0 and math.floor(st.settlements / st.planets + 0.5) or 0,
+    seam_planets = st.seams, seam_ground_max = st.seam_ground, seam_river_points = st.seam_rivers,
   }
 end
 
@@ -218,7 +227,8 @@ function S.time(registry, run, n)
     local p = S.world(G, seed)
     if p then
       local c = p.data.countries and p.data.countries[1]
-      if c then G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l" .. (seed % 40)) end
+      local addr = c and require("gen").country_land(p, 1, 1 + seed % 8)
+      if addr then G:generate(addr) end
     end
     for level, list in pairs(G.timing) do
       per[level] = per[level] or {}

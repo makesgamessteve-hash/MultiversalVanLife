@@ -19,16 +19,10 @@ for s = 0, 500 do
         local p = G:generate(saddr .. ".p" .. i)
         if p.data.cultures then
           planets[#planets + 1] = p
-          for _, c in ipairs(p.data.countries) do
+          for cid, c in ipairs(p.data.countries) do
             if c.culture and #lands < 60 then
-              local country = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index)
-              for l = 0, 255, 11 do
-                local gx, gz = gen.land.grid(l)
-                if gen.land.raw_height(country.data.terrain, gx * 2048, gz * 2048) > 3 then
-                  lands[#lands + 1] = G:generate(country.address .. ".l" .. l)
-                  break
-                end
-              end
+              local addr = gen.country_land(p, cid, 1)
+              if addr then lands[#lands + 1] = G:generate(addr) end
             end
           end
         end

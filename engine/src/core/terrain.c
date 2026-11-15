@@ -44,7 +44,43 @@ int mvl_terrain_set_map(mvl_terrain *t, const float *data, int w, int h, float x
     return 1;
 }
 
+int mvl_terrain_add_tile(mvl_terrain *t, const float *data, const float *amp, int w, int h, float x0, float z0,
+                         float cell) {
+    mvl_terrain_tile *tile;
+    size_t n = (size_t)w * (size_t)h;
+    if (!data || w < 4 || h < 4 || cell <= 0.0f || n > (size_t)1 << 20 || t->tile_count >= MVL_TERRAIN_MAX_TILES)
+        return 0;
+    if (!t->tiles) {
+        t->tiles = (mvl_terrain_tile *)calloc(MVL_TERRAIN_MAX_TILES, sizeof *t->tiles);
+        if (!t->tiles) return 0;
+    }
+    tile = &t->tiles[t->tile_count];
+    tile->data = (float *)malloc(sizeof(float) * n);
+    tile->amp = amp ? (float *)malloc(sizeof(float) * n) : NULL;
+    if (!tile->data || (amp && !tile->amp)) {
+        free(tile->data);
+        free(tile->amp);
+        return 0;
+    }
+    memcpy(tile->data, data, sizeof(float) * n);
+    if (amp) memcpy(tile->amp, amp, sizeof(float) * n);
+    tile->w = w;
+    tile->h = h;
+    tile->x0 = x0;
+    tile->z0 = z0;
+    tile->cell = cell;
+    t->tile_count++;
+    return 1;
+}
+
 void mvl_terrain_free(mvl_terrain *t) {
+    for (int i = 0; i < t->tile_count; ++i) {
+        free(t->tiles[i].data);
+        free(t->tiles[i].amp);
+    }
+    free(t->tiles);
+    t->tiles = NULL;
+    t->tile_count = 0;
     free(t->map);
     t->map = NULL;
     t->map_w = t->map_h = 0;
@@ -75,12 +111,12 @@ int mvl_terrain_add_segment(mvl_terrain *t, float x, float z, float x2, float z2
     return 1;
 }
 
-static float map_at(const mvl_terrain *t, int x, int z) {
+static float grid_at(const float *data, int w, int h, int x, int z) {
     if (x < 0) x = 0;
     if (z < 0) z = 0;
-    if (x >= t->map_w) x = t->map_w - 1;
-    if (z >= t->map_h) z = t->map_h - 1;
-    return t->map[(size_t)z * (size_t)t->map_w + (size_t)x];
+    if (x >= w) x = w - 1;
+    if (z >= h) z = h - 1;
+    return data[(size_t)z * (size_t)w + (size_t)x];
 }
 
 /* Catmull-Rom cubic */
@@ -88,23 +124,57 @@ static float cubic(float p0, float p1, float p2, float p3, float s) {
     return p1 + 0.5f * s * (p2 - p0 + s * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + s * (3.0f * (p1 - p2) + p3 - p0)));
 }
 
-static float sample_map(const mvl_terrain *t, float x, float z) {
-    float gx = (x - t->map_x0) / t->map_cell, gz = (z - t->map_z0) / t->map_cell;
+/* Bicubic sample of a w x h grid at grid coordinates (gx, gz). */
+static float sample_grid(const float *data, int w, int h, float gx, float gz) {
     float fx = floorf(gx), fz = floorf(gz), sx = gx - fx, sz = gz - fz, rows[4];
     int ix = (int)fx, iz = (int)fz;
     for (int j = 0; j < 4; ++j)
-        rows[j] = cubic(map_at(t, ix - 1, iz - 1 + j), map_at(t, ix, iz - 1 + j), map_at(t, ix + 1, iz - 1 + j),
-                        map_at(t, ix + 2, iz - 1 + j), sx);
+        rows[j] = cubic(grid_at(data, w, h, ix - 1, iz - 1 + j), grid_at(data, w, h, ix, iz - 1 + j),
+                        grid_at(data, w, h, ix + 1, iz - 1 + j), grid_at(data, w, h, ix + 2, iz - 1 + j), sx);
     return cubic(rows[0], rows[1], rows[2], rows[3], sz);
 }
 
+/* The tile whose samples cover the bicubic stencil at (x, z), else the
+ * nearest one. */
+static const mvl_terrain_tile *find_tile(const mvl_terrain *t, float x, float z) {
+    const mvl_terrain_tile *best = NULL;
+    float best_d = 0.0f;
+    for (int i = 0; i < t->tile_count; ++i) {
+        const mvl_terrain_tile *tile = &t->tiles[i];
+        float gx = (x - tile->x0) / tile->cell, gz = (z - tile->z0) / tile->cell;
+        float lo = 1.0f, hx = (float)(tile->w - 2), hz = (float)(tile->h - 2), d = 0.0f;
+        if (gx >= lo && gx < hx && gz >= lo && gz < hz) return tile;
+        if (gx < lo) d += lo - gx;
+        if (gx >= hx) d += gx - hx;
+        if (gz < lo) d += lo - gz;
+        if (gz >= hz) d += gz - hz;
+        if (!best || d < best_d) best = tile, best_d = d;
+    }
+    return best;
+}
+
 float mvl_terrain_height(const mvl_terrain *t, float x, float z) {
-    float nx = x + t->origin_x, nz = z + t->origin_z;
-    float h = t->base + t->amp * mvl_fbm2(nx * t->freq, nz * t->freq, t->seed, t->octaves, t->lacunarity, t->gain);
-    if (t->map) h += sample_map(t, nx, nz);
+    float nx = x + t->origin_x, nz = z + t->origin_z, k = 1.0f, add = 0.0f, h, n;
+    if (t->tile_count > 0) {
+        const mvl_terrain_tile *tile = find_tile(t, nx, nz);
+        float gx = (nx - tile->x0) / tile->cell, gz = (nz - tile->z0) / tile->cell;
+        add = sample_grid(tile->data, tile->w, tile->h, gx, gz);
+        if (tile->amp) {
+            k = sample_grid(tile->amp, tile->w, tile->h, gx, gz);
+            if (k < 0.0f) k = 0.0f;
+        }
+    } else if (t->map) {
+        add = sample_grid(t->map, t->map_w, t->map_h, (nx - t->map_x0) / t->map_cell, (nz - t->map_z0) / t->map_cell);
+    }
+    if (t->period > 0)
+        n = mvl_fbm2_periodic(nx * t->freq, nz * t->freq, t->period, t->period, t->seed, t->octaves, t->gain);
+    else
+        n = mvl_fbm2(nx * t->freq, nz * t->freq, t->seed, t->octaves, t->lacunarity, t->gain);
+    h = t->base + t->amp * k * n + add;
     for (int i = 0; i < t->flat_count; ++i) {
         const mvl_terrain_flat *f = &t->flats[i];
-        float dx = x - f->x, dz = z - f->z, d, w, target = f->height;
+        float dx = x - f->x, dz = z - f->z, d, w, target = f->height, reach = f->radius + f->falloff;
+        if (!f->segment && (dx > reach || dx < -reach || dz > reach || dz < -reach)) continue;
         if (f->segment) {
             /* distance to the segment and the height along it */
             float sx = f->x2 - f->x, sz = f->z2 - f->z, len2 = sx * sx + sz * sz;

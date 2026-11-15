@@ -21,22 +21,13 @@ for s = 0, 300 do
       if not found and sys.children[i].kind == "rocky" then
         local p = G:generate(saddr .. ".p" .. i)
         if p.data.life and p.data.life.complexity == "animals" then
-          for k = 0, (p.data.continents or 0) - 1 do
-            local cont = G:generate(p.address .. ".k" .. k)
-            for _, n in ipairs(gen.util.sorted_keys(cont.children)) do
-              local c = G:generate(cont.address .. ".n" .. n)
-              if not found and c.data.district then
-                for l = 0, 255, 9 do
-                  local gx, gz = gen.land.grid(l)
-                  if gen.land.raw_height(c.data.terrain, gx * 2048, gz * 2048) > 3 then
-                    local land = G:generate(c.address .. ".l" .. l)
-                    local h = land.data.habitats and land.data.habitats[1]
-                    if h and h.density >= 0.5 and has(h, function(sp) return sp.behaviour.kind == "grazer" end) and
-                       has(h, function(sp) return sp.behaviour.kind == "flyer" end) then found = land end
-                    break
-                  end
-                end
-              end
+          for cid in ipairs(p.data.countries or {}) do
+            local a = not found and gen.country_land(p, cid, 1)
+            if a then
+              local land = G:generate(a)
+              local h = land.data.habitats and land.data.habitats[1]
+              if h and h.density >= 0.5 and has(h, function(sp) return sp.behaviour.kind == "grazer" end) and
+                 has(h, function(sp) return sp.behaviour.kind == "flyer" end) then found = land end
             end
           end
         end
@@ -71,7 +62,7 @@ test.expect(#C:all() > 0, "creatures live in the land")
 -- ---------------------------------------------------- a herd, one model
 local herd
 for _, cr in ipairs(C:all()) do
-  if cr.herd and #cr.herd >= 2 and cr.model then herd = cr.herd break end
+  if cr.herd and #cr.herd >= 2 and cr.model and cr.b.kind == "grazer" then herd = cr.herd break end
 end
 local tries = 0
 while not herd and tries < 30 do
@@ -79,7 +70,7 @@ while not herd and tries < 30 do
   D.player.place(D.player.x + 96, D.player.z, 0)
   test.wait(20)
   for _, cr in ipairs(C:all()) do
-    if cr.herd and #cr.herd >= 2 and cr.model then herd = cr.herd break end
+    if cr.herd and #cr.herd >= 2 and cr.model and cr.b.kind == "grazer" then herd = cr.herd break end
   end
 end
 test.expect(herd, "a herd of grazers")

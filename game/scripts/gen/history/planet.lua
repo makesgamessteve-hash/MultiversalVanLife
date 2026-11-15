@@ -16,7 +16,7 @@ local EV = require("gen.history.events")
 local util = require("gen.util")
 local names = require("gen.names")
 
-local H = { STEP = 25, RESIDENT_LAND = 118 }
+local H = { STEP = 25 }
 
 local KIND = {
   ["a monarchy"] = "Kingdom", ["a theocracy"] = "Holy Realm", ["a hive court around a queen"] = "Hive",
@@ -249,9 +249,9 @@ function H.run(ctx)
   local placed = 0
   for _, p in ipairs(E.living(st)) do
     local f = st.factions[p.faction]
-    if placed < 3 and f.alive and f.capital and #p.deeds > 0 then
-      local c = d.countries[f.capital]
-      local target = ctx.node.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l" .. H.RESIDENT_LAND
+    if placed < 3 and f.alive and f.capital and #p.deeds > 0 and
+       require("gen.levels.region").promised_land(ctx.node, f.capital, "resident") then
+      local target = require("gen.levels.region").promised_land(ctx.node, f.capital, "resident")
       local deeds = {}
       for _, eid in ipairs(p.deeds) do
         local ev = st.events[eid]

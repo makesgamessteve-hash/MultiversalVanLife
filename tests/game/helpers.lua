@@ -129,21 +129,50 @@ function H.land_where(pred)
   local trouble = gen.history.tensions.trouble
   for k, s in ipairs(D().story.signals()) do
     local base = s.address:match("^(.*)%.l%d+$")
+    local paddr = base:match("^(.-%.p%d+)")
     if k == 1 then
-      for i = 0, 255 do
-        local addr = base .. ".l" .. i
+      for _, addr in ipairs(H.settled_lands(base, paddr)) do
         if pred(trouble(G, addr)) then return addr end
       end
     end
-    local paddr = base:match("^(.-%.p%d+)")
-    for _, c in ipairs(G:generate(paddr).data.countries or {}) do
-      local cbase = paddr .. ".k" .. (c.continent - 1) .. ".n" .. c.index
-      for i = 0, 47 do
-        local addr = cbase .. ".l" .. i
+    for cid in ipairs(G:generate(paddr).data.countries or {}) do
+      for _, addr in ipairs(H.country_lands(paddr, cid, 48)) do
         if pred(trouble(G, addr)) then return addr end
       end
     end
   end
+end
+
+-- Lands with a settlement of a district or region `base` (its dry lands in
+-- a country, on the surface grid).
+function H.settled_lands(base, paddr)
+  local gen = D().gen
+  local out = {}
+  if not base:match("%.r%d+$") then
+    for i = 0, 255 do out[#out + 1] = base .. ".l" .. i end
+    return out
+  end
+  local G = gen.world
+  local P = G:generate(paddr).data
+  local info = gen.region.info(P)
+  local R = tonumber(base:match("%.r(%d+)$"))
+  for i = 0, 255 do
+    local f, gx, gz = gen.grid.land_of(info.g, R, i)
+    local cid, x, y, z = gen.region.land_country(P, info, f, gx, gz)
+    if cid > 0 and gen.region.dry(P, info, x, y, z) then out[#out + 1] = base .. ".l" .. i end
+  end
+  return out
+end
+
+-- Up to `n` lands of country `cid` of a planet with a settlement: district
+-- lands before the surface grid, its dry lands around the capital on it.
+function H.country_lands(paddr, cid, n, G)
+  local gen = D().gen
+  local planet = (G or gen.world):generate(paddr)
+  if (planet.version or 1) >= 2 then return gen.region.country_lands(paddr, planet.data, cid, n) end
+  local out = {}
+  for k = 1, n do out[#out + 1] = gen.country_land(planet, cid, k) end
+  return out
 end
 
 -- A land with the given quest template.

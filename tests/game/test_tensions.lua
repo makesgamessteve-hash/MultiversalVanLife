@@ -187,7 +187,7 @@ test.expect(#dammed.t.stakeholders >= 2, "touching the people downstream and ups
 -- a land of that country carries the drought with its causes
 local P = dammed.p.data
 local cty = P.countries[dammed.id]
-local addr = dammed.p.address .. ".k" .. (cty.continent - 1) .. ".n" .. cty.index .. ".l7"
+local addr = gen.country_land(dammed.p, dammed.id, 7)
 local l = G:generate(addr)
 local drought
 for _, t in ipairs(l.data.tensions or {}) do if t.kind == "drought" then drought = t end end

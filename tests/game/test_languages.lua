@@ -56,14 +56,8 @@ for s = 0, 300 do
         local p = G:generate(saddr .. ".p" .. i)
         for id, c in ipairs(p.data.countries or {}) do
           if not land and c.culture then
-            local country = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index)
-            for l = 0, 255, 5 do
-              local gx, gz = gen.land.grid(l)
-              if gen.land.raw_height(country.data.terrain, gx * 2048, gz * 2048) > 3 then
-                land, planet = G:generate(country.address .. ".l" .. l), p
-                break
-              end
-            end
+            local addr = gen.country_land(p, id, 1)
+            if addr then land, planet = G:generate(addr), p end
           end
         end
       end
@@ -75,7 +69,8 @@ test.expect(land, "a land of a people")
 local d = land.data
 test.expect(d.name_meaning and #d.name_meaning > 2, "a place name keeps its meaning: " .. d.name .. " = " .. tostring(d.name_meaning))
 local cul = planet.data.cultures[d.culture.id]
-local again = gen.culture.land_name(planet.data, G:node(gen.address.parent(land.address)).summary.id, land.seed)
+local cid = gen.region.country_id(G, land.address)
+local again = gen.culture.land_name(planet.data, cid, land.seed)
 test.eq(again.name, d.name, "the name follows from the land and its language")
 local first = cul.language.lexicon[again.roots[1]]:gsub("'$", "")
 test.expect(d.name:lower():sub(1, #first) == first, "the name begins with the word for '" .. again.roots[1] .. "'")
@@ -83,8 +78,8 @@ test.eq(L.translate(cul.language, cul.language.lexicon[again.roots[1]]), again.r
 for _, p in ipairs(d.people) do
   test.expect(p.name_meaning and p.species == cul.species, "people are named in their language: " .. p.name)
 end
-local country = G:node(gen.address.parent(land.address))
-test.expect(country.summary.meaning, "countries are named in their culture's language")
+local country = gen.geography.country_summary(planet, cid)
+test.expect(country.meaning, "countries are named in their culture's language")
 test.expect(planet.data.life.sapients[1].name_meaning or #planet.data.life.colonists > 0,
             "native peoples call themselves by their own word")
 

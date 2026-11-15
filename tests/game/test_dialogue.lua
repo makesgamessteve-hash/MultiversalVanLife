@@ -23,8 +23,9 @@ for seed = 1, 6 do
             -- mostly lands of peoples, and some of empty countries
             local take = (c.culture and id % 2 == 1 and got < 10) or (not c.culture and empty < 2 and id % 5 == 1)
             if take then
-              local l = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l" .. (s % 40))
-              if l.data.quest then
+              local a = gen.country_land(p, id, 1 + s % 8)
+              local l = a and G:generate(a)
+              if l and l.data.quest then
                 lands[#lands + 1] = { G = G, node = l }
                 if c.culture then got = got + 1 else empty = empty + 1 end
               end
@@ -83,14 +84,13 @@ if not moon then
       for i = 0, sys.data.planets - 1 do
         if not moon and sys.children[i].kind == "rocky" then
           local p = G:generate(saddr .. ".p" .. i)
-          for _, c in ipairs(p.data.countries or {}) do
+          for cid, c in ipairs(p.data.countries or {}) do
             local cul = c.culture and p.data.cultures[c.culture]
             local rel = cul and p.data.religions[cul.religion]
             local has = false
             for _, g in ipairs(rel and rel.deities or {}) do if g.domain:find("moon") then has = true end end
-            if has and not moon then
-              moon = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l3")
-            end
+            local a = has and not moon and gen.country_land(p, cid, 4)
+            if a then moon = G:generate(a) end
           end
         end
       end

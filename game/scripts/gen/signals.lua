@@ -110,8 +110,47 @@ local function dry_land(G, o, rng)
   end
 end
 
+-- On the surface grid: a dry land in a country of the planet (a peopled
+-- one where there are), around one of its cells.
+local function grid_land(G, o, rng)
+  local planet = G:generate(o.planet)
+  local P = planet.data
+  if not P.cells or not P.countries or #P.countries == 0 then return nil end
+  local region = require("gen.levels.region")
+  local info = region.info(P)
+  local peopled, all = {}, {}
+  for id, c in ipairs(P.countries) do
+    all[#all + 1] = id
+    if c.culture then peopled[#peopled + 1] = id end
+  end
+  local pool = #peopled > 0 and peopled or all
+  local cells = info.country_cells
+  if not cells then
+    cells = {}
+    for i = 1, #P.cells.country do
+      local id = P.cells.country[i]
+      if id and id > 0 and P.cells.elevation[i] > 0 then
+        cells[id] = cells[id] or {}
+        cells[id][#cells[id] + 1] = i
+      end
+    end
+    info.country_cells = cells
+  end
+  for _ = 1, 6 do
+    local id = pool[rng:int(1, #pool)]
+    local list = cells[id]
+    if list then
+      local x, y, z = mvl.planet_cell(P.grid, list[rng:int(1, #list)])
+      local addr = region.land_near(o.planet, P, id, x, y, z, 1 + rng:int(0, 3), 6)
+      if addr then return addr, planet, { summary = { id = id } } end
+    end
+  end
+end
+
 local function candidate(G, o, rng)
-  local addr, planet, country = dry_land(G, o, rng)
+  local addr, planet, country
+  if (G.version or 1) >= 2 then addr, planet, country = grid_land(G, o, rng)
+  else addr, planet, country = dry_land(G, o, rng) end
   if not addr then return nil end
   local land_seed = address.seed(G.seed, addr)
   -- the land's trouble is its strongest tension (history), as the land will have it

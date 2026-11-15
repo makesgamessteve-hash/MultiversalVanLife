@@ -61,6 +61,75 @@ void test_terrain_height(void) {
     mvl_terrain_free(&t);
 }
 
+/* Map tiles: a planet-wide grid in pieces that overlap with the same
+ * samples; heights are continuous across them, tiles may scale the noise. */
+static float ramp_at(int i, int j) { return (float)(i * 3 + j * 2) + (float)((i * 7 + j * 5) % 4); }
+
+void test_terrain_tiles(void) {
+    mvl_terrain t, one, p;
+    float a[8 * 8], b[8 * 8], k[8 * 8], one_map[13 * 8];
+    /* tile A covers lattice columns 0..7, tile B columns 5..12 (cell 10) */
+    for (int j = 0; j < 8; ++j)
+        for (int i = 0; i < 8; ++i) {
+            a[j * 8 + i] = ramp_at(i, j);
+            b[j * 8 + i] = ramp_at(i + 5, j);
+            k[j * 8 + i] = 0.5f;
+        }
+    for (int j = 0; j < 8; ++j)
+        for (int i = 0; i < 13; ++i) one_map[j * 13 + i] = ramp_at(i, j);
+    mvl_terrain_init(&t, 3);
+    mvl_terrain_init(&one, 3);
+    t.amp = one.amp = 0;
+    CHECK(mvl_terrain_add_tile(&t, a, NULL, 8, 8, 0, 0, 10));
+    CHECK(mvl_terrain_add_tile(&t, b, NULL, 8, 8, 50, 0, 10));
+    CHECK(mvl_terrain_set_map(&one, one_map, 13, 8, 0, 0, 10));
+    /* inside either tile the field is the one big map's */
+    for (float x = 12; x < 100; x += 3.7f)
+        CHECK_NEAR(mvl_terrain_height(&t, x, 33), mvl_terrain_height(&one, x, 33), 1e-4);
+    /* outside every tile: the nearest one, clamped */
+    CHECK_NEAR(mvl_terrain_height(&t, 500, 33), mvl_terrain_height(&one, 500, 33), 1e-4);
+    CHECK_NEAR(mvl_terrain_height(&t, -500, -500), mvl_terrain_height(&one, -500, -500), 1e-4);
+    /* invalid tiles are refused, and the list is bounded */
+    CHECK(!mvl_terrain_add_tile(&t, NULL, NULL, 8, 8, 0, 0, 10));
+    CHECK(!mvl_terrain_add_tile(&t, a, NULL, 3, 8, 0, 0, 10));
+    CHECK(!mvl_terrain_add_tile(&t, a, NULL, 8, 8, 0, 0, 0));
+    while (t.tile_count < MVL_TERRAIN_MAX_TILES) CHECK(mvl_terrain_add_tile(&t, a, NULL, 8, 8, 0, 0, 10));
+    CHECK(!mvl_terrain_add_tile(&t, a, NULL, 8, 8, 0, 0, 10));
+    mvl_terrain_free(&t);
+    CHECK_EQ_INT(t.tile_count, 0);
+    /* a tile's amplitude factor scales the noise */
+    mvl_terrain_init(&t, 3);
+    t.amp = 4;
+    CHECK(mvl_terrain_add_tile(&t, a, k, 8, 8, 0, 0, 10));
+    mvl_terrain_init(&p, 3);
+    p.amp = 2;
+    CHECK(mvl_terrain_add_tile(&p, a, NULL, 8, 8, 0, 0, 10));
+    CHECK_NEAR(mvl_terrain_height(&t, 31, 27), mvl_terrain_height(&p, 31, 27), 1e-4);
+    for (int i = 0; i < 64; ++i) k[i] = -1.0f; /* never negative */
+    mvl_terrain_free(&t);
+    mvl_terrain_init(&t, 3);
+    CHECK(mvl_terrain_add_tile(&t, a, k, 8, 8, 0, 0, 10));
+    t.amp = 4;
+    p.amp = 0;
+    CHECK_NEAR(mvl_terrain_height(&t, 31, 27), mvl_terrain_height(&p, 31, 27), 1e-4);
+    mvl_terrain_free(&t);
+    mvl_terrain_free(&p);
+    mvl_terrain_free(&one);
+    /* periodic noise: shifting the origin by whole periods changes nothing */
+    {
+        mvl_terrain u, v;
+        mvl_terrain_init(&u, 11);
+        mvl_terrain_init(&v, 11);
+        u.period = v.period = 16;
+        u.freq = v.freq = 0.0625f; /* 256 m period */
+        u.amp = v.amp = 5;
+        v.origin_x = 256.0f * 40;
+        v.origin_z = -256.0f * 3;
+        for (float x = -300; x < 300; x += 37.5f)
+            CHECK_NEAR(mvl_terrain_height(&u, x, x * 0.5f), mvl_terrain_height(&v, x, x * 0.5f), 1e-3);
+    }
+}
+
 void test_terrain_chunks(void) {
     mvl_terrain t;
     mvl_mesh a, b, c;

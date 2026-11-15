@@ -1,8 +1,14 @@
 /* Multiversal Van Life - deterministic terrain height field and chunk meshes.
  * MIT License.
  *
- * height(x, z) = base + amp * fbm((x + origin_x) * freq, (z + origin_z) * freq)
+ * height(x, z) = base + amp * k * fbm((x + origin_x) * freq, (z + origin_z) * freq)
  *              + coarse elevation map (bicubic, optional)
+ * The map is one grid or a set of tiles (a land's piece of a planet-wide
+ * grid each: where tiles overlap they hold the same samples, so the field
+ * is continuous across them). A tile may also carry k, a factor of the noise
+ * amplitude (rough mountains, smooth plains); without one k = 1. With
+ * `period` > 0 the noise lattice repeats every `period` cells (lacunarity
+ * 2), so coordinates can be wrapped and stay small.
  * then blended towards up to MVL_TERRAIN_MAX_FLATS flat areas: discs at one
  * height, or segments (roads) whose height runs from one end to the other.
  * Chunk vertices are computed from integer grid coordinates, so the shared
@@ -13,7 +19,8 @@
 #include "core/assets.h"
 #include <stdint.h>
 
-#define MVL_TERRAIN_MAX_FLATS 128
+#define MVL_TERRAIN_MAX_FLATS 512
+#define MVL_TERRAIN_MAX_TILES 256
 #define MVL_TERRAIN_SLOTS 4 /* independent height fields (e.g. a land and the van's garden) */
 #define MVL_TERRAIN_PALETTE 4
 
@@ -24,6 +31,12 @@ typedef struct {
 } mvl_terrain_flat;
 
 typedef struct {
+    float *data, *amp; /* w x h heights, optional noise amplitude factors */
+    int w, h;
+    float x0, z0, cell;
+} mvl_terrain_tile;
+
+typedef struct {
     uint32_t seed;
     float base, amp, freq, lacunarity, gain;
     float origin_x, origin_z; /* added to x, z before sampling the noise */
@@ -32,6 +45,10 @@ typedef struct {
     float *map;
     int map_w, map_h;
     float map_x0, map_z0, map_cell;
+    /* optional map tiles (used instead of the map) */
+    mvl_terrain_tile *tiles;
+    int tile_count;
+    int period; /* > 0: periodic noise (lattice cells at the first octave) */
     mvl_terrain_flat flats[MVL_TERRAIN_MAX_FLATS];
     int flat_count;
     /* vertex colouring */
@@ -48,6 +65,10 @@ typedef struct {
 void mvl_terrain_init(mvl_terrain *t, uint32_t seed);
 /* Copies a coarse map into the terrain (freeing a previous one). */
 int mvl_terrain_set_map(mvl_terrain *t, const float *data, int w, int h, float x0, float z0, float cell);
+/* Adds a map tile (copied; `amp` may be NULL). Returns 0 when full or invalid. */
+int mvl_terrain_add_tile(mvl_terrain *t, const float *data, const float *amp, int w, int h, float x0, float z0,
+                         float cell);
+/* Frees the map and the tiles. */
 void mvl_terrain_free(mvl_terrain *t);
 int mvl_terrain_add_flat(mvl_terrain *t, float x, float z, float radius, float falloff, float height);
 /* A flattened band of half width `radius` along the segment (x, z)-(x2, z2),

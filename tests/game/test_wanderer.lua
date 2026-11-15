@@ -25,7 +25,7 @@ for s = 0, 900 do
         for id, c in ipairs(p.data.countries or {}) do
           local k = gen.culture.of_country(p.data, id)
           if not target and k and k.wanderer then
-            target, planet, cul = p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l5", p, k
+            target, planet, cul = gen.country_land(p, id, 5), p, k
           end
         end
       end

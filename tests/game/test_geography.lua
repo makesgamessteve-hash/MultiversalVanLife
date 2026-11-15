@@ -66,9 +66,13 @@ local land = G:generate(s.address)
 local d = land.data
 test.expect(d.continent and d.country and d.biome and d.climate, "the land names its continent, country, biome, climate")
 test.expect(d.climate.temperature and d.climate.precipitation and d.place.cell, "and its climate and cell")
-test.eq(d.country, G:node(gen.address.parent(s.address)).summary.name, "the country it belongs to")
-test.eq(d.continent, G:node(gen.address.parent(gen.address.parent(s.address))).data.name, "the continent")
-local planet = G:node(s.address:match("^(.-)%.k%d+"))
+local planet = G:node(s.address:match("^(.-%.p%d+)"))
+local cid = G:node(gen.address.parent(s.address)).data.land_country[land.index + 1]
+local cty = planet.data.countries[cid]
+test.eq(d.country, gen.geography.country_summary(planet, cid).name, "the country it belongs to")
+test.eq(d.country, G:generate(planet.address .. ".k" .. (cty.continent - 1)).children[cty.index].name,
+        "as its continent names it")
+test.eq(d.continent, G:generate(planet.address .. ".k" .. (cty.continent - 1)).data.name, "the continent")
 test.eq(GEO.BIOMES[planet.data.cells.biome[d.place.cell]].id, d.biome, "the biome of its planet cell")
 test.expect(not GEO.BIOMES[GEO.BIOME[d.biome]].water, "signals lead to dry land")
 local md = gen.bible.export(G, s.address)

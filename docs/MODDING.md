@@ -242,7 +242,7 @@ with `<!-- example -->` are run by the test suite (`ctest -R docs`).
 local seed = mvl.hash("my-world", 42)          -- integers and strings, order matters
 local rng = mvl.rng(seed, 1)                    -- PCG32 stream; same seed+stream = same numbers
 local roll = rng:int(1, 6)                      -- also :next() [0,1), :float(lo, hi), :chance(p), :pick(list), :u32()
-local hills = mvl.noise(10.5, 3.25, seed, 4)    -- 2D fractal value noise in [-1, 1] (x, y, seed, octaves, lacunarity, gain)
+local hills = mvl.noise(10.5, 3.25, seed, 4)    -- 2D fractal value noise in [-1, 1] (x, y, seed, octaves, lacunarity, gain[, period])
 local caves = mvl.noise3(1, 2, 3, seed, 2)      -- 3D variant
 assert(roll >= 1 and roll <= 6 and hills >= -1 and hills <= 1 and caves >= -1)
 ```
@@ -252,10 +252,17 @@ assert(roll >= 1 and roll <= 6 and hills >= -1 and hills <= 1 and caves >= -1)
 `mvl.terrain{...}` configures the height field (all fields optional):
 `seed`, `base`, `amp`, `freq`, `octaves`, `lacunarity`, `gain`,
 `origin_x`, `origin_z` (added to positions before sampling the noise),
-`flats = {{x, z, radius, falloff, height}, ...}` (up to 128 flattened areas;
+`flats = {{x, z, radius, falloff, height}, ...}` (up to 512 flattened areas;
 with `x2, z2` and `height2` a flat is a graded segment, e.g. under a road),
 `map = {w, h, x0, z0, cell, data}` (a coarse elevation map that is added,
-bicubic), and colouring: `palette = {{r, g, b}, ...}` (up to 4, low to high),
+bicubic), or instead `tiles = {{w, h, x0, z0, cell, data, amp}, ...}` (up to
+256 pieces of one larger grid, at least 4 x 4 samples each, holding the same
+samples where they overlap; a point uses the first tile whose samples cover
+it, else the nearest; the optional `amp` grid scales the noise amplitude
+there), `period` (the noise lattice repeats every `period` cells at the
+first octave, with lacunarity 2, so coordinates can be wrapped; `mvl.noise`
+takes the same as its seventh argument), and colouring:
+`palette = {{r, g, b}, ...}` (up to 4, low to high),
 `color_low`, `color_high`, `slope_color`, `slope_start`, `color_noise`,
 `uv_scale` (metres per texture repeat). `mvl.height(x, z)` queries the
 surface and `mvl.terrain_chunk(cx, cz, size, cells)` builds the mesh of one

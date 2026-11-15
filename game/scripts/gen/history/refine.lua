@@ -11,7 +11,6 @@
 -- few, the most famous first).
 local R = {}
 
-R.TRACE_LAND = { echo = 116, history = 117, shrine = 115 }
 
 local function pass_on(ctx, pick)
   for _, c in ipairs(ctx:commitments("event_ref")) do
@@ -92,13 +91,14 @@ function R.planet(ctx)
     local countries = d.countries or {}
     if #countries > 0 then
       local k = mvl.hash(ctx.seed, data.name) % #countries + 1
-      local cty = countries[k]
       local kind = data.kind == "war" and (mvl.hash(ctx.seed, data.name, "wreck") % 2 == 0 and "wreck" or "battlefield")
                    or "crater"
-      local target = ctx.node.address .. ".k" .. (cty.continent - 1) .. ".n" .. cty.index .. ".l" .. R.TRACE_LAND.echo
-      ctx:commit(target, "trace", { kind = kind, name = (kind == "crater" and "the crater of " or "the wreck of ") ..
-                                    data.name:gsub("^the ", ""), year = data.year, event = echo.name }, id)
-      echo.trace = target
+      local target = require("gen.levels.region").promised_land(ctx.node, k, "echo")
+      if target then
+        ctx:commit(target, "trace", { kind = kind, name = (kind == "crater" and "the crater of " or "the wreck of ") ..
+                                      data.name:gsub("^the ", ""), year = data.year, event = echo.name }, id)
+        echo.trace = target
+      end
     end
   end
 end
@@ -116,8 +116,10 @@ function R.planet_traces(ctx, st, cultures, countries)
     local f = st.factions[ev.participants[1]]
     local region = ev.kind == "war" and (ev.places and ev.places[1]) or (f and f.capital)
     local cty = region and countries[region]
-    local land = ev.kind == "sighting" and R.TRACE_LAND.shrine or R.TRACE_LAND.history
-    if cty and not used[region .. ":" .. land] and (ev.kind ~= "sighting" or ctx:random("shrine" .. ev.id):chance(0.5)) then
+    local land = ev.kind == "sighting" and "shrine" or "history"
+    local target = cty and require("gen.levels.region").promised_land(ctx.node, region, land)
+    if target and not used[region .. ":" .. land] and
+       (ev.kind ~= "sighting" or ctx:random("shrine" .. ev.id):chance(0.5)) then
       used[region .. ":" .. land] = true
       local cul = f and cultures[f.culture]
       local kind = ev.kind == "collapse" and "ruin" or (ev.kind == "war" and "battlefield" or "shrine")
@@ -127,7 +129,6 @@ function R.planet_traces(ctx, st, cultures, countries)
                             (kind == "battlefield" and ("the field of " .. ev.name:gsub("^the ", "")) or
                              "a shrine to the Wanderer") }
       if kind == "ruin" then cty.ruins = data.name end
-      local target = ctx.node.address .. ".k" .. (cty.continent - 1) .. ".n" .. cty.index .. ".l" .. land
       ctx:commit(target, "trace", data, ev.fact)
       placed = placed + 1
     end

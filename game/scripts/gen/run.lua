@@ -46,10 +46,14 @@ local function count(t)
 end
 
 -- Summary of child `index` of a generated parent, or nil if no such child.
+-- A parent lists (and caps) children of its main child level only; places
+-- on another child level (a planet's regions) exist by their skeleton.
 local function child_summary(self, parent, index, addr)
-  local level = self.registry.levels[parent.level + 1]
-  if not level then return nil end
-  if parent.children[index] then return parent.children[index] end
+  local sl = address.level_of(self.scheme, addr)
+  local level = sl and self.registry.levels[sl.n]
+  if not level or not sl.parents[parent.kind] then return nil end
+  local main = self.scheme.levels[parent.level].children[1] == sl
+  if main and parent.children[index] then return parent.children[index] end
   if level.skeleton then
     local cached = self.skeletons[addr]
     if cached == nil then
@@ -58,6 +62,7 @@ local function child_summary(self, parent, index, addr)
     end
     return cached or nil
   end
+  if not main then return {} end
   if parent.listed_children then return nil end -- the parent listed all its children
   return index < self.registry.levels[parent.level].caps.children and {} or nil
 end
@@ -76,7 +81,7 @@ function G:_generate(addr)
   local summary = {}
   if parent then summary = child_summary(self, parent, address.index(addr), addr) end
   if not summary then error("there is no place at " .. addr, 0) end
-  local level = self.registry.levels[address.level(addr)]
+  local level = self.registry.levels[address.level_of(self.scheme, addr).n]
   local index = address.index(addr)
   node = {
     address = addr, level = level.n, kind = level.name, index = index,
@@ -227,11 +232,15 @@ function Ctx:yield()
   end
 end
 
--- The generated ancestor on a level (by name or number).
+-- The generated ancestor on a level (by name or number), or nil when the
+-- place has none on that level (a land of a region has no country).
 function Ctx:ancestor(level)
   local l = self.G.registry:level(level)
-  local path = address.path(self.node.address)
-  return l.n == self.node.level and self.node or self.G.nodes[path[l.n + 1]]
+  if l.n == self.node.level then return self.node end
+  for _, a in ipairs(address.path(self.node.address)) do
+    local al = address.level_of(self.G.scheme, a)
+    if al and al.n == l.n then return self.G.nodes[a] end
+  end
 end
 
 function Ctx:table(name) return self.G.registry:table(name) end
@@ -240,7 +249,7 @@ function Ctx:table(name) return self.G.registry:table(name) end
 -- children, only listed children (and those of a skeleton function) exist.
 function Ctx:child(index, summary)
   local own = self.G.registry.levels[self.node.level]
-  assert(self.G.registry.levels[self.node.level + 1], "the deepest level has no children")
+  assert(self.G.scheme.levels[self.node.level].children[1], "the deepest level has no children")
   assert(math.type(index) == "integer" and index >= 0 and index < own.caps.children,
          string.format("child index %s is beyond the cap of %d children of a %s", tostring(index), own.caps.children,
                        own.name))

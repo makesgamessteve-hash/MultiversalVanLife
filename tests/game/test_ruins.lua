@@ -52,7 +52,8 @@ test.expect(fell and fell.kind == "collapse", "the ruin is of a fall: " .. tostr
 test.expect(-fell.year >= 100, "centuries ago: " .. -fell.year .. " years")
 local f = h.factions[fell.participants[1]]
 local cty = planet.data.countries[f.capital]
-test.expect(target:find(".k" .. (cty.continent - 1) .. ".n" .. cty.index .. ".l", 1, true), "at the fallen capital")
+test.eq(target, gen.region.promised_land(planet, f.capital, "history"), "at the fallen capital")
+test.eq(G:generate(target).data.country, gen.geography.country_summary(planet, f.capital).name, "in its country")
 local cul = planet.data.cultures[f.culture]
 test.eq(chunks.style_key(ruin.data.data.style), chunks.style_key(cul.style), "in the style of its builders")
 

@@ -20,10 +20,9 @@ local function find_land(pred, known)
     local paddr = s.address:match("^(.-%.p%d+)")
     local u = tonumber(paddr:match("^u(%d+)"))
     if known == nil or W.visited(G, u) == known then
-      for _, c in ipairs(G:generate(paddr).data.countries or {}) do
+      for cid, c in ipairs(G:generate(paddr).data.countries or {}) do
         if c.culture then
-          for i = 0, 11 do
-            local a = paddr .. ".k" .. (c.continent - 1) .. ".n" .. c.index .. ".l" .. i
+          for _, a in ipairs(H.country_lands(paddr, cid, 12)) do
             local l = G:generate(a)
             if l.data.codex and pred(l.data) then return a, l end
           end

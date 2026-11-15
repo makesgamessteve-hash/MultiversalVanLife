@@ -95,7 +95,7 @@ world.register({
       end
     end)
     -- the van stands where it landed, or where the player parked it
-    local v = log.van or d.spots.van
+    local v = log.van or d.spots.van or d.spots.spawn -- (open water has no van spot)
     story.place_van(w, v.x, v.z, v.yaw)
     return story.van_door.x, story.van_door.z, story.van_door.yaw
   end,

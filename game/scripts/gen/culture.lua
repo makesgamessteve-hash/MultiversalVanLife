@@ -16,7 +16,7 @@ local technology = require("gen.culture.technology")
 local util = require("gen.util")
 
 local C = { language = language, religion = religion, calendar = calendar, traditions = traditions,
-            society = society, technology = technology, MONUMENT_LAND = 119 }
+            society = society, technology = technology }
 
 local function title(s) return s:sub(1, 1):upper() .. s:sub(2) end
 
@@ -109,7 +109,7 @@ local function cultures(ctx)
     for _, c in ipairs(d.cultures) do if c.religion == rel.id and not first then first = c end end
     if first then
       local home
-      for id, c in ipairs(d.countries or {}) do if c.culture == first.id and not home then home = c end end
+      for id, c in ipairs(d.countries or {}) do if c.culture == first.id and not home then home = id end end
       local pn = language.name(first.language, mvl.rng(mvl.hash(seed, "founder")), "person")
       local founder = { name = pn.name, meaning = pn.meaning, role = "prophet", species = s.name,
                         anatomy = util.copy(s.anatomy), hue = s.hue or 30,
@@ -117,8 +117,8 @@ local function cultures(ctx)
       rel.founder = founder
       founder.fact = ctx:fact("individual", { name = founder.name, role = "prophet", religion = rel.name,
                                               species = s.name }, { rel.fact })
-      if home then
-        local target = ctx.node.address .. ".k" .. (home.continent - 1) .. ".n" .. home.index .. ".l" .. C.MONUMENT_LAND
+      local target = home and require("gen.levels.region").promised_land(ctx.node, home, "monument")
+      if target then
         ctx:commit(target, "monument", { individual = founder }, founder.fact)
         founder.monument = target
       end

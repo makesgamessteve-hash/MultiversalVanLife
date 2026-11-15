@@ -1,8 +1,11 @@
 -- Multiversal Van Life - streaming lands in chunks around the player (MIT).
 --
 -- World coordinates are metres around the centre of the land the world was
--- loaded for (the anchor); neighbouring lands of the same country lie at
--- multiples of 2048 m. Chunks are 32 m squares: those within LOAD chunks of
+-- loaded for (the anchor); neighbouring lands lie at multiples of 2048 m:
+-- on the surface grid every land of the anchor's cube face, across region
+-- and country borders (each land brings its piece of the planet-wide
+-- terrain lattice; the engine gets the pieces of the lands around the
+-- player), in a district the lands of its country. Chunks are 32 m squares: those within LOAD chunks of
 -- the player are built (nearest first, PER_TICK per update), those beyond
 -- UNLOAD are destroyed and their meshes released. A chunk's content (terrain,
 -- the land's features, fields and road pieces inside it, flora) depends only
@@ -12,6 +15,7 @@ local changes = require("memory.changes")
 local PAL = require("gen.visuals.palette")
 local habitats = require("gen.life.habitats")
 local models = require("gen.visuals.models")
+local region = require("gen.levels.region")
 
 local chunks = { SIZE = 32, CELLS = 16, LOAD = 3, UNLOAD = 5, PER_TICK = 1 }
 local S = {}
@@ -29,7 +33,9 @@ function chunks.new(anchor, provider)
     remember = true,  -- apply each land's change log (memory/changes.lua)
     stats = { built = 0, unloaded = 0, max_loaded = 0, lands = 0 },
     agx = anchor.data.grid[1], agz = anchor.data.grid[2],
+    grid = anchor.data.region ~= nil, -- a land of the surface grid
   }, S)
+  self.focus_gx, self.focus_gz = self.agx, self.agz
   self.models = models.new()                              -- voxel plants and animals, shared and counted
   self.creatures = require("lib.creatures").new(self, self.models)
   self:activate(anchor, anchor.data.grid[1], anchor.data.grid[2])
@@ -50,14 +56,37 @@ function S:activate(node, gx, gz)
   return rec
 end
 
--- One continuous height field for the country, plus every active land's
--- flat areas in world coordinates.
+-- One continuous height field, plus the flat areas of the lands in world
+-- coordinates: in a district its country's terrain and every active land's
+-- flats; on the surface grid the terrain pieces of the active lands within
+-- two lands of the player and the flats of those within one. Their noise
+-- coordinates are wrapped (the noise is periodic) so they stay small.
+chunks.TILE_REACH, chunks.FLAT_REACH, chunks.MAX_FLATS = 2, 1, 512
+
 function S:apply_terrain()
   local cfg = {}
   for k, v in pairs(self.anchor.data.terrain) do cfg[k] = v end
-  cfg.origin_x, cfg.origin_z = self.anchor.data.center[1], self.anchor.data.center[2]
+  local lands = self.land_list
+  if self.grid then
+    local wrap = cfg.wrap
+    local ax, az = self.anchor.data.center[1], self.anchor.data.center[2]
+    cfg.origin_x, cfg.origin_z = ax % wrap, az % wrap
+    local shx, shz = ax - cfg.origin_x, az - cfg.origin_z
+    cfg.map, cfg.wrap, cfg.tiles, lands = nil, nil, {}, {}
+    for _, rec in ipairs(self.land_list) do
+      local dist = math.max(math.abs(rec.gx - self.focus_gx), math.abs(rec.gz - self.focus_gz))
+      local m = rec.node.data.terrain.map
+      if dist <= chunks.TILE_REACH and m then
+        cfg.tiles[#cfg.tiles + 1] = { w = m.w, h = m.h, x0 = m.x0 - shx, z0 = m.z0 - shz, cell = m.cell, data = m.data,
+                                      amp = m.amp }
+      end
+      if dist <= chunks.FLAT_REACH then lands[#lands + 1] = rec end
+    end
+  else
+    cfg.origin_x, cfg.origin_z = self.anchor.data.center[1], self.anchor.data.center[2]
+  end
   cfg.flats = {}
-  for _, rec in ipairs(self.land_list) do
+  for _, rec in ipairs(lands) do
     for _, f in ipairs(rec.node.data.flats) do
       local g = { radius = f.radius, falloff = f.falloff, height = f.height, height2 = f.height2,
                   x = f.x + rec.ox, z = f.z + rec.oz }
@@ -65,7 +94,28 @@ function S:apply_terrain()
       cfg.flats[#cfg.flats + 1] = g
     end
   end
+  if #cfg.flats > chunks.MAX_FLATS then
+    -- the nearest to the player's land count
+    local fx, fz = self:offset(self.focus_gx, self.focus_gz)
+    local function d2(f) return (f.x - fx) ^ 2 + (f.z - fz) ^ 2 end
+    for i, f in ipairs(cfg.flats) do f.order = i end
+    table.sort(cfg.flats, function(a, b)
+      local da, db = d2(a), d2(b)
+      if da ~= db then return da < db end
+      return a.order < b.order
+    end)
+    for i = #cfg.flats, chunks.MAX_FLATS + 1, -1 do cfg.flats[i] = nil end
+    table.sort(cfg.flats, function(a, b) return a.order < b.order end)
+  end
   mvl.terrain(cfg)
+end
+
+-- Is land-local (lx, lz) of a land under water (the sea, or one of its
+-- lakes)? `h` is the ground height there.
+function S:wet(rec, lx, lz, h)
+  if h < 0.3 then return true end
+  local level = rec.node.data.lakes and region.lake_at(rec.node.data.lakes, lx, lz, 300)
+  return level ~= nil and h < level + 0.3
 end
 
 -- The land containing a world position (activating it), or nil.
@@ -84,12 +134,26 @@ function S:land_at(wx, wz)
   return self:activate(node, gx, gz)
 end
 
--- The walkable rectangle: every land of the country.
+-- The walkable rectangle: every land of the country, or of the cube face.
 function S:bounds()
   local half = landgen.SIZE / 2
+  local n = self.grid and self.anchor.data.face_lands or landgen.GRID
   local x0, z0 = self:offset(0, 0)
-  local x1, z1 = self:offset(landgen.GRID - 1, landgen.GRID - 1)
+  local x1, z1 = self:offset(n - 1, n - 1)
   return x0 - half + 2, z0 - half + 2, x1 + half - 2, z1 + half - 2
+end
+
+-- Follows the player on the surface grid: when they enter another land, the
+-- terrain pieces and flats around it are applied.
+function S:follow(px, pz)
+  if not self.grid then return end
+  local half = landgen.SIZE / 2
+  local gx = self.agx + math.floor((px + half) / landgen.SIZE)
+  local gz = self.agz + math.floor((pz + half) / landgen.SIZE)
+  if gx == self.focus_gx and gz == self.focus_gz then return end
+  self.focus_gx, self.focus_gz = gx, gz
+  self.stats.crossings = (self.stats.crossings or 0) + 1
+  self:apply_terrain()
 end
 
 -- ------------------------------------------------------------- content
@@ -235,6 +299,15 @@ function S:build(cx, cz, rec)
                                               pos = { x0 + size / 2, 0, z0 + size / 2 }, uv_scroll = { 0.01, 0.006 },
                                               color = water })
   end
+  -- lakes: their water where the ground dips below their level
+  local level = d.lakes and region.lake_at(d.lakes, x0 + size / 2 - rec.ox, z0 + size / 2 - rec.oz, 300 + size)
+  if level and ylo and ylo < level then
+    if not self.sea_mesh then self.sea_mesh = mvl.plane_mesh(size, size, size / 8, size / 8, 4) end
+    c.lake = true
+    c.entities[#c.entities + 1] = mvl.spawn({ mesh = self.sea_mesh, texture = mvl.texture("textures/water.tga"),
+                                              pos = { x0 + size / 2, level, z0 + size / 2 },
+                                              uv_scroll = { 0.006, 0.004 }, color = water })
+  end
   -- each chunk draws the part of a river inside its square, so the water
   -- is there wherever the player is and pieces meet at chunk borders
   for _, river in ipairs(d.rivers or {}) do
@@ -285,7 +358,7 @@ function S:build(cx, cz, rec)
     -- stable id: the chunk's place in the land and the plant's number
     local id = "flora/" .. lcx .. "," .. lcz .. "/" .. planted
     if not cleared(d, lx, lz) or (rec.memory and rec.memory:taken(id)) then return end
-    if mvl.height(lx + rec.ox, lz + rec.oz) < 0.3 then return end -- nothing grows under water
+    if self:wet(rec, lx, lz, mvl.height(lx + rec.ox, lz + rec.oz)) then return end -- nothing grows under water
     local wx, wz = lx + rec.ox, lz + rec.oz
     local model = sp and sp.model and self.models:acquire(sp.model)
     if model and model.mesh > 0 then
@@ -323,7 +396,7 @@ function S:build(cx, cz, rec)
     for i, sp in ipairs(animals) do
       local lx, lz = hx + (i == 1 and 0 or (rng:next() - 0.5) * 6), hz + (i == 1 and 0 or (rng:next() - 0.5) * 6)
       local wx, wz = lx + rec.ox, lz + rec.oz
-      if cleared(d, lx, lz) and mvl.height(wx, wz) > 0.3 then
+      if cleared(d, lx, lz) and not self:wet(rec, lx, lz, mvl.height(wx, wz)) then
         c.species[sp.id] = true
         c.animals = c.animals + 1
         local cr = self.creatures:spawn(sp, wx, wz, c, leader, rng)
@@ -351,7 +424,7 @@ function S:build(cx, cz, rec)
       local shape = shapes[rng:int(1, #shapes)]
       local wx, wz = lx + rec.ox, lz + rec.oz
       local sc = 0.6 + rng:next() * 0.9
-      if cleared(d, lx, lz) and mvl.height(wx, wz) > 0.3 and shape.mesh > 0 then
+      if cleared(d, lx, lz) and not self:wet(rec, lx, lz, mvl.height(wx, wz)) and shape.mesh > 0 then
         c.rocks = (c.rocks or 0) + 1
         c.entities[#c.entities + 1] = mvl.spawn({ mesh = shape.mesh, pos = { wx, mvl.height(wx, wz) - 0.15, wz },
                                                   yaw = rng:next() * 6.283, scale = { sc, sc, sc },
@@ -385,6 +458,7 @@ function S:update(px, pz, budget)
   self.models:tick()
   if budget == math.huge then self.models.built = -math.huge end -- on arrival everything is built at once
   local pcx, pcz = math.floor(px / size), math.floor(pz / size)
+  self:follow(px, pz)
   for k, c in pairs(self.loaded) do
     if math.max(math.abs(c.cx - pcx), math.abs(c.cz - pcz)) > chunks.UNLOAD then self:unload(k) end
   end

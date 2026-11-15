@@ -40,3 +40,10 @@ A save with 200 visited lands and their recorded changes SHALL stay below 20 MB.
 #### Scenario: Many visits
 - **WHEN** a stress test visits 200 lands and performs changes in each
 - **THEN** the save folder is smaller than 20 MB
+
+### Requirement: Saves from before the surface grid
+Saves from multiverses created before the surface grid SHALL keep loading their visited lands and districts unchanged.
+
+#### Scenario: An old save
+- **WHEN** a save made before the change is continued
+- **THEN** every visited land is where and as it was

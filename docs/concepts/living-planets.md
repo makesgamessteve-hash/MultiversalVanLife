@@ -1,6 +1,6 @@
 # Concept: living planets
 
-Status: agreed concept, planned as phases 25–33 in the [roadmap](../ROADMAP.md). It builds on
+Status: agreed concept, planned as phases 25–33 in the [roadmap](../ROADMAP.md) (25 to 27 done). It builds on
 everything in [WORLDGEN.md](../WORLDGEN.md).
 
 ## Decisions

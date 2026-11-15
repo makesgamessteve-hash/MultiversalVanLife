@@ -22,8 +22,7 @@ local addr
 for _, s in ipairs(story.signals()) do
   if s.peopled and not addr then
     local base = s.address:match("^(.*)%.l%d+$")
-    for i = 0, 255 do
-      local a = base .. ".l" .. i
+    for _, a in ipairs(H.settled_lands(base, s.address:match("^(.-%.p%d+)"))) do
       local t, list = D.gen.history.tensions.trouble(D.gen.world, a)
       if not addr and t.kind == "relight" and list[1].severity >= 0.5 then addr = a end
     end
@@ -78,7 +77,8 @@ test.eq(q.tension, need.text, "the new trouble, caused by the player's help")
 test.expect(not w.state.quest.complete, "not solved yet")
 H.use("Talk to " .. w.land_node.data.people[1].name)
 local intro = table.concat(H.collect_lines(), " ")
-test.expect(intro:find("since the lamps were lit again", 1, true), "the giver tells how it came from the help: " .. intro)
+test.expect(intro:lower():find("since the lamps were lit again", 1, true), "the giver tells how it came from the help: " ..
+            intro)
 test.expect(H.complete_quest(), "and the player helps again")
 test.eq(#spread.due(D.progress.night()), 0, "the need is answered")
 visit(other)

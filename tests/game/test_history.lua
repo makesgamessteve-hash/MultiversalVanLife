@@ -107,13 +107,10 @@ for _, p in ipairs(planets) do
     if c.nation and not land then
       local country = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index)
       test.eq(country.summary.nation, c.nation, "the country's summary names its nation")
-      for l = 0, 255, 9 do
-        local gx, gz = gen.land.grid(l)
-        if gen.land.raw_height(country.data.terrain, gx * 2048, gz * 2048) > 3 then
-          land = G:generate(country.address .. ".l" .. l)
-          test.eq(land.data.nation, c.nation, "its lands belong to the nation")
-          break
-        end
+      local addr = gen.country_land(p, id, 1)
+      if addr then
+        land = G:generate(addr)
+        test.eq(land.data.nation, c.nation, "its lands belong to the nation")
       end
     end
   end

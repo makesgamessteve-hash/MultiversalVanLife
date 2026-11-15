@@ -263,6 +263,22 @@ local function subdivide(ctx)
 end
 
 -- ------------------------------------------------- continent and country
+-- The summary of country `id` (named in the language of its culture where
+-- it has one, or by the planet's history), drawn from `random(name)`.
+local function country_summary(planet, id, random)
+  local c = planet.countries[id]
+  local cul = c.culture and planet.cultures[c.culture]
+  local s = { name = names.make(random("country" .. id), "world"), id = id, capital = c.capital }
+  if c.name then
+    s.name, s.meaning, s.nation = c.name, c.meaning, c.nation
+    s.culture = cul and cul.name
+  elseif cul then
+    local n = require("gen.culture.language").name(cul.language, random("country" .. id), "country")
+    s.name, s.meaning, s.culture = n.name, n.meaning, cul.name
+  end
+  return s
+end
+
 local function continent_pass(ctx)
   local planet = ctx.parent.data
   if not planet.countries then return end
@@ -270,20 +286,21 @@ local function continent_pass(ctx)
   ctx.data.name = ctx.summary.name
   for id, c in ipairs(planet.countries) do
     if c.continent == k then
-      -- named in the language of its culture, where it has one
-      local cul = c.culture and planet.cultures[c.culture]
-      local s = { name = names.make(ctx:random("country" .. id), "world"), id = id, capital = c.capital }
-      if c.name then
-        -- named by the planet's history
-        s.name, s.meaning, s.nation = c.name, c.meaning, c.nation
-        s.culture = cul and cul.name
-      elseif cul then
-        local n = require("gen.culture.language").name(cul.language, ctx:random("country" .. id), "country")
-        s.name, s.meaning, s.culture = n.name, n.meaning, cul.name
-      end
-      ctx:child(c.index, s)
+      ctx:child(c.index, country_summary(planet, id, function(name) return ctx:random(name) end))
     end
   end
+end
+
+-- The summary of country `id` of a generated planet node, as its continent
+-- lists it (without generating the continent).
+function G.country_summary(planet, id)
+  local P = planet.data
+  local c = P.countries and P.countries[id]
+  if not c then return nil end
+  local address = require("gen.address")
+  local cseed = mvl.hash(planet.seed, address.COSMOS.by_name.continent.n, c.continent - 1)
+  local seed = address.pass_seed(cseed, "countries")
+  return country_summary(P, id, function(name) return mvl.rng(mvl.hash(seed, name)) end)
 end
 
 -- Unit vectors east and north at a point of the unit sphere.

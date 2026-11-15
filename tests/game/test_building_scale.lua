@@ -89,19 +89,11 @@ for seed = 1, 200 do
   local p = gen.stats.world(G, seed)
   local c = p and p.data.countries[1]
   if c then
-    for id, cc in ipairs(p.data.countries) do if cc.culture and not c.culture then c = cc end end
+    local cid = 1
+    for id, cc in ipairs(p.data.countries) do if cc.culture and not c.culture then c, cid = cc, id end end
     -- a land on dry ground, as the signals choose them
-    local country = G:generate(p.address .. ".k" .. (c.continent - 1) .. ".n" .. c.index)
-    local pick
-    for k = 0, 255 do
-      local li = (seed * 37 + k * 11) % 256
-      local gx, gz = land.grid(li)
-      if country.data.district and land.raw_height(country.data.terrain, gx * land.SIZE, gz * land.SIZE) > 3 then
-        pick = li
-        break
-      end
-    end
-    local l = pick and G:generate(country.address .. ".l" .. pick)
+    local pick = gen.country_land(p, cid, 1 + seed % 6)
+    local l = pick and G:generate(pick)
     local d = l and l.data or { features = {} }
     if l then lands = lands + 1 end
     test.expect(not l or (d.buildings_left_out or 0) == 0, "every building of a dry land finds a place (seed " .. seed .. ")")
@@ -131,7 +123,7 @@ for seed = 1, 200 do
           test.expect(plan.metres.door >= 2.0 and plan.metres.door_w >= 1.1, "the player fits through the door")
         end
       end
-      local h = land.raw_height(country.data.terrain, q.x + d.center[1], q.z + d.center[2])
+      local h = land.raw_height(d.terrain, q.x + d.center[1], q.z + d.center[2])
       test.expect(h > 0.5, "buildings stand on dry ground: " .. h)
     end
   end
