@@ -9,6 +9,7 @@
 -- 32 x 32 m block: the cab at the front, the hall, the cross gallery, the
 -- library, the kitchen, the living room, the conservatory with the garden
 -- door at the back and, upstairs, the landing, the bedroom and the bathroom.
+-- Beyond it the house goes on in generated blocks (gen/house/blocks.lua).
 local plan = { BLOCK = 32, LEVEL = 3.625 }
 
 local STYLES = {
@@ -106,8 +107,8 @@ local CORE = {
       { side = "e", at = -10.5, w = 1.5, h = 2.25 },
       { side = "w", at = 8.75, w = 1.75, h = 2.375, shape = "arch" },
       { side = "w", at = -8.75, w = 2.0, h = 2.5, shape = "arch" },
-      { side = "n", at = 0, w = 2.0, h = 2.5, closed = true, wing = "n" },
-      { side = "s", at = 0, w = 2.0, h = 2.5, closed = true, wing = "s" },
+      { side = "n", at = 0, w = 2.0, h = 2.5, shape = "arch", outer = true },
+      { side = "s", at = 0, w = 2.0, h = 2.5, shape = "arch", outer = true },
     },
     items = {
       { piece = "rug", x = 0, z = 0, w = 1.5, d = 29.0 },
@@ -309,6 +310,26 @@ local CORE = {
 -- The rooms of the core (the same for every game).
 function plan.core() return CORE end
 
+-- The rooms of block (bx, bz): the core, or the endless house beyond it
+-- (gen/house/blocks.lua), generated once per game seed and kept.
+local cache, cache_seed, cache_n = {}, nil, 0
+function plan.block(seed, bx, bz)
+  if bx == 0 and bz == 0 then return CORE end
+  if cache_seed ~= seed or cache_n > 400 then cache, cache_seed, cache_n = {}, seed, 0 end
+  local k = bx .. "," .. bz
+  if not cache[k] then
+    cache[k] = require("gen.house.blocks").rooms(seed, bx, bz)
+    cache_n = cache_n + 1
+  end
+  return cache[k]
+end
+
+-- Which block a point (pocket metres) is in.
+function plan.block_of(x, z)
+  local S = plan.BLOCK
+  return math.floor((x + S / 2) / S), math.floor((z + S / 2) / S)
+end
+
 function plan.room(id)
   for _, r in ipairs(CORE) do if r.id == id then return r end end
 end
@@ -327,10 +348,10 @@ plan.SPOTS = {
 -- The windows that look out of the van (portal index -> pocket position,
 -- size and facing; `ext` is the place on the van's outside they look from).
 plan.WINDOWS = {
-  { pos = { 12.0, 1.625, -3.75 }, w = 1.0, h = 1.25, yaw = -math.pi / 2, ext = { -1.44, 1.75, 1.185 }, ext_yaw = math.pi },
-  { pos = { 14.0, 1.5625, 2.5 }, w = 1.25, h = 0.75, yaw = math.pi, ext = { 1.0, 1.75, 1.185 }, ext_yaw = math.pi },
-  { pos = { 16.0, 1.625, 0 }, w = 2.75, h = 0.875, yaw = -math.pi / 2, ext = { 2.435, 1.75, 0 }, ext_yaw = -math.pi / 2 },
-  { pos = { 14.0, 1.5625, -2.5 }, w = 1.25, h = 0.75, yaw = 0, ext = { 1.0, 1.75, -1.185 }, ext_yaw = 0 },
+  { pos = { 11.875, 1.625, -3.75 }, w = 1.0, h = 1.25, yaw = -math.pi / 2, ext = { -1.44, 1.75, 1.185 }, ext_yaw = math.pi },
+  { pos = { 14.0, 1.5625, 2.375 }, w = 1.25, h = 0.75, yaw = math.pi, ext = { 1.0, 1.75, 1.185 }, ext_yaw = math.pi },
+  { pos = { 15.875, 1.625, 0 }, w = 2.75, h = 0.875, yaw = -math.pi / 2, ext = { 2.435, 1.75, 0 }, ext_yaw = -math.pi / 2 },
+  { pos = { 14.0, 1.5625, -2.375 }, w = 1.25, h = 0.75, yaw = 0, ext = { 1.0, 1.75, -1.185 }, ext_yaw = 0 },
 }
 
 return plan

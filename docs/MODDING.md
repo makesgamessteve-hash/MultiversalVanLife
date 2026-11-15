@@ -570,6 +570,17 @@ panes), stairs, holes and furniture. `gen/house/rooms.lua` turns a room into
 one voxel grid and so one mesh, plus box colliders with heights (storeys do
 not block each other); the player's floor follows rooms and stairs.
 
+Beyond the core (block 0, 0) the house is a grid of 32 m blocks without end
+(`gen/house/blocks.lua`): each block is laid out from the game's seed and
+its position by a template (`cross`, `enfilade`, `hall`, `cloister`), has a
+doorway in the middle of every side, and is styled and furnished by room
+kind (`gen/house/kinds.lua`: `kinds.KINDS[name] = { floor, wall = {
+{piece, opts, chance, count} }, middle = function(room, add), ceiling }`;
+furniture keeps the way in through every doorway clear). `lib/house.lua`
+builds the rooms within 36 m of the player, one per update, and releases
+them beyond 48 m; only the core stays while the player is outside. Deeper
+in the house than the cab and the hall, far rooms fade into a warm dusk.
+
 **Adding a piece of furniture.** Register it in `furniture.PIECES`: its size
 in voxels (1/8 m) and a draw function using a pen in the piece's own frame
 (a across, b from its front to its back, c up); placed `wall = "n"` it backs

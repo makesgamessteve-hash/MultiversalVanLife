@@ -12,6 +12,7 @@ local van = require("lib.van")
 local story = { busy = false, menu = nil, tasks = {}, shake = 0, van = van }
 
 world.inside = function() return van.inside end
+world.after_build = function() van.world_loaded() end
 world.anchor = function() return van.exterior end
 world.fixed = van.fixed
 
@@ -270,8 +271,7 @@ function story.update_trip(dt)
     else
       world.load("land", nil, { address = trip.to })
     end
-    -- keep the new world's sky for the arrival, the road's until then
-    if not trip.failed then van.between_sky() end
+
   end
   if trip.loaded and trip.t >= 3.6 then arrive(trip) end
 end

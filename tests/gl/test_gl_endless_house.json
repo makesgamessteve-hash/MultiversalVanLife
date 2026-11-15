@@ -1,0 +1,2 @@
+[{"file": "courtyard.tga", "region": [0.0, 0.0, 1.0, 1.0], "max": {"dark": 0.02}, "mean": {"min": 90}},
+ {"file": "grand.tga", "region": [0.0, 0.0, 1.0, 1.0], "max": {"dark": 0.03}, "mean": {"min": 80}}]

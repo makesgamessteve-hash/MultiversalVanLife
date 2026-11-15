@@ -70,8 +70,9 @@ for _, room in ipairs(plan.core()) do
 end
 -- the cab's seats, radio and atlas can be reached
 test.expect(reach(13.0, 0), "between the seats in the cab")
--- the closed doors keep the wings and the garden for later
-test.expect(not reach(0, 16.5) and not reach(-16.5, -8.75), "closed doors are closed")
+-- the gallery opens into the house beyond; the garden door is shut
+test.expect(reach(0, 16.5) and reach(0, -16.5), "the gallery's ends open into the house beyond the core")
+test.expect(not reach(-16.5, -8.75), "the garden door is shut")
 
 -- --------------------------------------------------------- upstairs
 -- walks forward for `frames` (Juniper's lines are skipped)
@@ -125,4 +126,9 @@ for _, room in ipairs(plan.core()) do
 end
 -- generous for debug builds with coverage (a release build takes a fraction)
 test.expect(total < 4000, string.format("the core builds in %.0f ms", total))
-test.expect(house.entity_count() < 400, "the house is affordable: " .. house.entity_count() .. " entities")
+local core = 0
+for id in pairs(house.core) do
+  local rec = house.built[id]
+  core = core + (rec.entity and 1 or 0) + #rec.colliders
+end
+test.expect(core < 400, "the core is affordable: " .. core .. " entities")

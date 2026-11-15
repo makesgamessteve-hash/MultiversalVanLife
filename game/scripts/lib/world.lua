@@ -178,6 +178,7 @@ function world.load(id, spawn, args)
   world.current = w
   world.apply_bounds()
   local sx, sz, syaw = def.build(w, spawn)
+  if world.after_build then world.after_build(w) end
   if spawn and spawn.x then sx, sz, syaw = spawn.x, spawn.z, spawn.yaw end
   w.spawn = { x = sx or 0, z = sz or 0, yaw = syaw or 0 }
   if w.streamer then

@@ -25,4 +25,4 @@ See `docs/concepts/juniper-interior.md`. Builds on the house framework of V1.
 ## Risks / Trade-offs
 
 - [Repetition] -> templates, kinds and styles mixed per block; variety measured in a test.
-- [Frame time on the web] -> one room per tick; the web smoke test walks the house.
+- [Frame time on the web] -> one room per tick; the web smoke test checks the frame rate during a trip.

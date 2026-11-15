@@ -620,6 +620,19 @@ piece("rug", { -- on the floor (not solid): o.w, o.d metres; o.pattern
   end,
 })
 
+piece("fountain", { -- a round stone basin with a spout in the middle
+  solid = true,
+  size = function() return 16, 16, 12 end,
+  draw = function(p)
+    p:cylinder(8, 8, 0, 3, 8, I.stone)
+    p:cylinder(8, 8, 1, 3, 7, I.water)
+    p:cylinder(8, 8, 3, 3, 7, 0)
+    p:cylinder(8, 8, 0, 8, 1.5, I.stone2)
+    p:cylinder(8, 8, 9, 9, 3, I.stone)
+    p:cylinder(8, 8, 10, 11, 1, I.water)
+  end,
+})
+
 piece("bust", { -- a stone head on a plinth
   solid = true,
   size = function() return 4, 4, 13 end,

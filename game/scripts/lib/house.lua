@@ -1,21 +1,25 @@
 -- Multiversal Van Life - the house inside the van at run time (MIT License).
 --
--- Builds the rooms of the plan (gen/house/plan.lua) as persistent entities
--- of the pocket (one mesh per room, invisible solid colliders with heights
--- for its walls, stairs and furniture), keeps their floors and answers the
--- floor under the player: the highest floor at most a step above their
+-- Builds the rooms of the plan (gen/house/plan.lua, gen/house/blocks.lua) as
+-- persistent entities of the pocket: one mesh per room and invisible solid
+-- colliders with heights for its walls, stairs and furniture. The core is
+-- always built; the endless house beyond it is built room by room near the
+-- player (nearest first, one per update) and released behind them. The
+-- floor under the player is the highest floor at most a step above their
 -- feet, so walking up the stairs lifts them to the landing.
 local plan = require("gen.house.plan")
 local rooms = require("gen.house.rooms")
 
 local house = {
   P = nil,             -- pocket origin (world)
-  built = {},          -- room id -> { entity, colliders = {...}, mesh }
-  floors = {},         -- { x0, z0, x1, z1, y, holes = {...} } (pocket metres)
+  seed = 1,            -- the game's seed (the endless house depends on it)
+  built = {},          -- room id -> { entity, colliders = {...}, mesh, room }
   ramps = {},          -- { x0, z0, x1, z1, y, rise } rising towards +X
-  rooms = {},          -- room id -> room
   STEP = 0.55,
-  seed = 1,
+  BUILD = 36,          -- rooms within this distance (m) are built ...
+  DROP = 48,           -- ... and released beyond this one
+  core = {},           -- ids of the core's rooms (never released)
+  front = { cab = true, hall = true }, -- rooms that look out of the van's windows
 }
 
 local function spawn_collider(P, c)
@@ -25,13 +29,12 @@ local function spawn_collider(P, c)
 end
 
 -- Extra colliders of a flight of stairs: the cupboard under it (blocks the
--- floor at its foot only), the banister along its open side (blocks
--- everyone on the flight and on the floor above) and the railing at the
--- top's low end.
+-- floor at its foot only, where the flight is higher than its top for a
+-- player's radius), the banister along its open side (blocks everyone on
+-- the flight and on the floor above) and the railing at the top's low end.
 local function stair_colliders(st)
   local out = {}
   local run = st.x1 - st.x0
-  -- (it starts where the flight is higher than its top for a player's radius)
   out[#out + 1] = { x0 = st.x0 + run * 0.21, x1 = st.x1, z0 = st.z0, z1 = st.z1, y = st.y, h = 0.4 }
   local zb = st.open == "n" and st.z1 or st.z0 - 0.125
   out[#out + 1] = { x0 = st.x0 + run * 0.12, x1 = st.x1, z0 = zb, z1 = zb + 0.125, y = st.y + 0.5, h = st.rise + 0.6 }
@@ -44,35 +47,70 @@ function house.build_room(room)
   if house.built[room.id] then return house.built[room.id] end
   local P = house.P
   local b = rooms.build(room, house.seed)
-  local rec = { colliders = {}, mesh = b.mesh }
+  local rec = { colliders = {}, mesh = b.mesh, room = room }
   if b.mesh and b.mesh > 0 then
     local l = room.light or { 1, 1, 1 }
     rec.entity = mvl.spawn({ mesh = b.mesh, pos = { P[1] + b.pos[1], P[2] + b.pos[2], P[3] + b.pos[3] },
-                             unlit = true, nofog = true, persistent = true, snap = false,
+                             unlit = true, nofog = not room.fog, persistent = true, snap = false,
                              color = { l[1], l[2], l[3], 1 } })
   end
   for _, c in ipairs(b.colliders) do rec.colliders[#rec.colliders + 1] = spawn_collider(P, c) end
   for _, st in ipairs(room.stairs or {}) do
     if room.y <= st.y + 0.01 then
       for _, c in ipairs(stair_colliders(st)) do rec.colliders[#rec.colliders + 1] = spawn_collider(P, c) end
-      house.ramps[#house.ramps + 1] = { x0 = st.x0, z0 = st.z0, x1 = st.x1, z1 = st.z1, y = st.y, rise = st.rise }
     end
   end
-  house.floors[#house.floors + 1] = { x0 = room.x0, z0 = room.z0, x1 = room.x1, z1 = room.z1, y = room.y,
-                                      holes = room.holes, id = room.id }
-  house.rooms[room.id] = room
   house.built[room.id] = rec
   return rec
 end
 
--- Builds the house at pocket origin P (the core, every room at once).
+-- Releases a built room (its mesh and colliders).
+function house.release_room(id)
+  local rec = house.built[id]
+  if not rec or house.core[id] then return end
+  if rec.entity then mvl.destroy(rec.entity) end
+  for _, c in ipairs(rec.colliders) do mvl.destroy(c) end
+  if rec.mesh and rec.mesh > 0 then mvl.release_mesh(rec.mesh) end
+  house.built[id] = nil
+end
+
+-- Builds the house at pocket origin P: the core, every room at once.
 function house.build(P, seed)
   house.P = P
   house.seed = seed or 1
-  for _, room in ipairs(plan.core()) do house.build_room(room) end
+  house.ramps = {}
+  for _, room in ipairs(plan.core()) do
+    house.core[room.id] = true
+    house.build_room(room)
+    for _, st in ipairs(room.stairs or {}) do
+      if room.y <= st.y + 0.01 then
+        house.ramps[#house.ramps + 1] = { x0 = st.x0, z0 = st.z0, x1 = st.x1, z1 = st.z1, y = st.y, rise = st.rise }
+      end
+    end
+  end
+end
+
+-- Releases every room but the core's (the player has left the van).
+function house.release_all()
+  local ids = {}
+  for id in pairs(house.built) do if not house.core[id] then ids[#ids + 1] = id end end
+  for _, id in ipairs(ids) do house.release_room(id) end
+end
+
+-- A new game: the endless house of another seed.
+function house.set_seed(seed)
+  if seed == house.seed then return end
+  house.release_all()
+  house.seed = seed
 end
 
 local function inside(r, x, z) return x >= r.x0 and x <= r.x1 and z >= r.z0 and z <= r.z1 end
+
+-- the rooms of the block a point (pocket metres) is in
+local function block_rooms(x, z)
+  local bx, bz = plan.block_of(x, z)
+  return plan.block(house.seed, bx, bz)
+end
 
 -- The floor height (pocket metres) under (x, z) for feet at height y.
 function house.floor_local(x, z, y)
@@ -84,7 +122,7 @@ function house.floor_local(x, z, y)
       below = h
     end
   end
-  for _, f in ipairs(house.floors) do
+  for _, f in ipairs(block_rooms(x, z)) do
     if inside(f, x, z) then
       local hole = false
       for _, h in ipairs(f.holes or {}) do if x > h.x0 and x < h.x1 and z > h.z0 and z < h.z1 then hole = true end end
@@ -103,10 +141,10 @@ function house.floor(x, z, y)
   return P[2] + house.floor_local(x - P[1], z - P[3], y - P[2])
 end
 
--- The room the point (pocket metres) is in, on the floor nearest y.
+-- The room a point (pocket metres) is in, on the floor nearest y.
 function house.room_at(x, z, y)
   local best, bd
-  for id, room in pairs(house.rooms) do
+  for _, room in ipairs(block_rooms(x, z)) do
     if inside(room, x, z) and y >= room.y - 0.6 then
       local d = y - room.y
       if not bd or d < bd then best, bd = room, d end
@@ -115,11 +153,70 @@ function house.room_at(x, z, y)
   return best
 end
 
--- Number of entities of the house (rooms and colliders).
-function house.entity_count()
+-- Where the player is: "front" (the cab and the hall, which look out of the
+-- van) or "house".
+function house.zone(x, z, y)
+  local r = house.room_at(x, z, y)
+  return (r and house.front[r.id]) and "front" or "house"
+end
+
+local function dist(r, x, z)
+  local dx = math.max(r.x0 - x, 0, x - r.x1)
+  local dz = math.max(r.z0 - z, 0, z - r.z1)
+  return math.sqrt(dx * dx + dz * dz)
+end
+
+-- The rooms within r metres of (x, z) (pocket metres), nearest first.
+function house.rooms_near(x, z, r)
+  local out = {}
+  local bx0, bz0 = plan.block_of(x - r, z - r)
+  local bx1, bz1 = plan.block_of(x + r, z + r)
+  for bx = bx0, bx1 do
+    for bz = bz0, bz1 do
+      for _, room in ipairs(plan.block(house.seed, bx, bz)) do
+        local d = dist(room, x, z)
+        if d <= r then out[#out + 1] = { room = room, d = d } end
+      end
+    end
+  end
+  table.sort(out, function(a, b)
+    if a.d ~= b.d then return a.d < b.d end
+    return a.room.id < b.room.id
+  end)
+  return out
+end
+
+-- Every update while the player is inside: builds the nearest missing room
+-- (up to `budget` rooms) and releases rooms far behind. Coordinates are
+-- pocket metres.
+function house.update(x, z, budget)
+  local far = {}
+  for id, rec in pairs(house.built) do
+    if not house.core[id] and dist(rec.room, x, z) > house.DROP then far[#far + 1] = id end
+  end
+  for _, id in ipairs(far) do house.release_room(id) end
   local n = 0
-  for _, rec in pairs(house.built) do n = n + (rec.entity and 1 or 0) + #rec.colliders end
+  for _, e in ipairs(house.rooms_near(x, z, house.BUILD)) do
+    if not house.built[e.room.id] then
+      house.build_room(e.room)
+      n = n + 1
+      if n >= (budget or 1) then break end
+    end
+  end
   return n
+end
+
+-- Builds everything near (x, z) at once (entering the van, tests).
+function house.fill(x, z) return house.update(x, z, math.huge) end
+
+-- Number of entities of the house (rooms and colliders) and of built rooms.
+function house.entity_count()
+  local n, r = 0, 0
+  for _, rec in pairs(house.built) do
+    n = n + (rec.entity and 1 or 0) + #rec.colliders
+    r = r + 1
+  end
+  return n, r
 end
 
 return house

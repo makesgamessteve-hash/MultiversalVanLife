@@ -73,7 +73,7 @@ function van.build()
   if van.built then return end
   van.built = true
   local px, py, pz = van.P[1], van.P[2], van.P[3]
-  house.build(van.P, 1)
+  house.build(van.P, require("lib.progress").seed())
   van.entities.between = build_between()
   -- filled in place: the world module holds a reference to this table
   local function fixed(t)
@@ -124,22 +124,42 @@ function van.update_windows()
   end
 end
 
--- The sky of the road between worlds replaces the world's while travelling;
--- the world's own (kept here) comes back on arrival.
-function van.between_sky()
-  van.saved_env = mvl.environment_save()
-  mvl.environment(van.BETWEEN_ENV)
-  mvl.sky(van.BETWEEN_SKY)
+-- ------------------------------------------------------ light and sky
+-- What the player sees beyond the house follows where they are: the world's
+-- sky in the cab and the hall (whose windows look out), a warm dusk deeper
+-- in the house (far rooms fade into it), the road between worlds' night
+-- while travelling.
+van.HOUSE_ENV = {
+  reset = true, sky_top = { 0.12, 0.08, 0.06 }, sky_horizon = { 0.2, 0.14, 0.1 }, fog_color = { 0.2, 0.14, 0.1 },
+  fog_near = 24, fog_far = 46, ambient = { 1, 1, 1 }, sun_dir = { -0.3, -1, -0.2 }, sun_color = { 0.4, 0.38, 0.34 },
+  stars = 0,
+}
+
+-- The world's own environment, kept when a world has been built.
+function van.world_loaded()
+  van.world_env = mvl.environment_save()
+  van.env = nil
+  van.apply_env()
+end
+
+function van.apply_env()
+  local want = van.travelling and "between" or (van.inside and van.zone == "house" and "house") or "world"
+  if want == van.env then return end
+  van.env = want
+  if want == "between" then
+    mvl.environment(van.BETWEEN_ENV)
+    mvl.sky(van.BETWEEN_SKY)
+  elseif want == "house" then
+    mvl.environment(van.HOUSE_ENV)
+    mvl.sky({})
+  elseif van.world_env then
+    mvl.environment_load(van.world_env)
+  end
 end
 
 function van.set_travelling(on)
-  if on and not van.travelling then
-    van.between_sky()
-  elseif not on and van.travelling and van.saved_env then
-    mvl.environment_load(van.saved_env)
-    van.saved_env = nil
-  end
   van.travelling = on
+  van.apply_env()
   van.update_windows()
 end
 
@@ -157,18 +177,25 @@ end
 -- circular module dependencies.
 function van.enter(player, world)
   van.build()
+  van.player = player
+  house.set_seed(require("lib.progress").seed())
   van.inside = true
+  van.zone = "front"
   player.indoors = true
   player.base_y = van.P[2]
   player.indoor_floor = house.floor
   player.place(van.P[1] + van.ENTRY[1], van.P[3] + van.ENTRY[2], van.ENTRY[3])
   mvl.bounds(van.P[1] - van.BOUNDS, van.P[3] - van.BOUNDS, van.P[1] + van.BOUNDS, van.P[3] + van.BOUNDS)
+  house.fill(van.ENTRY[1], van.ENTRY[2])
+  van.apply_env()
   audio.scape("van")
 end
 
 -- Puts the player outside at (x, z, yaw).
 function van.exit(player, world, x, z, yaw)
   van.inside = false
+  house.release_all()           -- only the core stays while the player is out
+  van.apply_env()
   player.indoors = false
   player.base_y = 0
   player.place(x, z, yaw)
@@ -178,6 +205,16 @@ end
 
 function van.update(dt)
   if not van.built then return end
+  local pl = van.player
+  if van.inside and pl then
+    local lx, lz, ly = pl.x - van.P[1], pl.z - van.P[3], (pl.base_y or van.P[2]) - van.P[2]
+    house.update(lx, lz)
+    local zone = house.zone(lx, lz, ly)
+    if zone ~= van.zone then
+      van.zone = zone
+      van.apply_env()
+    end
+  end
   local b = van.entities.between
   if van.travelling and b then
     local t = mvl.time()
