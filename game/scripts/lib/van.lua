@@ -193,6 +193,11 @@ function van.apply_env()
 end
 
 function van.set_travelling(on)
+  -- the destination needs the room: only the core stays during a trip
+  if on then
+    house.release_all()
+    garden.clear()
+  end
   van.travelling = on
   van.apply_env()
   van.update_windows()
@@ -223,7 +228,7 @@ function van.enter(player, world)
   player.indoor_floor = house.floor
   player.place(van.P[1] + van.ENTRY[1], van.P[3] + van.ENTRY[2], van.ENTRY[3])
   mvl.bounds(van.P[1] - van.BOUNDS, van.P[3] - van.BOUNDS, van.P[1] + van.BOUNDS, van.P[3] + van.BOUNDS)
-  house.fill(van.ENTRY[1], van.ENTRY[2])
+  house.fill(van.ENTRY[1], van.ENTRY[2], house.FRONT)
   van.apply_env()
   audio.scape("van")
 end
@@ -282,8 +287,8 @@ function van.update(dt)
     end
     if zone == "garden" then
       garden.update(pl.x, pl.z)
-    else
-      house.update(lx, lz)
+    elseif not van.travelling then
+      house.update(lx, lz, 1, zone == "front" and house.FRONT or house.BUILD)
       if zone == "conservatory" then
         garden.update(GD.x - 16, GD.z, garden.NEAR)   -- what the door shows
       elseif garden.count > 0 then

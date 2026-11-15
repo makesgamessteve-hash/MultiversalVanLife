@@ -577,8 +577,10 @@ doorway in the middle of every side, and is styled and furnished by room
 kind (`gen/house/kinds.lua`: `kinds.KINDS[name] = { floor, wall = {
 {piece, opts, chance, count} }, middle = function(room, add), ceiling }`;
 furniture keeps the way in through every doorway clear). `lib/house.lua`
-builds the rooms within 36 m of the player, one per update, and releases
-them beyond 48 m; only the core stays while the player is outside. Deeper
+builds the rooms within 36 m of the player (22 m from the cab and the
+hall), one per update, and releases them behind; only the core stays while
+the player is outside or travelling, and the house gives way to the world
+when entities run short (`house.CAP`, `house.SHED`). Deeper
 in the house than the cab and the hall, far rooms fade into a warm dusk.
 
 **Souvenir wings** (`gen/house/wings.lua`): the first visit to a land of a

@@ -11,7 +11,7 @@
 local G = require("gen.house.garden")
 
 local garden = { G = G, seed = nil, loaded = {}, count = 0, meshes = {}, house = nil, LOAD = 3, UNLOAD = 4,
-                 NEAR = 2, stats = { built = 0, max = 0 } }
+                 NEAR = 2, CAP = 1800, stats = { built = 0, max = 0 } }
 
 local function key(a, b) return a .. "," .. b end
 
@@ -286,6 +286,7 @@ function garden.update(x, z, load, budget)
     for dz = -r, r do
       for dx = -r, r do
         if math.max(math.abs(dx), math.abs(dz)) == r and not garden.loaded[key(pcx + dx, pcz + dz)] then
+          if mvl.entity_count() > garden.CAP then return built end -- never crowd out the world
           garden.build(pcx + dx, pcz + dz)
           built = built + 1
           if built >= limit then return built end

@@ -54,6 +54,7 @@ local function flood(x0, z0, level)
   end, n
 end
 local e = van.ENTRY
+house.fill(0, 0)           -- the rooms round the core, as walking through it builds them
 local reach, cells = flood(e[1], e[2], 0)
 test.expect(cells > 3000, "a large ground floor: " .. cells .. " cells")
 -- a free spot in each room of a storey (its doorway side is enough)

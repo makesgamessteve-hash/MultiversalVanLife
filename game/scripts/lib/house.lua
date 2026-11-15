@@ -18,6 +18,9 @@ local house = {
   STEP = 0.55,
   BUILD = 36,          -- rooms within this distance (m) are built ...
   DROP = 48,           -- ... and released beyond this one
+  FRONT = 22,          -- ... or this one from the cab and the hall (the world outside needs the room)
+  CAP = 1450,          -- the world comes first: no new rooms above this many entities ...
+  SHED = 1750,         -- ... and the farthest rooms go above this many
   core = {},           -- ids of the core's rooms (never released)
   front = { cab = true, hall = true }, -- rooms that look out of the van's windows
   fixed = {},          -- where the house's interactables go (the van's, see lib/van.lua)
@@ -238,25 +241,39 @@ end
 -- Every update while the player is inside: builds the nearest missing room
 -- (up to `budget` rooms) and releases rooms far behind. Coordinates are
 -- pocket metres.
-function house.update(x, z, budget)
+function house.update(x, z, budget, radius)
+  radius = radius or house.BUILD
   local far = {}
   for id, rec in pairs(house.built) do
-    if not house.core[id] and dist(rec.room, x, z) > house.DROP then far[#far + 1] = id end
+    if not house.core[id] and dist(rec.room, x, z) > math.max(radius + 12, house.FRONT + 12) then
+      far[#far + 1] = { id = id, d = dist(rec.room, x, z) }
+    end
   end
-  for _, id in ipairs(far) do house.release_room(id) end
+  for _, f in ipairs(far) do house.release_room(f.id) end
+  -- the world outside comes first: shed the farthest rooms when entities run
+  -- short, and build no more
+  if mvl.entity_count() > house.SHED then
+    local list = {}
+    for id, rec in pairs(house.built) do
+      if not house.core[id] then list[#list + 1] = { id = id, d = dist(rec.room, x, z) } end
+    end
+    table.sort(list, function(a, b) return a.d > b.d end)
+    for i = 1, math.min(#list, 8) do house.release_room(list[i].id) end
+  end
   local n = 0
-  for _, e in ipairs(house.rooms_near(x, z, house.BUILD)) do
+  if mvl.entity_count() > house.CAP then return 0 end
+  for _, e in ipairs(house.rooms_near(x, z, radius)) do
     if not house.built[e.room.id] then
       house.build_room(e.room)
       n = n + 1
-      if n >= (budget or 1) then break end
+      if n >= (budget or 1) or mvl.entity_count() > house.CAP then break end
     end
   end
   return n
 end
 
 -- Builds everything near (x, z) at once (entering the van, tests).
-function house.fill(x, z) return house.update(x, z, math.huge) end
+function house.fill(x, z, radius) return house.update(x, z, math.huge, radius) end
 
 -- Number of entities of the house (rooms and colliders) and of built rooms.
 function house.entity_count()
