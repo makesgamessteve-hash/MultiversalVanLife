@@ -1,6 +1,6 @@
 # Procedural multiverse roadmap
 
-The procedural multiverse is built in small phases (1–25 and V1–V4 done, 26–33 planned; Juniper's interior V1–V4
+The procedural multiverse is built in small phases (1–26 and V1–V4 done, 27–33 planned; Juniper's interior V1–V4
 came before 26). Each phase is a separate
 OpenSpec change in `openspec/changes/`, implemented, tested and archived on its own,
 so the main specs in `openspec/specs/` always describe the game as shipped.
@@ -39,7 +39,7 @@ Rules for every phase:
 | 23 | `p23-codex` | 4 | signals-and-codex, world-memory | done |
 | 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | done |
 | 25 | `p25-human-scale-buildings` | 4 | procedural-visuals | done |
-| 26 | `p26-planet-atlas` | 4 | planet-generation | planned |
+| 26 | `p26-planet-atlas` | 4 | planet-generation | done |
 | 27 | `p27-surface-grid-and-regions` | 5 | multiverse-generation, land-streaming, save-games | planned |
 | 28 | `p28-settlement-network-and-roads` | 5 | settlements (new), history-generation | planned |
 | 29 | `p29-streaming-batching-and-lod` | 5 | rendering, land-streaming, engine-core | planned |

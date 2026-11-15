@@ -71,8 +71,15 @@ do
     end
   end
 end
+-- the kind of each meaning (in a fixed order of kinds: a meaning listed under
+-- two kinds must get the same one in every run)
 L.KIND = {}
-for kind, list in pairs(L.MEANINGS) do for _, m in ipairs(list) do L.KIND[m] = L.KIND[m] or kind end end
+do
+  local kinds = {}
+  for kind in pairs(L.MEANINGS) do kinds[#kinds + 1] = kind end
+  table.sort(kinds)
+  for _, kind in ipairs(kinds) do for _, m in ipairs(L.MEANINGS[kind]) do L.KIND[m] = L.KIND[m] or kind end end
+end
 local SHORT = {}
 for _, k in ipairs({ "kin", "number", "sacred", "sky" }) do for _, m in ipairs(L.MEANINGS[k]) do SHORT[m] = true end end
 
@@ -243,7 +250,7 @@ function L.name(lang, rng, kind, fixed)
     local b = fixed and fixed[2] or L.MEANINGS[t[2]][rng:int(1, #L.MEANINGS[t[2]])]
     local word = join(lang, { lang.lexicon[a], lang.lexicon[b] })
     local fmt = (fixed and fixed.format) or t[3]
-    local second = L.KIND[b] == "motion" and b or title(b)
+    local second = ((fixed and L.KIND[b] or t[2]) == "motion") and b or title(b)
     local gloss = string.format(fmt, title(a), second)
     gloss = gloss:gsub("^the ", "The ")
     best = { name = title(word:gsub("'$", "")), meaning = gloss, roots = { a, b } }
@@ -258,7 +265,12 @@ end
 -- The word for a meaning (and back).
 function L.word(lang, meaning) return lang.lexicon[meaning] end
 function L.translate(lang, word)
-  for m, w in pairs(lang.lexicon) do if w == word:lower() then return m end end
+  -- the first meaning in alphabetical order when two share a word
+  local found
+  for m, w in pairs(lang.lexicon) do
+    if w == word:lower() and (not found or m < found) then found = m end
+  end
+  return found
 end
 
 -- --------------------------------------------------------- sound changes

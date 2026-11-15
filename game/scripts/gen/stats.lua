@@ -57,7 +57,8 @@ end
 -- Counts over `n` seeds (from `first`, default 1).
 function S.collect(registry, run, n, first)
   local st = { planets = 0, biome_sig = {}, biomes = {}, body_plans = {}, religion_sources = {}, tech_levels = {},
-               tension_kinds = {} }
+               tension_kinds = {}, land_uses = {}, settlement_ranks = {}, settled = 0, with_roads = 0, with_lanes = 0,
+               settlements = 0 }
   first = first or 1
   for seed = first, first + n - 1 do
     local G = run.new(registry, { seed = seed, mods = {} })
@@ -81,6 +82,19 @@ function S.collect(registry, run, n, first)
       for _, c in ipairs(P.cultures or {}) do add(st.tech_levels, c.tech and c.tech.level or 0) end
       for _, c in ipairs(P.countries or {}) do
         for _, t in ipairs(c.tensions or {}) do add(st.tension_kinds, t.kind) end
+      end
+      -- the atlas: land use, settlements and routes
+      local a = P.atlas
+      if a then
+        for i = 1, #P.cells.elevation do
+          local u = P.cells.land_use[i]
+          if u and u ~= "water" then add(st.land_uses, u) end
+        end
+        for _, sv in ipairs(a.settlements) do add(st.settlement_ranks, sv.rank) end
+        st.settlements = st.settlements + #a.settlements
+        if #a.settlements > 0 then st.settled = st.settled + 1 end
+        if a.roads > 0 then st.with_roads = st.with_roads + 1 end
+        if a.sea_lanes > 0 then st.with_lanes = st.with_lanes + 1 end
       end
     end
   end
@@ -109,6 +123,9 @@ function S.metrics(st)
     religion_sources = distinct(st.religion_sources), religion_source_share = max_share(st.religion_sources),
     tech_levels = distinct(st.tech_levels),
     tension_kinds = distinct(st.tension_kinds), tension_kind_share = max_share(st.tension_kinds),
+    land_uses = distinct(st.land_uses), settlement_ranks = distinct(st.settlement_ranks),
+    settled_planets = st.settled, planets_with_roads = st.with_roads, planets_with_sea_lanes = st.with_lanes,
+    settlements_per_planet = st.planets > 0 and math.floor(st.settlements / st.planets + 0.5) or 0,
   }
 end
 
@@ -140,7 +157,8 @@ end
 -- A report of the counts (the most common first).
 function S.report(st)
   local out = {}
-  for _, k in ipairs({ "biome_sig", "body_plans", "religion_sources", "tech_levels", "tension_kinds" }) do
+  for _, k in ipairs({ "biome_sig", "body_plans", "religion_sources", "tech_levels", "tension_kinds", "land_uses",
+                       "settlement_ranks" }) do
     local list = {}
     for name, n in pairs(st[k]) do list[#list + 1] = { name = tostring(name), n = n } end
     table.sort(list, function(a, b) return a.n > b.n or (a.n == b.n and a.name < b.name) end)

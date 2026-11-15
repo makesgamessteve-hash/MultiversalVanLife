@@ -624,6 +624,45 @@ where green, stone, sand and dirt entirely), the terrain's vertex palette
 in the bedrock's colour) and three voxel boulder shapes per land, scattered
 through its chunks. Crystal biomes keep their own colours.
 
+## The planet atlas
+
+After history, a planet pass (`gen/plan/atlas.lua`) works out where people
+live, per cell:
+
+- `fertility` (0..1): warmth, rain, soil (by biome), slope, fresh water
+  (rivers count most in dry lands) and magic.
+- `population` (people per km²): fertility times how the people feed
+  themselves (farming, herding, foraging) and their technology (industry
+  from steam power on), times history (capitals and the cells round them
+  attract people; wars, plagues and collapses thin them out; golden ages,
+  expansions and migrations grow them) and present tensions (drought,
+  famine, epidemics); a people always lives on, thinly, where the land
+  feeds little.
+- `urban`: the share of people in towns and cities (technology, rivers,
+  coasts, hierarchy, capitals; herders almost none).
+- `land_use`: farmland, orchards, pasture, managed forest, mines, sacred,
+  wild or barren ("water" on the sea and lakes).
+
+`P.atlas` holds the settlement seeds of the cells (cities where many town
+people live, towns by the number of people and always one in a fertile
+river valley, camps of herders; each with its position inside the cell,
+people, founding year, capital, port, river and spaceport flags and a name
+in its people's language) and the trade routes between them: one search
+over land from every settlement finds where their areas meet; a spanning
+network of those links plus the short extra ones become roads, and the
+same over open water between the ports of seafaring peoples become sea
+lanes. Uninhabited worlds have land use but no people, settlements or
+routes. The bible tells the atlas in a paragraph; the variety statistics
+count land uses, settlement ranks, settled planets and planets with roads
+and sea lanes.
+
+**Asking about a place**: `gen.plan.at(G, planet, lat, lon)` answers from
+the planet alone (nothing below it is generated): the cell, water, biome,
+elevation, country and culture, fertility and people (interpolated), land
+use, the nearest settlements (km and compass direction) and the nearest
+route; `gen.plan.tell(answer)` makes a sentence of it ("the town of X is
+120 km to the north-east").
+
 ## Lands and chunks
 
 `gen/chunks.lua` turns land descriptions into the walkable world. A world

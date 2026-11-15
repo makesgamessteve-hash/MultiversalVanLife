@@ -421,6 +421,25 @@ mvl.destroy(body)                               -- also destroys the head
 assert(not mvl.exists(head))
 ```
 
+### The planet's plan
+
+Every peopled planet has an atlas (see WORLDGEN.md): per cell fertility,
+people per km², the share living in towns and land use, and its cities,
+towns and camps (`planet.data.atlas.settlements`) joined by roads and sea
+lanes (`planet.data.atlas.routes`). `gen.plan.at` answers what is at any
+latitude and longitude without generating anything below the planet:
+
+<!-- example -->
+```lua
+local gen = require("gen")
+local G = gen.run.new(gen.cosmos, { seed = 6, mods = {} })
+local planet = gen.stats.world(G, 6)                       -- a peopled planet
+local town = planet.data.atlas.settlements[1]
+local here = gen.plan.at(G, planet, town.lat + 0.5, town.lon)
+assert(here.land_use and here.country and here.settlements[1].km >= 0)
+mvl.log(gen.plan.tell(here))                               -- "the town of ... is 55 km to the south"
+```
+
 ## Plants and creatures
 
 Generated species become voxel models at runtime (`gen/visuals/plants.lua`,
