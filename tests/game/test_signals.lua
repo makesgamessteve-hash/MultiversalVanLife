@@ -34,8 +34,8 @@ for night = 1, 40 do
   end
 end
 
--- the console describes them in Juniper's words
-H.use("console")
+-- the radio describes them in Juniper's words
+H.use("radio")
 local said, calls = H.collect_lines(), 0
 for _, text in ipairs(said) do if tostring(text):find("A call from", 1, true) then calls = calls + 1 end end
 test.eq(calls, 3, "Juniper describes the three signals")

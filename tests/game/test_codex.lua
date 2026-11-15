@@ -91,13 +91,12 @@ K.reset()
 test.expect(K.known(saint_id) and K.get(saint_id).versions[1].by == teller, "the codex is read back from the save")
 
 -- ------------------------------------------------------- asking why
--- open the codex from the van's console
+-- open the codex from the road atlas in the van's cab
 H.use("Enter the van")
 H.finish_dialogue()
-H.use("console")
-H.finish_dialogue()
+H.use("atlas")
 H.choose(D.story.menu, "Codex")
-test.expect(C.active, "the console opens the codex")
+test.expect(C.active, "the atlas opens the codex")
 test.press("right") -- Places
 test.press("right") -- Peoples
 test.eq(C.TABS[C.tab].id, "peoples", "the peoples tab")

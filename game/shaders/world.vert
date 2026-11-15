@@ -31,7 +31,7 @@ void main() {
     vec4 viewPos = uView * world;
     vec4 clip = uProj * viewPos;
     // snap to the low resolution pixel grid for that wobbly retro look
-    if (clip.w > 0.0) {
+    if (clip.w > 0.0 && uSnap.x > 0.0) {
         vec2 ndc = clip.xy / clip.w;
         ndc = floor(ndc * uSnap + 0.5) / uSnap;
         clip.xy = ndc * clip.w;

@@ -32,7 +32,7 @@ test.expect(math.abs(test.voice_volume(hum) - audio.SCAPES.van.volume) < 0.01, "
 
 -- travelling: the travel sound plays over the hum, which carries on
 H.finish_dialogue()
-H.use("console")
+H.use("radio")
 H.finish_dialogue()
 H.choose(D.story.menu, "Signal")
 test.wait(5)

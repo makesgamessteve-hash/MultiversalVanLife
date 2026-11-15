@@ -55,7 +55,7 @@ The van's interior is rebuilt as a home without end before phase 26 (see the
 
 | Phase | Change | Tasks | Specs touched | Status |
 |---|---|---|---|---|
-| V1 | `v1-cosy-core` | 6 | van-interior (new), van-windows, story-and-worlds, scripting-api | planned |
+| V1 | `v1-cosy-core` | 6 | van-interior (new), van-windows, story-and-worlds, scripting-api | done |
 | V2 | `v2-endless-house` | 4 | van-interior | planned |
 | V3 | `v3-souvenir-wings` | 3 | van-interior | planned |
 | V4 | `v4-garden-planet` | 4 | van-interior, scripting-api | planned |

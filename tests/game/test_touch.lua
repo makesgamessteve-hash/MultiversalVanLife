@@ -20,16 +20,16 @@ test.touch("move", 2, 0.75, 0.4)
 test.wait(2)
 test.touch("up", 2)
 test.expect(p.yaw ~= yaw0, "dragging turned the camera")
--- USE button (bottom right) talks to the console
-H.face(0, 0, 1.4)
+-- USE button (bottom right) tunes the radio in the cab
+H.face(game.debug.van.P[1] + game.debug.van.RADIO[1], game.debug.van.P[3] + game.debug.van.RADIO[2], 1.2)
 local aspect = 16 / 9
 local bx = (aspect - 0.17) / aspect
 test.touch("down", 3, bx, 0.78)
 test.wait(2)
 test.touch("up", 3)
 test.wait(2)
-test.expect(game.debug.story.menu ~= nil, "console opened via touch")
--- menus can be tapped: the console (once Juniper has spoken), then the pause menu
+test.expect(game.debug.story.menu ~= nil, "the radio opened via touch")
+-- menus can be tapped: the radio (once Juniper has spoken), then the pause menu
 H.finish_dialogue()
 local menu = game.debug.story.menu
 test.wait(2)
@@ -44,7 +44,7 @@ end
 local not_yet
 for i, it in ipairs(menu.items) do if it.label == "Not yet" then not_yet = i end end
 tap_item(menu, not_yet)
-test.eq(game.debug.story.menu, nil, "tapping 'Not yet' closes the console")
+test.eq(game.debug.story.menu, nil, "tapping 'Not yet' closes the radio")
 game.debug.open_pause()
 test.wait(2)
 local pm = game.debug.pause_menu()

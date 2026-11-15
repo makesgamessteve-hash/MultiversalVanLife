@@ -5,8 +5,8 @@ local prog = D.progress
 local story = D.story
 H.new_game_in_van(4)
 H.travel("Signal")
--- the console offers going home when away
-H.use("console")
+-- the radio offers going home when away
+H.use("radio")
 H.finish_dialogue()
 local labels = {}
 for _, it in ipairs(story.menu.items) do labels[#labels + 1] = it.label end
@@ -17,7 +17,7 @@ test.eq(story.menu, nil, "menu closed with back")
 -- two lands helped: no milestone yet
 prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l1")
 prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l2")
-H.use("console")
+H.use("radio")
 H.finish_dialogue()
 H.choose(story.menu, "Home")
 test.until_true(function() return not story.busy end, 1200, "home")
@@ -30,7 +30,7 @@ H.travel("Signal")
 prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l3")
 prog.set_helped("u5.g1.c0.s0.p0.k0.n0.l3") -- counted once
 test.eq(prog.helped_total(), 3, "three lands helped")
-H.use("console")
+H.use("radio")
 H.finish_dialogue()
 H.choose(story.menu, "Home")
 test.until_true(function() return not story.busy end, 1200, "home")

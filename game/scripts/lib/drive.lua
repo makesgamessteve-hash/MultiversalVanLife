@@ -1,7 +1,7 @@
 -- Multiversal Van Life - driving Juniper around a land (MIT License).
 --
--- In a generated land the player can sit in the driver's seat at the front
--- of the interior and drive the van: move forward/back accelerates, brakes
+-- In a generated land the player can sit in the driver's seat in the cab at
+-- the front of the house and drive the van: move forward/back accelerates, brakes
 -- and reverses, left/right steers (more at speed), run gives a little more
 -- speed. The player stays seated in the interior pocket; the van outside
 -- (its model, roof lamp and light, door, window portals and the streaming
@@ -23,8 +23,8 @@ local D = {
   RADIUS = 1.3,               -- collision circle of the van
   LENGTH = 3.0, WIDTH = 1.8,  -- wheelbase and track (for following the ground)
   WADE = -0.4,                -- deeper than this below sea level stops the van
-  SEAT = { 2.15, 0 },         -- the driver's head in the interior (local x, z)
-  STAND = { 1.4, 0.9 },       -- where the player stands after getting up
+  SEAT = { 13.25, 1.0 },      -- the driver's head in the cab (pocket x, z)
+  STAND = { 12.5, 0 },        -- where the player stands after getting up
   SEATED_EYE = 1.35,
   orbit = 0, cam = nil,
 }

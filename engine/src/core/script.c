@@ -114,6 +114,7 @@ static void apply_entity_fields(lua_State *L, mvl_entity *en, int t) {
     en->pitch = opt_field_num(L, t, "pitch", en->pitch);
     en->roll = opt_field_num(L, t, "roll", en->roll);
     en->radius = opt_field_num(L, t, "radius", en->radius);
+    en->height = opt_field_num(L, t, "height", en->height);
     v[0] = en->half_x; v[1] = en->half_z;
     if (read_vec(L, t, "box", v, 2)) {
         en->half_x = v[0] * 0.5f;
@@ -125,6 +126,7 @@ static void apply_entity_fields(lua_State *L, mvl_entity *en, int t) {
     set_flag(&en->flags, MVL_ENT_SOLID, opt_field_bool(L, t, "solid", (en->flags & MVL_ENT_SOLID) != 0));
     set_flag(&en->flags, MVL_ENT_DECAL, opt_field_bool(L, t, "decal", (en->flags & MVL_ENT_DECAL) != 0));
     set_flag(&en->flags, MVL_ENT_PERSISTENT, opt_field_bool(L, t, "persistent", (en->flags & MVL_ENT_PERSISTENT) != 0));
+    set_flag(&en->flags, MVL_ENT_NOSNAP, !opt_field_bool(L, t, "snap", (en->flags & MVL_ENT_NOSNAP) == 0));
     {
         float layer = opt_field_num(L, t, "layer", (float)en->layer);
         en->layer = layer < 0 ? 0 : (layer > 7 ? 7 : (int)layer);
@@ -369,6 +371,21 @@ static int l_environment(lua_State *L) {
     env->fog_near = opt_field_num(L, 1, "fog_near", env->fog_near);
     env->fog_far = opt_field_num(L, 1, "fog_far", env->fog_far);
     env->stars = opt_field_num(L, 1, "stars", env->stars);
+    return 0;
+}
+
+/* mvl.environment_save(): a copy of the whole environment (sky, fog, light
+ * and the sky's bodies); mvl.environment_load(copy) puts it back. */
+#define ENV_MT "mvl.environment"
+static int l_environment_save(lua_State *L) {
+    mvl_environment *copy = (mvl_environment *)lua_newuserdatauv(L, sizeof(mvl_environment), 0);
+    *copy = eng(L)->scene.env;
+    luaL_setmetatable(L, ENV_MT);
+    return 1;
+}
+
+static int l_environment_load(lua_State *L) {
+    eng(L)->scene.env = *(const mvl_environment *)luaL_checkudata(L, 1, ENV_MT);
     return 0;
 }
 
@@ -879,7 +896,7 @@ static const luaL_Reg mvl_funcs[] = {
     {"spawn", l_spawn}, {"set", l_set}, {"set_pos", l_set_pos}, {"get_pos", l_get_pos},
     {"set_yaw", l_set_yaw}, {"get_yaw", l_get_yaw}, {"get_rotation", l_get_rotation}, {"set_visible", l_set_visible}, {"set_color", l_set_color},
     {"destroy", l_destroy}, {"exists", l_exists}, {"clear_scene", l_clear_scene}, {"entity_count", l_entity_count},
-    {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"sky", l_sky}, {"bounds", l_bounds},
+    {"light", l_light}, {"camera", l_camera}, {"environment", l_environment}, {"environment_save", l_environment_save}, {"environment_load", l_environment_load}, {"sky", l_sky}, {"bounds", l_bounds},
     {"move", l_move}, {"overlaps", l_overlaps},
     {"value", l_value}, {"down", l_down}, {"pressed", l_pressed}, {"released", l_released}, {"look", l_look},
     {"touch", l_touch}, {"taps", l_taps},
@@ -987,6 +1004,8 @@ int mvl_script_init(mvl_engine *e) {
     lua_pushlightuserdata(L, e);
     lua_setfield(L, LUA_REGISTRYINDEX, ENGINE_KEY);
     sandbox(L);
+    luaL_newmetatable(L, ENV_MT); /* environment copies (plain data) */
+    lua_pop(L, 1);
     luaL_newlib(L, mvl_funcs);
     lua_pushstring(L, "0.1.0");
     lua_setfield(L, -2, "version");

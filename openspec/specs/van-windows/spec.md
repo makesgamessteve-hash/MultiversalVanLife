@@ -24,11 +24,12 @@ The interior SHALL have windows that show the world outside as seen from the mat
 - **THEN** the windows show the new place
 
 ### Requirement: Travel view
-While travelling, the windows SHALL show an animated multiversal vortex instead of a world.
+While travelling, the windows SHALL show the road between worlds (a glowing road over a sea of clouds under a night
+sky with stars and aurora, its markings and the clouds streaming past) instead of a world.
 
 #### Scenario: During travel
-- **WHEN** the player chooses a destination at the console
-- **THEN** the windows show the vortex until the van has arrived
+- **WHEN** the player chooses a destination at the radio
+- **THEN** the windows show the road between worlds until the van has arrived
 
 ### Requirement: Driver's seat
 The van interior SHALL have a driver's seat with a steering wheel and a dashboard at the front, facing the windscreen

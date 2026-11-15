@@ -370,4 +370,15 @@ void test_scene_persistent_and_heights(void) {
     CHECK(p.x < -1.2f);                          /* pocket level: blocked */
     CHECK(!mvl_scene_overlaps(&s, v3(0, 0, 0), 0.3f));
     CHECK(mvl_scene_overlaps(&s, v3(0, -401, 0), 0.3f));
+    /* a collider with a height blocks only feet between its base and top */
+    k->height = 3.5f;
+    k->pos = v3(0, 3.6f, 0);
+    p = mvl_scene_move(&s, v3(-2, 0, 0), v3(2, 0, 0), 0.3f);
+    CHECK_NEAR(p.x, 0, 1e-5);                   /* the storey below walks under it */
+    p = mvl_scene_move(&s, v3(-2, 3.6f, 0), v3(1, 0, 0), 0.3f);
+    CHECK(p.x < -1.2f);                          /* its own storey is blocked */
+    p = mvl_scene_move(&s, v3(-2, 3.3f, 0), v3(1, 0, 0), 0.3f);
+    CHECK(p.x < -1.2f);                          /* a step below its base too */
+    p = mvl_scene_move(&s, v3(-2, 7.2f, 0), v3(2, 0, 0), 0.3f);
+    CHECK_NEAR(p.x, 0, 1e-5);                   /* the storey above walks over it */
 }

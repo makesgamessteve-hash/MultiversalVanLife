@@ -19,7 +19,8 @@ enum {
     MVL_ENT_NOFOG = 1 << 2,   /* ignores fog (sky objects) */
     MVL_ENT_SOLID = 1 << 3,   /* blocks movement (see collider) */
     MVL_ENT_DECAL = 1 << 4,   /* lies on a surface: drawn after it, never z-fights */
-    MVL_ENT_PERSISTENT = 1 << 5 /* survives mvl_scene_clear_world (e.g. the van interior) */
+    MVL_ENT_PERSISTENT = 1 << 5, /* survives mvl_scene_clear_world (e.g. the van interior) */
+    MVL_ENT_NOSNAP = 1 << 6      /* drawn without vertex snapping (large merged voxel surfaces) */
 };
 
 typedef struct {
@@ -37,6 +38,9 @@ typedef struct {
     /* collider: axis aligned box half extents around pos (y ignored), or
      * radius > 0 for a circle collider */
     float half_x, half_z, radius;
+    /* collider height: > 0 blocks only feet between pos.y - 0.4 and
+     * pos.y + height (storeys above each other); 0 = MVL_COLLIDE_HEIGHT */
+    float height;
     /* parenting: when parent != 0, pos/yaw/pitch/roll/scale are local to the
        parent. Children are destroyed with their parent and never collide. */
     int parent;

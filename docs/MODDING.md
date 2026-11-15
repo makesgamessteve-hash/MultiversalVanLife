@@ -15,7 +15,8 @@ rebuild) and restart the game.
 | `scripts/` | Lua 5.4 gameplay. `main.lua` is the entry point |
 | `scripts/worlds/` | `home.lua` (the farm) and `land.lua` (any generated land) |
 | `scripts/gen/` | The multiverse generator (see [WORLDGEN.md](WORLDGEN.md)) |
-| `scripts/lib/van.lua` | Juniper's interior, its window portals and the vortex |
+| `scripts/lib/van.lua` | Juniper's interior, its window portals and the road between worlds |
+| `scripts/gen/house/` | The house inside the van: its plan, rooms, furniture and palette |
 | `shaders/` | GLSL shaders (written for GLSL 3.30 / GLSL ES 3.00, without `#version`) |
 | `textures/` | TGA images (sprites use alpha cut-out) |
 | `models/` | Wavefront OBJ models |
@@ -217,8 +218,8 @@ Progress that must survive should use `progress.set_flag` / `progress.helped`.
 | Rendering | `portal(i [, {pos, yaw, w, h, target, target_yaw}])`, `render_stats()`; `spawn{decal = true, layer = n}`, `plane_mesh(sx, sz, tx, tz, segments)` |
 | Planets | `planet_grid(level)`, `planet_cell(level, i)`, `planet_neighbours(level, i)`, `planet_nearest(level, x, y, z)`, `planet_sample(level, values, x, y, z)`, `planet_plates(level, seed, n)`, `planet_tectonics{level, seed, plates, continental}`, `planet_climate{level, elevation, axis, tilt_sin, locked, sub, mean, span, lapse, water, iterations}` → `{temp, tmin, tmax, precip, wind}`, `planet_rivers{level, elevation, precip}` → `{filled, flow_to, flow, lake}`, `planet_territory(level, seeds, cost)` → owner per cell, `planet_components(level, mask)` → ids, count (cells and plates are numbered from 1; 0 means none) |
 | Procedural | `hash(...)`, `rng(seed [, stream])`, `noise(x, y [, seed, octaves, lacunarity, gain])`, `noise3(...)`, `terrain{...}`, `height(x, z)`, `terrain_chunk(cx, cz [, size, cells])`, `voxels(sx, sy, sz)` (grids also have `g:hash()`), `mesh_count()`, `texture_gen{...}`, `texture_recolor(path, colors [, "green"])` |
-| Entities | `spawn{...}` (with `parent = e`), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `get_rotation(e)` (yaw, pitch, roll), `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
-| World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
+| Entities | `spawn{...}` (with `parent = e`; a solid one with `height = h` blocks only feet between its base less 0.4 m and its top, so storeys above each other do not block each other; `snap = false` draws it without vertex snapping, for large merged voxel surfaces), `attach(child [, parent])`, `world_pos(e)`, `set(e, {...})`, `set_pos`, `get_pos`, `set_yaw`, `get_yaw`, `get_rotation(e)` (yaw, pitch, roll), `set_visible`, `set_color`, `destroy`, `exists`, `clear_scene`, `entity_count` |
+| World | `camera(x, y, z, yaw, pitch, fov)`, `environment{...}`, `environment_save()` → a copy of the sky, fog and light, `environment_load(copy)`, `sky{...}`, `light(i, ...)`, `bounds(...)`, `move(x, y, z, dx, dz, r)`, `overlaps(x, z, r)` |
 | Input | `value(action)`, `down`, `pressed`, `released`, `look()`, `touch([on])`, `taps()` (this update's taps: `{ {x, y} }` in UI units) |
 | Audio | `play(sound, vol, pan, loop, group)`, `stop`, `stop_group`, `fade(voice, vol, secs, stop)`, `playing`, `group_volume(g [, v])` |
 | UI | `ui_size()`, `rect`, `image`, `text(x, y, s, scale, r, g, b, a)`, `text_width`, `wrap(s, width)` |
@@ -554,6 +555,51 @@ mvl.release_mesh(mesh)
 buildings.ROOFS.onion = nil
 ```
 
+## The house inside the van
+
+Juniper is a house (`gen/house/`, built by `lib/house.lua` in a pocket of
+the scene far below the world). `gen/house/plan.lua` describes its rooms as
+rectangles in pocket metres (+X is the van's front, +Z its left) with a
+level `y`, a ceiling height `h`, a style (floor `boards`, `tiles`, `carpet`,
+`flags` or `mat`; walls `stripes`, `plain`, `panels`, `tiles`, `stone` or
+`van`; `dado`, `beams`, `glass` walls, `glass_roof`; `colors` for the
+palette names of `gen/house/palette.lua`), doorways (`side` "n" = +Z, "s",
+"e" = +X, "w"; `at` along the wall; `closed`, `glass`, `shape = "arch"`),
+windows (`portal` = the van window they look out of; others are frosted
+panes), stairs, holes and furniture. `gen/house/rooms.lua` turns a room into
+one voxel grid and so one mesh, plus box colliders with heights (storeys do
+not block each other); the player's floor follows rooms and stairs.
+
+**Adding a piece of furniture.** Register it in `furniture.PIECES`: its size
+in voxels (1/8 m) and a draw function using a pen in the piece's own frame
+(a across, b from its front to its back, c up); placed `wall = "n"` it backs
+onto that wall and faces away from it:
+
+<!-- example -->
+```lua
+local F = require("gen.house.furniture")
+local I = require("gen.house.palette").I
+local rooms = require("gen.house.rooms")
+F.PIECES.birdcage = {
+  solid = true,
+  size = function() return 4, 4, 10 end,
+  draw = function(p)
+    p:box(1, 1, 0, 2, 2, 3, I.wood_dark)        -- a stand
+    p:box(0, 0, 4, 3, 3, 9, I.brass)            -- the cage
+    p:box(1, 1, 5, 2, 2, 8, 0)                  -- hollow inside
+    p:set(1, 1, 6, I.flower2)                   -- a yellow bird
+  end,
+}
+local room = { id = "aviary", x0 = 0, x1 = 4, z0 = 0, z1 = 3, y = 0, h = 2.5,
+               style = { floor = "tiles", wall = "stripes" },
+               doors = { { side = "s", at = 2, w = 1.0, h = 2.0 } },
+               items = { { piece = "birdcage", wall = "n", at = 2 } } }
+local built = rooms.build(room, 1)
+assert(built.mesh > 0 and #built.colliders >= 6)   -- five wall pieces and the cage
+mvl.release_mesh(built.mesh)
+F.PIECES.birdcage = nil
+```
+
 ## World memory
 
 Every place the player visits is stored in the save on the first visit and
@@ -650,7 +696,7 @@ the versions people told, Juniper's true version where she knows the
 universe (`codex.juniper_knows(entry)`), the why view (causes the player
 has not learned are "unknown"), and the Wanderer's chronicle of the
 player's deeds and what came of them (`codex.chronicle()` in
-`lib/codex.lua`). It opens from the van's console, the pause menu and the
+`lib/codex.lua`). It opens from the road atlas in the van's cab, the pause menu and the
 `codex` action, and works with keyboard, gamepad and taps.
 
 ## Saves and records

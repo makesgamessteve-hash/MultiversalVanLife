@@ -28,6 +28,8 @@ struct mvl_renderer {
     gpu_mesh *meshes;
     int mesh_count, mesh_cap;
     world_prog world;
+    float snap_x, snap_y;  /* this pass's vertex snapping grid */
+    int snapped_off;       /* the current entity is drawn without snapping */
     GLuint sky_prog, ui_prog, post_prog;
     GLint sky_inv, sky_top, sky_hor, sky_stars, sky_tex, sky_time;
     GLint sky_sun, sky_sun_color, sky_light, sky_moons, sky_moon_dir, sky_moon_color;
@@ -413,7 +415,10 @@ static void set_world_uniforms(mvl_renderer *r, mvl_engine *e, mat4 view, mat4 p
     glUniform3f(w->fog_color, env->fog_color[0], env->fog_color[1], env->fog_color[2]);
     glUniform1f(w->fog_near, env->fog_near);
     glUniform1f(w->fog_far, env->fog_far);
-    glUniform2f(w->snap, snap_w * 0.5f, snap_h * 0.5f);
+    r->snap_x = snap_w * 0.5f;
+    r->snap_y = snap_h * 0.5f;
+    r->snapped_off = 0;
+    glUniform2f(w->snap, r->snap_x, r->snap_y);
     glUniform1f(w->time, (float)e->time);
     glUniform1i(w->tex, 0);
     glActiveTexture(GL_TEXTURE0);
@@ -440,6 +445,10 @@ static void draw_entity(mvl_renderer *r, mvl_engine *e, const mvl_entity *en, fl
     glUniform4f(w->tint, en->color[0], en->color[1], en->color[2], en->color[3]);
     glUniform1f(w->unlit, (en->flags & MVL_ENT_UNLIT) ? 1.0f : 0.0f);
     glUniform1f(w->nofog, (en->flags & MVL_ENT_NOFOG) ? 1.0f : 0.0f);
+    if ((en->flags & MVL_ENT_NOSNAP) != (r->snapped_off ? MVL_ENT_NOSNAP : 0u)) {
+        r->snapped_off = (en->flags & MVL_ENT_NOSNAP) != 0;
+        glUniform2f(w->snap, r->snapped_off ? 0.0f : r->snap_x, r->snapped_off ? 0.0f : r->snap_y);
+    }
     glUniform2f(w->uv_offset, en->uv_scroll[0] * (float)e->time, en->uv_scroll[1] * (float)e->time);
     glBindTexture(GL_TEXTURE_2D, tex_handle(e, en->texture));
     glBindVertexArray(g->vao);

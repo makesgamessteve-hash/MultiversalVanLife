@@ -1,6 +1,6 @@
 -- The van interior is part of the world scene: entering and leaving moves the
 -- player without loading a world, travelling replaces only the outside, and
--- the windows look out of the parked van or into the vortex.
+-- the windows look out of the parked van or onto the road between worlds.
 local D = game.debug
 local van = D.van
 H.new_game()
@@ -14,7 +14,8 @@ test.eq(D.world.current, w0, "the world was not reloaded")
 test.expect(mvl.exists(probe), "world entities survive entering")
 test.eq(D.hud.fade, 0, "no loading fade")
 test.expect(D.player.base_y < -100, "player stands in the pocket")
-local room = van.entities.room
+local room = van.house.built.hall.entity
+test.expect(room and mvl.exists(room), "the hall is built")
 -- windows point at the exterior van's windows (within a few metres of it)
 for i = 1, #van.WINDOWS do
   local x, y, z = van.window_target(i)
@@ -27,15 +28,15 @@ test.expect(not van.inside, "outside again")
 test.eq(D.world.current, w0, "still the same world")
 test.eq(D.player.base_y, 0, "on the ground")
 test.expect(math.abs(D.player.x - D.story.van_door.x) < 0.01, "standing at the rear door")
--- travelling: the interior stays, the outside is replaced, the windows show the vortex
+-- travelling: the interior stays, the outside is replaced, the windows show the road between worlds
 H.use("Enter the van")
-H.use("console")
+H.use("radio")
 H.finish_dialogue()
 H.choose(D.story.menu, "Signal")
 test.wait(5)
 test.expect(van.travelling, "travelling")
 local tx, ty = van.window_target(1)
-test.expect(ty > 500, "windows show the vortex while travelling")
+test.expect(ty > 500, "windows show the road between worlds while travelling")
 test.until_true(function() return not D.story.busy end, 600, "arrived")
 test.expect(van.inside and mvl.exists(room), "the interior stayed")
 test.expect(D.world.current ~= w0 and D.world.current.def.id == "land", "the outside is the signalled land now")

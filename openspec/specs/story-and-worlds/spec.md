@@ -13,10 +13,12 @@ A new game SHALL start on the generated farm at night with the van parked at the
 - **THEN** the player is inside the van and the lines `van_intro_1` to `van_intro_6` are shown
 
 ### Requirement: Van interior and console
-The van interior SHALL be much larger than the exterior and contain a console that offers tonight's signals, the logbook of visited lands (the current location disabled), a way home when away and a cancel entry.
+The van interior SHALL be much larger than the exterior. Its cab SHALL have a radio that offers tonight's signals, a
+way home when away and a cancel entry, and a road atlas with the logbook of visited lands (the current location
+disabled) and the codex.
 
 #### Scenario: Travelling
-- **WHEN** the player chooses a signal or a logbook entry at the console
+- **WHEN** the player chooses a signal at the radio or a place in the atlas
 - **THEN** the travel sound and camera shake play inside the van while the destination is generated, the outside world is replaced by the destination, the location is saved, and stepping outside puts the player next to the van's rear door
 
 ### Requirement: Interaction

@@ -17,9 +17,7 @@ end
 
 local function back_to(addr)
   if H.current() ~= "van" then H.use("Enter the van") H.finish_dialogue() end
-  H.use("console")
-  H.finish_dialogue()
-  H.choose(story.menu, "Logbook")
+  H.use("atlas")
   local name = gen.world:node(addr) and gen.world:node(addr).data.name
   for _, e in ipairs(D.progress.logbook()) do if e.address == addr then name = e.name end end
   H.choose(story.menu, name)
@@ -31,7 +29,7 @@ end
 local function away()
   H.use("Enter the van")
   H.finish_dialogue()
-  H.use("console")
+  H.use("radio")
   H.finish_dialogue()
   H.choose(story.menu, "Home")
   test.until_true(function() return not story.busy end, 1200, "home")

@@ -5,19 +5,20 @@
 
 van_call_1   | juniper  | Hello? Yes, you. The one in the slippers.
 van_call_2   | juniper  | Don't be shy. The door is open. Come in, come in.
-van_intro_1  | juniper  | There you are! Mind the step. And the ceiling. And, well, the size of the place.
-van_intro_2  | juniper  | I know. I'm much bigger on the inside. Everybody says that, so let's get it out of the way.
+van_intro_1  | juniper  | There you are! Wipe your feet. Mind the coats. And, well, the size of the place.
+van_intro_2  | juniper  | Yes, there's rather a lot of me. A kitchen, a library, a bath upstairs, rooms I haven't found myself yet.
 van_intro_3  | juniper  | My name is Juniper. I am a van. Mostly. I also travel between worlds, which vans usually don't.
 van_intro_4  | juniper  | I've been rattling around the multiverse for a very long time, and I'm tired of doing it alone.
 van_intro_5  | juniper  | So here is my offer. Every night, while your world sleeps, we go somewhere wonderful. And if someone needs help, we help.
-van_intro_6  | juniper  | Use the console in the middle when you're ready. Pick a place, and hold on to something.
-van_console  | juniper  | Let me listen... I can hear a few calls tonight.
+van_intro_6  | juniper  | When you're ready, come to the cab and tune my radio. Pick a signal, and hold on to something.
+van_radio    | juniper  | Let me tune in... I can hear a few calls tonight.
 van_travel   | juniper  | Here we go! Hold on to your slippers!
 van_arrive   | juniper  | We've landed. Go on, have a look around. I'll keep the engine warm.
 van_home     | juniper  | Home again, just before dawn. Get some sleep. I'll be right here tomorrow night.
 van_welcome_back | juniper | Back again! They'll be glad to see a familiar van.
 van_milestone | juniper  | Three more places helped. You know, I think you're the best co-pilot I've ever had. Same time tomorrow?
 van_lost_signal | juniper | Hm. The signal faded before we could reach it. Let's stay where we are.
+van_garden_waking | juniper | Not that one yet, dear. The garden is still waking up. Give it a little while.
 mabel_1      | mabel    | Evening, dear. Strange old van at your gate, isn't it? Wasn't there an hour ago.
 mabel_2      | mabel    | My grandmother always said the night sky was full of doors. I never knew what she meant.
 mabel_3      | mabel    | You look like someone who's been somewhere far away. Good for you.

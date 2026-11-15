@@ -30,10 +30,12 @@ end
 -- Finds an interactable whose prompt matches `pattern`.
 function H.find(pattern)
   local level = D().player.base_y or 0
+  -- inside the van anything on any floor of the house can be walked to
+  local any = D().van.inside
   for _, list in ipairs({ D().world.interactables, D().world.fixed }) do
     for _, it in ipairs(list) do
       if it.prompt and it.prompt:find(pattern) and (not it.enabled or it.enabled())
-         and math.abs((it.y or 0) - level) < 3 then return it end
+         and (math.abs((it.y or 0) - level) < 3 or (any and (it.y or 0) < -100)) then return it end
     end
   end
 end
@@ -50,6 +52,8 @@ end
 function H.use(pattern)
   local it = H.find(pattern)
   test.expect(it, "interactable '" .. pattern .. "' exists")
+  -- inside the van: stand on the floor of the thing's room
+  if D().van.inside and it.y then D().player.base_y = it.y end
   local x, z = H.pos(it)
   H.face(x, z, math.min(1.2, it.range * 0.6))
   test.expect(D().world.find_focus() == it, "focus on '" .. pattern .. "'")
@@ -96,7 +100,7 @@ end
 
 function H.travel(dest_pattern)
   test.eq(H.current(), "van", "in the van")
-  H.use("console")
+  H.use("radio")
   H.finish_dialogue()
   H.choose(D().story.menu, dest_pattern)
   test.until_true(function() return not D().story.busy end, 600, "travel finished")

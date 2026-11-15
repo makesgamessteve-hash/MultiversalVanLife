@@ -7,6 +7,7 @@ local player = {
   base_y = 0,                       -- floor height (the van pocket lies far below the world)
   ground = nil,                     -- function(x, z) -> terrain height of a streamed land
   indoors = false,                  -- inside the van: the floor is base_y
+  indoor_floor = nil,               -- function(x, z, y) -> the van's floor under the player (lib/house.lua)
   eye = 1.6, radius = 0.3,
   wade = 1.0,                       -- deepest sea (below sea level 0) the player walks into
   walk_speed = 3.0, run_speed = 5.0, turn_speed = 2.4,
@@ -15,6 +16,7 @@ local player = {
 
 -- Height of the floor under the player.
 function player.floor()
+  if player.indoors and player.indoor_floor then return player.indoor_floor(player.x, player.z, player.base_y) end
   if player.ground and not player.indoors then return player.ground(player.x, player.z) end
   return player.base_y
 end
@@ -61,6 +63,8 @@ function player.update(dt)
         if h < -player.wade and h < player.ground(ox, oz) then nx, nz = ox, oz end
       end
       player.x, player.z = nx, nz
+      -- indoors the floor follows the rooms and stairs under the player
+      if player.indoors and player.indoor_floor then player.base_y = player.floor() end
       local d = util.dist2(ox, oz, nx, nz)
       player.moved = player.moved + d
       player.step_dist = player.step_dist + d

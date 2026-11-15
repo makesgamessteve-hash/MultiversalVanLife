@@ -1,4 +1,4 @@
--- Multiversal Van Life - the van, the console and travelling between worlds
+-- Multiversal Van Life - the van, its radio and atlas, and travelling between worlds
 -- (MIT License).
 local world = require("lib.world")
 local player = require("lib.player")
@@ -106,11 +106,13 @@ function story.exit_van()
   van.exit(player, world, d.x, d.z, d.yaw)
 end
 
-van.on_console = function() story.open_console() end
+van.on_radio = function() story.open_radio() end
+van.on_atlas = function() story.open_atlas() end
 van.on_door = function() story.exit_van() end
 van.on_seat = function() require("lib.drive").sit() end
+van.on_garden = function() dialogue.say("van_garden_waking") end
 
--- ------------------------------------------------------------- console
+-- ------------------------------------------------- the radio and the atlas
 local function gen() return require("gen") end
 
 -- Tonight's signals (the same all night).
@@ -127,7 +129,7 @@ function story.signals()
 end
 
 -- Starts generating tonight's candidate planets in the background, so the
--- console has its signals ready when the player reaches it.
+-- radio has its signals ready when the player reaches it.
 function story.prefetch_signals()
   local G = gen().world
   if not G then return end
@@ -145,19 +147,29 @@ local function location_label()
   return def and def.name or progress.location()
 end
 
-function story.open_logbook()
+-- The road atlas on the passenger seat: the places visited (travel to one)
+-- and the codex.
+function story.open_atlas()
   local here = progress.land_address()
   local items = {}
   for _, e in ipairs(progress.logbook()) do
     local label = e.name .. " (" .. e.planet .. ")" .. (progress.helped(e.address) and "  - helped" or "")
     items[#items + 1] = { label = label, enabled = e.address ~= here, action = function() story.travel(e.address) end }
   end
-  items[#items + 1] = { label = "Back", action = function() story.open_console(true) end }
-  story.menu = Menu.new("LOGBOOK", items, { subtitle = #items - 1 .. " places visited",
-                                            cancel = function() story.open_console(true) end })
+  local places = #items
+  items[#items + 1] = { label = "Codex", action = function()
+    story.menu = nil
+    require("lib.codex").open()
+  end }
+  items[#items + 1] = { label = "Close the atlas", action = function() story.menu = nil end }
+  story.menu = Menu.new("ATLAS", items, {
+    subtitle = places == 0 and "No places visited yet" or (places .. (places == 1 and " place" or " places") .. " visited"),
+    cancel = function() story.menu = nil end,
+  })
 end
 
-function story.open_console(quiet)
+-- The radio in the cab's dashboard: tonight's signals and the way home.
+function story.open_radio(quiet)
   local here = progress.land_address()
   local items = {}
   local signals = story.signals()
@@ -165,21 +177,16 @@ function story.open_console(quiet)
     local label = "Signal: " .. s.name .. " - " .. s.short .. (progress.helped(s.address) and "  (helped)" or "")
     items[#items + 1] = { label = label, enabled = s.address ~= here, action = function() story.travel(s.address) end }
   end
-  items[#items + 1] = { label = "Logbook", enabled = #progress.logbook() > 0, action = function() story.open_logbook() end }
-  items[#items + 1] = { label = "Codex", action = function()
-    story.menu = nil
-    require("lib.codex").open()
-  end }
   if progress.location() ~= "home" then
     items[#items + 1] = { label = "Home - end the night", action = function() story.travel("home") end }
   end
   items[#items + 1] = { label = "Not yet", action = function() story.menu = nil end }
-  story.menu = Menu.new("CONSOLE", items, {
+  story.menu = Menu.new("RADIO", items, {
     subtitle = "Night " .. progress.night() .. " - " .. location_label(),
     cancel = function() story.menu = nil end,
   })
   if quiet then return end
-  local lines = { "van_console" }
+  local lines = { "van_radio" }
   for _, s in ipairs(signals) do
     lines[#lines + 1] = { speaker = "juniper", text = gen().signals.describe(s) }
   end
@@ -188,7 +195,7 @@ end
 
 -- ------------------------------------------------------------- travel
 -- Travels to "home" or to a land address. The destination is generated
--- while the van is in the vortex; the trip lasts at least 3.5 seconds and
+-- while the van is on the road between worlds; the trip lasts at least 3.5 seconds and
 -- until the destination is ready.
 function story.travel(to)
   local drive = require("lib.drive")
@@ -253,7 +260,7 @@ function story.update_trip(dt)
   local trip = story.trip
   if not trip then return end
   trip.t = trip.t + dt
-  -- the outside is replaced while the player stays inside, looking at the vortex
+  -- the outside is replaced while the player stays inside, looking at the road between worlds
   if not trip.loaded and trip.t >= 1.0 and (not trip.job or trip.job.done) then
     trip.loaded = true
     if trip.job and trip.job.error then
@@ -263,6 +270,8 @@ function story.update_trip(dt)
     else
       world.load("land", nil, { address = trip.to })
     end
+    -- keep the new world's sky for the arrival, the road's until then
+    if not trip.failed then van.between_sky() end
   end
   if trip.loaded and trip.t >= 3.6 then arrive(trip) end
 end

@@ -251,8 +251,10 @@ static int resolve(const mvl_entity *e, vec3 *p, float r) {
 }
 
 static int collides(const mvl_entity *e, float y) {
-    return e->alive && !e->parent && (e->flags & MVL_ENT_SOLID) && (e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f)) &&
-           fabsf(e->pos.y - y) <= MVL_COLLIDE_HEIGHT;
+    if (!e->alive || e->parent || !(e->flags & MVL_ENT_SOLID) || !(e->radius > 0.0f || (e->half_x > 0.0f && e->half_z > 0.0f)))
+        return 0;
+    if (e->height > 0.0f) return y >= e->pos.y - 0.4f && y <= e->pos.y + e->height;
+    return fabsf(e->pos.y - y) <= MVL_COLLIDE_HEIGHT;
 }
 
 vec3 mvl_scene_move(const mvl_scene *s, vec3 pos, vec3 delta, float radius) {

@@ -690,7 +690,7 @@ places outside Prime are filled by provisional rules
   generated ahead, in the background, when a day starts.
   Three are chosen by severity plus novelty (an unvisited galaxy, a trouble
   not offered last time), never two from the same galaxy. Choosing one
-  requests the land; the van stays in the vortex until it is generated
+  requests the land; the van stays on the road between worlds until it is generated
   (at least 3.5 s).
 
 ## World memory
