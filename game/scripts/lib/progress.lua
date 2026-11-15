@@ -50,6 +50,24 @@ function progress.land_address(loc)
   return loc:match("^land:(.+)$")
 end
 
+-- Souvenirs of the peoples visited (a save record), in the order of the
+-- first visits: each gets a wing of the house (gen/house/wings.lua).
+function progress.souvenirs()
+  local r = mvl.record_read("souvenirs")
+  return r and r.list or {}
+end
+
+-- Keeps a souvenir of a people unless one is kept already; returns true
+-- for a new one.
+function progress.add_souvenir(rec)
+  local list = progress.souvenirs()
+  for _, s in ipairs(list) do if s.key == rec.key then return false end end
+  if #list >= 256 then return false end
+  list[#list + 1] = rec
+  mvl.record_write("souvenirs", { list = list })
+  return true
+end
+
 -- The logbook: every visited land (a save record).
 function progress.logbook()
   local r = mvl.record_read("logbook")

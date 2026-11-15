@@ -126,11 +126,53 @@ function WALLS.stone(cv, side, top, rng)
     face(cv, side, 0, n - 1, h, h, I.wall2)
   end
 end
+function WALLS.brick(cv, side, top)
+  local n = wall_len(cv, side)
+  face(cv, side, 0, n - 1, 1, top, I.wall)
+  for h = 2, top, 2 do
+    face(cv, side, 0, n - 1, h, h, I.wall2)
+    for a = (h / 2) % 2 * 2, n - 1, 4 do face(cv, side, a, a, h - 1, h - 1, I.wall2) end
+  end
+end
+function WALLS.hide(cv, side, top)
+  local n = wall_len(cv, side)
+  face(cv, side, 0, n - 1, 1, top, I.wall)
+  for a = 0, n - 1, 10 do
+    face(cv, side, a, a + 4, 1, top, I.wall2)
+    for h = 2, top, 3 do face(cv, side, a + 5, a + 5, h, h, I.trim) end -- stitches
+  end
+end
 function WALLS.van(cv, side, top)
   local n = wall_len(cv, side)
   face(cv, side, 0, n - 1, 1, top, I.wall)
   for a = 0, n - 1, 6 do face(cv, side, a, a, 1, top, I.wall2) end
   face(cv, side, 0, n - 1, 6, 6, I.trim)
+end
+
+-- ornament friezes (5 x 4 motifs repeated along the top of the walls)
+local MOTIFS = {
+  crescents = { "01110", "10000", "10000", "01110" },
+  discs = { "01110", "11111", "11111", "01110" },
+  flames = { "00100", "01110", "01010", "11111" },
+  waves = { "01100", "10010", "00001", "00000" },
+  spirals = { "11111", "10001", "10101", "10111" },
+  bands = { "11111", "00000", "11111", "00000" },
+}
+local function draw_frieze(cv, side, top, motif)
+  local m = MOTIFS[motif] or MOTIFS.bands
+  local n = wall_len(cv, side)
+  local h0 = top - 7
+  if h0 < 12 then return end
+  face(cv, side, 0, n - 1, h0 - 1, h0 - 1, I.trim)
+  face(cv, side, 0, n - 1, h0 + 4, h0 + 4, I.trim)
+  for a0 = 2, n - 7, 8 do
+    for row = 1, 4 do
+      local line = m[row]
+      for col = 1, 5 do
+        if line:sub(col, col) == "1" then face(cv, side, a0 + col - 1, a0 + col - 1, h0 + 4 - row, h0 + 4 - row, I.accent) end
+      end
+    end
+  end
 end
 
 -- -------------------------------------------------------------- shell
@@ -336,7 +378,11 @@ function R.build(room, seed)
         for a = 0, n - 1, 6 do face(cv, side, a, a, 2, 6, I.dado2) end
         face(cv, side, 0, n - 1, 8, 8, I.trim)
       end
-      if st.rail ~= false and top > 20 then face(cv, side, 0, n - 1, top - 2, top - 2, I.trim) end
+      if st.frieze then
+        draw_frieze(cv, side, top, st.frieze)
+      elseif st.rail ~= false and top > 20 then
+        face(cv, side, 0, n - 1, top - 2, top - 2, I.trim)
+      end
       face(cv, side, 0, n - 1, 1, 1, I.trim)      -- skirting
     end
   end

@@ -313,15 +313,36 @@ function plan.core() return CORE end
 -- The rooms of block (bx, bz): the core, or the endless house beyond it
 -- (gen/house/blocks.lua), generated once per game seed and kept.
 local cache, cache_seed, cache_n = {}, nil, 0
+plan.wings = {}       -- block key -> { souvenir, index } (gen/house/wings.lua)
 function plan.block(seed, bx, bz)
   if bx == 0 and bz == 0 then return CORE end
   if cache_seed ~= seed or cache_n > 400 then cache, cache_seed, cache_n = {}, seed, 0 end
   local k = bx .. "," .. bz
   if not cache[k] then
-    cache[k] = require("gen.house.blocks").rooms(seed, bx, bz)
+    cache[k] = require("gen.house.blocks").rooms(seed, bx, bz, plan.wings[k])
     cache_n = cache_n + 1
   end
   return cache[k]
+end
+
+-- Gives the blocks round the core to the souvenirs of the peoples visited;
+-- returns the keys of the blocks that changed.
+function plan.set_wings(list)
+  local new = require("gen.house.wings").assign(list)
+  local changed = {}
+  for k, w in pairs(new) do
+    local old = plan.wings[k]
+    if not old or old.souvenir.key ~= w.souvenir.key then changed[#changed + 1] = k end
+  end
+  for k in pairs(plan.wings) do if not new[k] then changed[#changed + 1] = k end end
+  plan.wings = new
+  for _, k in ipairs(changed) do
+    if cache[k] then
+      cache[k] = nil
+      cache_n = cache_n - 1
+    end
+  end
+  return changed
 end
 
 -- Which block a point (pocket metres) is in.

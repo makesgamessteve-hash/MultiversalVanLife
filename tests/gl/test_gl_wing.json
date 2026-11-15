@@ -1,0 +1,2 @@
+[{"file": "wing.tga", "region": [0.0, 0.0, 1.0, 1.0], "max": {"dark": 0.03}, "mean": {"min": 70}},
+ {"file": "wing.tga", "region": [0.47, 0.35, 0.53, 0.6], "max": {"dark": 0.05}}]

@@ -73,6 +73,7 @@ function van.build()
   if van.built then return end
   van.built = true
   local px, py, pz = van.P[1], van.P[2], van.P[3]
+  house.fixed = van.fixed
   house.build(van.P, require("lib.progress").seed())
   van.entities.between = build_between()
   -- filled in place: the world module holds a reference to this table
@@ -179,6 +180,7 @@ function van.enter(player, world)
   van.build()
   van.player = player
   house.set_seed(require("lib.progress").seed())
+  house.set_wings(require("lib.progress").souvenirs())
   van.inside = true
   van.zone = "front"
   player.indoors = true

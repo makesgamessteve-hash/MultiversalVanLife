@@ -581,6 +581,15 @@ builds the rooms within 36 m of the player, one per update, and releases
 them beyond 48 m; only the core stays while the player is outside. Deeper
 in the house than the cab and the hall, far rooms fade into a warm dusk.
 
+**Souvenir wings** (`gen/house/wings.lua`): the first visit to a land of a
+people keeps a souvenir of them in the save (`progress.souvenirs()`: name,
+species, the land's architecture style, one of them, colours of their
+plants). The blocks round the core, in a spiral (`wings.ORDER`), become
+their wings in the order of the visits: a grand hall or a courtyard with a
+statue of one of them, walls of their material (`stone`, `panels` for
+timber, `brick` for mud brick, `hide`) in their colours with friezes of
+their ornament, doorways for their height, their plants and a sign.
+
 **Adding a piece of furniture.** Register it in `furniture.PIECES`: its size
 in voxels (1/8 m) and a draw function using a pen in the piece's own frame
 (a across, b from its front to its back, c up); placed `wall = "n"` it backs

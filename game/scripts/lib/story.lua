@@ -11,6 +11,13 @@ local van = require("lib.van")
 
 local story = { busy = false, menu = nil, tasks = {}, shake = 0, van = van }
 
+-- A line of dialogue/lines.txt with {placeholders} filled in.
+local function line(id, fill)
+  local l = require("lib.lines").get(id)
+  local text = l.text:gsub("{([%w_]+)}", function(k) return tostring(fill[k] or "?") end)
+  return { speaker = l.speaker, text = text, id = id }
+end
+
 world.inside = function() return van.inside end
 world.after_build = function() van.world_loaded() end
 world.anchor = function() return van.exterior end
@@ -99,6 +106,13 @@ function story.enter_van()
     progress.save()
     dialogue.say({ "van_intro_1", "van_intro_2", "van_intro_3", "van_intro_4", "van_intro_5", "van_intro_6" })
   end
+  -- a new wing grew while the player was out
+  local wing = mvl.save_get("story.new_wing")
+  if wing and wing ~= "" then
+    mvl.save_set("story.new_wing", nil)
+    progress.save()
+    dialogue.say(line("van_new_wing", { people = wing }))
+  end
 end
 
 function story.exit_van()
@@ -112,6 +126,12 @@ van.on_atlas = function() story.open_atlas() end
 van.on_door = function() story.exit_van() end
 van.on_seat = function() require("lib.drive").sit() end
 van.on_garden = function() dialogue.say("van_garden_waking") end
+
+
+-- Reading the sign of a wing of the house.
+van.house.on_sign = function(sign)
+  dialogue.say(line("house_wing_sign", sign))
+end
 
 -- ------------------------------------------------- the radio and the atlas
 local function gen() return require("gen") end
@@ -251,6 +271,12 @@ local function arrive(trip)
     local first = progress.log_visit({ address = trip.to, name = node.data.name, planet = planet and planet.name or "?",
                                        galaxy = trip.to:match("^(u%d+%.g%d+)"), night = progress.night() })
     progress.remember_troubles(story.signals())
+    -- a souvenir of the people who live here: a wing of the house
+    local souvenir = require("gen.house.wings").souvenir(node, planet and planet.name or "?", progress.night())
+    if souvenir and progress.add_souvenir(souvenir) then
+      mvl.save_set("story.new_wing", souvenir.name)
+      van.house.set_wings(progress.souvenirs())
+    end
     progress.save()
     dialogue.say(first and "van_arrive" or "van_welcome_back")
   end

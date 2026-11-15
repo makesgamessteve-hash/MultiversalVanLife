@@ -521,20 +521,28 @@ piece("sconce", { -- a wall lamp (o.y metres up)
 -- ------------------------------------------------------------ things
 piece("plant", {
   solid = true,
-  size = function(o) return o.small and 3 or 5, o.small and 3 or 5, o.small and 6 or 12 end,
+  size = function(o)
+    if o.big then return 8, 8, 22 end
+    return o.small and 3 or 5, o.small and 3 or 5, o.small and 6 or 12
+  end,
   draw = function(p, o, rng)
     local W, H = p.W, p.H
     local m = W / 2
-    local pot = o.small and 2 or 3
+    local pot = o.small and 2 or (o.big and 5 or 3)
     p:box(0, 0, 0, W - 1, W - 1, pot - 1, I.pot)
     p:box(1, 1, pot - 1, W - 2, W - 2, pot - 1, I.soil)
     p:box(math.floor(m), math.floor(m), pot, math.floor(m), math.floor(m), H - 3, I.wood_dark)
     local leaves = { I.leaf, I.leaf2, I.leaf3 }
-    for k = 1, o.small and 2 or 5 do
+    for k = 1, o.small and 2 or (o.big and 9 or 5) do
       local cc = pot + 2 + rng:next() * (H - pot - 4)
       p:ellipsoid(m + rng:next() * 2 - 1, m + rng:next() * 2 - 1, cc, W / 2, W / 2, 1.6, leaves[rng:int(1, 3)])
     end
-    if o.flowers then p:set(math.floor(m), math.floor(m), H - 1, I.flower) end
+    if o.flowers then
+      p:set(math.floor(m), math.floor(m), H - 1, I.flower)
+      if o.big then
+        for k = 1, 6 do p:set(rng:int(1, W - 2), rng:int(1, W - 2), rng:int(pot + 6, H - 2), k % 2 == 0 and I.flower or I.flower2) end
+      end
+    end
   end,
 })
 
@@ -617,6 +625,17 @@ piece("rug", { -- on the floor (not solid): o.w, o.d metres; o.pattern
         p:box(cw - 1, cd - k - 1, 0, cw, cd + k, 0, col(o.c2, I.rug2))
       end
     end
+  end,
+})
+
+piece("sign", { -- a board on a post, in the colours of a wing
+  solid = true,
+  size = function() return 8, 2, 12 end,
+  draw = function(p)
+    p:box(3, 1, 0, 4, 1, 6, I.wood_dark)
+    p:box(0, 0, 7, 7, 1, 11, I.accent)
+    p:box(1, 0, 8, 6, 0, 10, I.cream)
+    for a = 1, 6, 2 do p:set(a, 0, 9, I.wood_dark) end
   end,
 })
 

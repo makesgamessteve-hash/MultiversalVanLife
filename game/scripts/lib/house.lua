@@ -20,6 +20,8 @@ local house = {
   DROP = 48,           -- ... and released beyond this one
   core = {},           -- ids of the core's rooms (never released)
   front = { cab = true, hall = true }, -- rooms that look out of the van's windows
+  fixed = {},          -- where the house's interactables go (the van's, see lib/van.lua)
+  on_sign = function() end, -- reading a wing's sign (set by the story)
 }
 
 local function spawn_collider(P, c)
@@ -60,6 +62,27 @@ function house.build_room(room)
       for _, c in ipairs(stair_colliders(st)) do rec.colliders[#rec.colliders + 1] = spawn_collider(P, c) end
     end
   end
+  local cx, cz = (room.x0 + room.x1) / 2, (room.z0 + room.z1) / 2
+  -- a wing's statue of one of its people, in stone of the wing's colours
+  if room.statue and room.statue.anatomy then
+    local c = room.style and room.style.colors or {}
+    local mesh = require("gen.visuals.people").mesh({ anatomy = room.statue.anatomy, statue = true,
+      stone = { c.wall_dark or { 110, 104, 96 }, c.wall or { 150, 144, 134 }, c.ceiling or { 200, 196, 186 } } })
+    if mesh and mesh > 0 then
+      rec.statue_mesh = mesh
+      rec.statue = mvl.spawn({ mesh = mesh, pos = { P[1] + cx, P[2] + room.y, P[3] + cz }, unlit = true,
+                               nofog = not room.fog, persistent = true, snap = false, color = { 1, 0.96, 0.9, 1 } })
+      rec.colliders[#rec.colliders + 1] = spawn_collider(P, { x0 = cx - 0.8, x1 = cx + 0.8, z0 = cz - 0.65, z1 = cz + 0.65,
+                                                              y = room.y, h = 3 })
+    end
+  end
+  -- a wing's sign
+  if room.sign then
+    local it = { x = P[1] + room.sign.x, y = P[2] + room.y, z = P[3] + room.sign.z, range = 1.8,
+                 prompt = "Read the sign", use = function() house.on_sign(room.sign) end }
+    house.fixed[#house.fixed + 1] = it
+    rec.interactable = it
+  end
   house.built[room.id] = rec
   return rec
 end
@@ -71,6 +94,13 @@ function house.release_room(id)
   if rec.entity then mvl.destroy(rec.entity) end
   for _, c in ipairs(rec.colliders) do mvl.destroy(c) end
   if rec.mesh and rec.mesh > 0 then mvl.release_mesh(rec.mesh) end
+  if rec.statue then mvl.destroy(rec.statue) end
+  if rec.statue_mesh then mvl.release_mesh(rec.statue_mesh) end
+  if rec.interactable then
+    for i, it in ipairs(house.fixed) do
+      if it == rec.interactable then table.remove(house.fixed, i) break end
+    end
+  end
   house.built[id] = nil
 end
 
@@ -95,6 +125,20 @@ function house.release_all()
   local ids = {}
   for id in pairs(house.built) do if not house.core[id] then ids[#ids + 1] = id end end
   for _, id in ipairs(ids) do house.release_room(id) end
+end
+
+-- The wings of the peoples visited (souvenirs in the order of the visits):
+-- blocks that change are planned again and their built rooms released.
+function house.set_wings(list)
+  local changed = {}
+  for _, k in ipairs(plan.set_wings(list)) do changed[k] = true end
+  local ids = {}
+  for id, rec in pairs(house.built) do
+    local b = rec.room.block
+    if b and changed[b[1] .. "," .. b[2]] then ids[#ids + 1] = id end
+  end
+  for _, id in ipairs(ids) do house.release_room(id) end
+  return changed
 end
 
 -- A new game: the endless house of another seed.
@@ -213,7 +257,7 @@ function house.fill(x, z) return house.update(x, z, math.huge) end
 function house.entity_count()
   local n, r = 0, 0
   for _, rec in pairs(house.built) do
-    n = n + (rec.entity and 1 or 0) + #rec.colliders
+    n = n + (rec.entity and 1 or 0) + (rec.statue and 1 or 0) + #rec.colliders
     r = r + 1
   end
   return n, r

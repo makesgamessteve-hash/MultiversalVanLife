@@ -140,7 +140,7 @@ kind("great_library", {
 })
 kind("winter_garden", {
   floor = "tiles", glass_roof = true, tall = true,
-  wall = { { "plant", {}, 1, 14 }, { "wicker_chair", {}, 0.9, 3 }, { "bench", { w = 1.5 }, 0.8, 2 } },
+  wall = { { "plant", { big = true }, 1, 10 }, { "plant", {}, 1, 6 }, { "wicker_chair", {}, 0.9, 3 }, { "bench", { w = 1.5 }, 0.8, 2 } },
   middle = function(room, add)
     add({ piece = "fountain" })
     for _, o in ipairs({ { -3.5, -3.5 }, { 3.5, -3.5 }, { -3.5, 3.5 }, { 3.5, 3.5 } }) do
@@ -150,8 +150,21 @@ kind("winter_garden", {
 })
 kind("courtyard", {
   floor = "flags", glass_roof = true, tall = true,
-  wall = { { "plant", {}, 1, 10 }, { "bench", { w = 1.5 }, 0.9, 4 } },
+  wall = { { "plant", { big = true }, 1, 8 }, { "plant", {}, 1, 4 }, { "bench", { w = 1.5 }, 0.9, 4 } },
   middle = function(room, add) add({ piece = "fountain" }) end,
+})
+
+-- the halls of the peoples visited: their plants all round, the statue of
+-- one of them in the middle (lib/house.lua puts it there)
+kind("wing_hall", {
+  floor = "boards", tall = true,
+  wall = { { "plant", { big = true, flowers = true }, 1, 10 }, { "bench", { w = 1.75 }, 1, 4 }, { "plant", { flowers = true }, 0.8, 6 } },
+  middle = function(room, add) add({ piece = "rug", w = room.w * 0.45, d = room.d * 0.45 }) end,
+  ceiling = "chandelier", lamps = 4,
+})
+kind("wing_court", {
+  floor = "flags", glass_roof = true, tall = true,
+  wall = { { "plant", { big = true, flowers = true }, 1, 12 }, { "bench", { w = 1.5 }, 1, 4 } },
 })
 
 -- ----------------------------------------------------------- placing

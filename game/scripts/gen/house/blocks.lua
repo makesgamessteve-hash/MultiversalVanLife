@@ -251,11 +251,16 @@ end
 
 B.TEMPLATES = { "cross", "enfilade", "hall", "cloister" }
 
--- The rooms of block (bx, bz) for a game of seed `seed` (not the core).
-function B.rooms(seed, bx, bz)
+local WING_KINDS = { "gallery", "gallery", "sitting", "study", "music" }
+
+-- The rooms of block (bx, bz) for a game of seed `seed` (not the core); a
+-- `wing` ({ souvenir, index }, gen/house/wings.lua) makes it the wing of a
+-- people visited.
+function B.rooms(seed, bx, bz, wing)
   local rng = mvl.rng(mvl.hash(seed, "block", bx, bz))
   local ox, oz = B.origin(bx, bz)
   local template = B.TEMPLATES[rng:int(1, #B.TEMPLATES)]
+  if wing then template = wing.index % 2 == 1 and "hall" or "cloister" end
   local out = {}
   local sides = T[template](ox, oz, rng, out)
   -- the side doorways (shut towards the core's front and back)
@@ -266,20 +271,60 @@ function B.rooms(seed, bx, bz)
   -- style, heights, furniture
   local style = B.STYLES[rng:int(1, #B.STYLES)]
   local h = 3.0 + rng:int(0, 4) * 0.125
+  local wing_style, door_h, wing_h
+  if wing then
+    local W = require("gen.house.wings")
+    wing_style = W.style(wing.souvenir)
+    door_h, wing_h = W.sizes(wing.souvenir)
+  end
   for i, r in ipairs(out) do
     r.id = string.format("b%d_%d_%d", bx, bz, i)
     r.block = { bx, bz }
     r.template = template
+    if wing then
+      if r.grand then
+        r.kind = template == "hall" and "wing_hall" or "wing_court"
+        local s0 = wing.souvenir
+        r.statue = s0.person
+        r.sign = { name = s0.name, species = s0.species, planet = s0.planet, land = s0.land, night = s0.night }
+      elseif r.kind ~= "corridor" then
+        r.kind = WING_KINDS[rng:int(1, #WING_KINDS)]
+      end
+      r.wing = wing.souvenir.key
+    end
     local def = kinds.KINDS[r.kind] or {}
     r.h = r.grand and 6.5 or (def.tall and 4.5 or h)
-    local st = { wall = def.wall_finish or style.wall, dado = style.dado and not def.wall_finish, beams = style.beams,
-                 floor = def.floor or "boards", glass_roof = def.glass_roof, colors = style.colors, rail = r.h > 3.4 }
-    if r.kind == "bathroom" then
-      st.colors = { floor = { 236, 236, 232 }, floor2 = { 50, 70, 80 }, wall = { 226, 236, 232 }, wall2 = { 192, 208, 206 } }
+    local st
+    if wing then
+      r.h = r.grand and math.max(7.0, wing_h + 2) or wing_h
+      st = { wall = wing_style.wall, dado = wing_style.dado, beams = wing_style.beams, floor = wing_style.floor,
+             glass_roof = def.glass_roof, colors = wing_style.colors, frieze = wing_style.frieze }
+    else
+      st = { wall = def.wall_finish or style.wall, dado = style.dado and not def.wall_finish, beams = style.beams,
+             floor = def.floor or "boards", glass_roof = def.glass_roof, colors = style.colors, rail = r.h > 3.4 }
+      if r.kind == "bathroom" then
+        st.colors = { floor = { 236, 236, 232 }, floor2 = { 50, 70, 80 }, wall = { 226, 236, 232 }, wall2 = { 192, 208, 206 } }
+      end
     end
     r.style = st
     r.light = r.kind == "store" and { 0.92, 0.9, 0.86 } or { 1, 0.95, 0.87 }
     r.fog = true
+  end
+  -- doorways of a wing are sized to its people (both sides of each match)
+  if wing then
+    local lowest = math.huge
+    for _, r in ipairs(out) do lowest = math.min(lowest, r.h) end
+    for _, r in ipairs(out) do
+      for _, d in ipairs(r.doors) do d.h = math.max(d.h, math.min(door_h, lowest - 0.75)) end
+    end
+  end
+  for _, r in ipairs(out) do
+    -- the sign stands inside the hall's south doorway
+    if r.sign then
+      local x = (r.x0 + r.x1) / 2
+      r.sign.x, r.sign.z = x + 2.25, r.z0 + 2.0
+      r.items = { { piece = "sign", x = r.sign.x, z = r.sign.z, face = "-z" } }
+    end
     kinds.furnish(r, mvl.rng(mvl.hash(seed, r.id)))
   end
   return out, template
