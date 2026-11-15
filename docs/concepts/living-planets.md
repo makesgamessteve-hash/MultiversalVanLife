@@ -1,7 +1,17 @@
 # Concept: living planets
 
-Status: concept for discussion (not yet on the roadmap). It builds on everything in
-[WORLDGEN.md](../WORLDGEN.md) and proposes the next phases.
+Status: agreed concept, planned as phases 25–33 in the [roadmap](../ROADMAP.md). It builds on
+everything in [WORLDGEN.md](../WORLDGEN.md).
+
+## Decisions
+
+| Question | Decision |
+|---|---|
+| Scale | Planets keep their real size in the plan; the van can hop along roads between places |
+| Density | A village is the right typical visit, but **buildings must be sized to people**: today's houses are far too small next to the player's view (§5.1) |
+| Travel | **Continuous**: the player can walk and drive anywhere, across regions and borders; the world generates in chunks ahead of them from the planned geography |
+| Phones | **Full density** everywhere; instead, chunks are loaded and unloaded much more on demand (§6) |
+| People | Daily routines for now; no persistent lives between visits |
 
 ## 1. Where we are
 
@@ -54,6 +64,9 @@ chunk content     32 m            buildings from lots, props, plants, people, an
 
 ### 3.1 The surface grid (where places are)
 
+*Decided: continuous travel.* The player walks and drives across land, region and country borders
+without a loading screen; the next lands, regions and their plans are generated ahead of them.
+
 Today a land's address `planet.kK.nN.lL` means "land L of the one district of country N". To make the
 whole surface addressable, the walkable surface becomes one **planet-wide grid of regions** (32 km
 tiles on a cube sphere: six faces, each cut into square tiles; Earth-sized planets have about
@@ -77,7 +90,14 @@ planet.rR.lL        R = face × N² + row × N + column,   L = 16 × row + colum
 *Alternative considered:* keep per-country districts and only make them bigger (the whole country in
 its own tangent frame). Less migration, but countries would still not meet, distortion grows with
 country size, and a cross-border plan (a road from one kingdom to the next) would have no common
-ground. The surface grid is the cleaner long-term choice.
+ground. The surface grid is the cleaner long-term choice, and continuous travel needs it.
+
+*Real size, short trips.* With planets at their real size, towns are kilometres apart. Walking and
+driving cover the near surroundings; for longer distances the van **hops along roads**: from a
+signpost, the map or the console the player picks a place on the road network and the van drives
+there at speed with the land streaming past at low detail, slowing down on arrival (no vortex,
+the same planet). Only the lands at the destination and the far-ring view on the way are
+generated.
 
 ### 3.2 The planet atlas (what is everywhere)
 
@@ -155,7 +175,32 @@ of the living town's way.
 
 ## 5. Land layouts: places that look lived in
 
-### 5.1 Layout by culture
+### 5.1 Buildings at human scale
+
+*Decided: houses are too small next to the player.* Measured today: a generated house is 4–5 m
+wide and 3.3–4.3 m deep with storeys of 2.75 m, and the 64 × 64 × 40 voxel grid caps every building
+at 8 × 8 × 5 m; the player's eye is at 1.6 m, so a house reads like a garden shed. Buildings are
+planned in metres from the people who live in them and only then turned into voxels (0.125 m, as
+now, so detail stays):
+
+| | Today | Planned (people 1.7 m tall) |
+|---|---|---|
+| Storey | 2.75 m | 1.75 × people height, at least 3.0 m (floor to floor) |
+| Door | 1.15 × height | 1.25 × height, wider for wings and taurs |
+| Cottage / hamlet house | 4–5 × 3.3–4.3 m, 1 storey | 8 × 6 m, 1–1.5 storeys (loft in the roof) |
+| Village house | same | 10 × 8 m, 2 storeys, roof 3–5 m |
+| Farmhouse + barn | same | 12 × 8 m house, 14 × 9 m barn, yard between |
+| Town house | same | 6–8 m frontage × 10–12 m deep, 2–4 storeys, in rows |
+| Inn, hall, workshop | 0.85–1 × house | 14 × 10 m (inn, 2–3 storeys), 20 × 10 m (hall), 9 × 8 m (workshop) |
+| Temple | 1.3 × house | 14 × 24 m nave or a 6 m tower 12–20 m tall |
+| Largest model | 8 × 8 × 5 m | 24 × 24 × 16 m per model; larger buildings (palaces, walls) from several modules |
+
+Peoples of other sizes get buildings to their size (a 2.5 m people's doors and storeys are a third
+larger; a small people's are smaller, but never below what the player can walk through). Generation
+stays within its time budget: models are cached per style and kind, as now, and meshing uses the
+existing greedy voxel mesher.
+
+### 5.2 Layout by culture
 
 A settlement's layout is generated from its type, site and culture:
 
@@ -174,7 +219,7 @@ A settlement's layout is generated from its type, site and culture:
   green by season), hedges and fences, orchards in rows, gardens behind houses, village trees, and
   denser woods and undergrowth in the wild.
 
-### 5.2 Props and decoration
+### 5.3 Props and decoration
 
 Street furniture and the things of daily life, chosen from culture, technology and customs:
 lamps (oil, lantern, magic, electric), market stalls with the local food (from the customs),
@@ -183,14 +228,15 @@ the native language, banners with faith symbols, statues, gravestones in the peo
 custom (no graves where they burn their dead), and decorations on holidays from the calendar
 (lanterns for a full-moon feast, flowers for spring).
 
-### 5.3 People and animals
+### 5.4 People and animals
 
 * **How many**: from the settlement's population and the local time of day (the planet's day
   length and the visit's time already exist): a village square at midday is busy, at midnight a
   few lamplighters, guards and tavern guests; a feast night is crowded.
 * **Who**: roles from the society (farmers, merchants, priests, guards, crafters, children, elders,
   travellers of other peoples on trade roads), in their culture's dress and body.
-* **What they do**: simple routines on the layout: walk between home, work, market and temple
+* **What they do** (*decided: routines for now*; nobody's life persists between visits beyond the
+  characters of p21): simple routines on the layout: walk between home, work, market and temple
   along streets, tend stalls, work fields, sit, chat in pairs, follow processions on holidays,
   shelter from rain; children play; guards patrol walls.
 * **Lazy characters**: background people are cheap and nameless until the player talks to them;
@@ -199,13 +245,29 @@ custom (no graves where they burn their dead), and decorations on holidays from 
 * **Animals**: herds in pastures, chickens and dogs in yards, draught animals with carts, pets, and
   the wild creatures of the habitat at the edges.
 
-### 5.4 The van in a living place
+### 5.5 The van in a living place
 
 The van lands at a fitting spot (an inn yard, a field by the road, a harbour quay), can be driven
 along roads and through towns (§ van driving), and parked; people react to it (a crowd gathers
 where the Wanderer legend is told).
 
 ## 6. Making density affordable
+
+*Decided: full density on every device, phones included; instead, load and unload much more on
+demand.* The near world is always complete; what is not near or not ahead is not kept.
+
+**Streaming on demand.** Today 7 × 7 chunks of 32 m are kept around the player and one chunk is built
+per tick. Instead:
+
+* chunks are prioritised by distance and by the **direction of travel and speed**: driving loads a
+  long corridor ahead (along the road) and drops what falls behind; standing still loads a ring;
+* a fixed **resident budget** (entities, meshes, memory) per device class, with least recently used
+  chunks, models and textures released first;
+* chunk content is generated in **time slices** within the frame budget, nearest first, so arriving
+  or driving fast never stalls; the far ring stands in until the near chunk is ready;
+* lands, regions and their plans are generated ahead of the player along the predicted path (in the
+  background, as travel destinations are today) and forgotten when far behind (they are cheap to
+  regenerate; visited lands come back from the save).
 
 | Problem | Proposal |
 |---|---|
@@ -216,7 +278,7 @@ where the Wanderer legend is told).
 | 8 lights | Windows and lamps lit by vertex colour (unlit emissive), the 6 nearest real lights chosen per frame |
 | Generation time | Budgets per layer (atlas, region, land, chunk) checked in CI as in p24; chunk content generated during streaming within the frame budget |
 | Save size | Plans are never stored; a visited land stores its layout (streets, lots, fields: parameters, not instances) and the change log; per-chunk scatter is regenerated from seeds |
-| Phones | A density setting (low / medium / high) scaling props, plants, crowds and the far ring |
+| Phones | Full density; the resident budget and the far-ring distance adapt to the device, not the density |
 
 ## 7. What it changes in the game
 
@@ -242,30 +304,18 @@ where the Wanderer legend is told).
   travel and town frame checks, the save stress test with towns.
 * Compatibility: old saves keep their visited lands; fingerprints updated once.
 
-## 9. Proposed phases
+## 9. Phases
 
 | Phase | Change | What |
 |---|---|---|
-| 25 | `p25-planet-atlas` | Fertility, population, urbanisation, land use, settlement seeds and trade routes per cell; plan queries; statistics |
-| 26 | `p26-surface-grid-and-regions` | Planet-wide region grid (cube sphere), region level and addresses, version flag and save compatibility, region terrain and rivers |
-| 27 | `p27-settlement-network-and-roads` | Settlements in regions (types, sizes, specialties, condition), road network with bridges and harbours, land use areas, named features; commitments to real places |
-| 28 | `p28-engine-batching-and-lod` | Static batching, instancing, sprite batches, far-ring impostors, light selection (C, unit tests, coverage) |
-| 29 | `p29-settlement-layouts` | Plan forms by culture, streets and lots, more building kinds, fields, gardens and woods |
-| 30 | `p30-props-and-decoration` | Street furniture, market goods, graves by custom, signposts in the language, festival decorations |
-| 31 | `p31-living-people-and-animals` | Population to visible people, roles, routines by time of day, crowds, lazy characters, domestic animals |
-| 32 | `p32-integration-and-hardening` | Signals from named places, quests over real distances, map and codex, density settings, budgets and statistics |
+| 25 | `p25-human-scale-buildings` | Buildings planned in metres from their people's size, larger voxel grids, the sizes of §5.1; the player and villagers next to them |
+| 26 | `p26-planet-atlas` | Fertility, population, urbanisation, land use, settlement seeds and trade routes per cell; plan queries; statistics |
+| 27 | `p27-surface-grid-and-regions` | Planet-wide region grid (cube sphere), region level and addresses, continuous lands across region and country borders, region terrain and rivers, version flag and save compatibility |
+| 28 | `p28-settlement-network-and-roads` | Settlements in regions (types, sizes, specialties, condition), road network with bridges and harbours, land use areas, named features; commitments to real places |
+| 29 | `p29-streaming-batching-and-lod` | Streaming on demand (direction and speed, resident budgets, time slices, generation ahead), static batching, instancing, sprite batches, far ring, light selection |
+| 30 | `p30-settlement-layouts` | Plan forms by culture, streets and lots, more building kinds, fields, gardens and woods |
+| 31 | `p31-props-and-decoration` | Street furniture, market goods, graves by custom, signposts in the language, festival decorations |
+| 32 | `p32-people-routines-and-animals` | Population to visible people, roles, daily routines, crowds, lazy characters, domestic animals |
+| 33 | `p33-road-hops-and-integration` | Road hops of the van, signals from named places, quests over real distances, map and codex, statistics, budgets and the save stress test for towns |
 
 Each phase ends playable with all tests passing, as before.
-
-## 10. Questions to decide
-
-1. **Scale**: keep planets at their real size (Earth-like, with half a million regions, almost all
-   never generated) or compress them so that walking or driving between towns takes minutes, not
-   hours? (Proposal: real size for the plan, and the van can "hop" along roads between places.)
-2. **How dense**: are the sizes in §4.2 right, or should a typical visit be a town rather than a
-   village?
-3. **Continuous travel**: should the player be able to drive from one country into the next and on
-   (needs the surface grid), or is a larger area around each signal enough?
-4. **Phones**: which devices must run the "high" density, and is a lower density on phones fine?
-5. **People's depth**: are simple routines enough, or should people have homes, jobs and families
-   that persist between visits?

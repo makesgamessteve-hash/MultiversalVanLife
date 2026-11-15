@@ -1,6 +1,6 @@
 # Procedural multiverse roadmap
 
-The procedural multiverse is built in 24 small phases. Each phase is a separate
+The procedural multiverse is built in small phases (1–24 done, 25–33 planned). Each phase is a separate
 OpenSpec change in `openspec/changes/`, implemented, tested and archived on its own,
 so the main specs in `openspec/specs/` always describe the game as shipped.
 
@@ -37,6 +37,15 @@ Rules for every phase:
 | 22 | `p22-consequences-and-revisits` | 5 | signals-and-codex, world-memory | done |
 | 23 | `p23-codex` | 4 | signals-and-codex, world-memory | done |
 | 24 | `p24-worldgen-hardening` | 6 | quality-and-testing, save-games | done |
+| 25 | `p25-human-scale-buildings` | 4 | procedural-visuals | planned |
+| 26 | `p26-planet-atlas` | 4 | planet-generation | planned |
+| 27 | `p27-surface-grid-and-regions` | 5 | multiverse-generation, land-streaming, save-games | planned |
+| 28 | `p28-settlement-network-and-roads` | 5 | settlements (new), history-generation | planned |
+| 29 | `p29-streaming-batching-and-lod` | 5 | rendering, land-streaming, engine-core | planned |
+| 30 | `p30-settlement-layouts` | 4 | settlements, procedural-visuals | planned |
+| 31 | `p31-props-and-decoration` | 4 | settlements | planned |
+| 32 | `p32-people-routines-and-animals` | 4 | settlements, life-generation | planned |
+| 33 | `p33-road-hops-and-integration` | 5 | story-and-worlds, signals-and-codex, generated-quests, quality-and-testing | planned |
 
 ## Milestones
 
@@ -50,7 +59,8 @@ Rules for every phase:
 - **Phase 24**: hardening and release: variety statistics over 200 seeds, generation time budgets, a 200-land save
   budget and the web travel frame check guard every push.
 
-All 24 phases are done; the main specs in `openspec/specs/` describe the game as shipped.
+- **After phase 25**: buildings at human scale next to the player.
+- **After phase 29**: continuous travel across real-sized planets, every place part of a plan, towns affordable on every device.
+- **After phase 33**: living planets: dense villages, towns and cities with their people, things and animals; road hops, a map, signals and quests from real places.
 
-Next, under discussion: [living planets](concepts/living-planets.md), a plan for every place on a
-planet and dense, lived-in settlements (proposed phases 25–32).
+Phases 1–24 are done. Phases 25–33 follow the [living planets](concepts/living-planets.md) concept.
