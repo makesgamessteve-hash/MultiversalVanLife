@@ -1,6 +1,7 @@
 # Procedural multiverse roadmap
 
-The procedural multiverse is built in small phases (1–24 done, 25–33 planned). Each phase is a separate
+The procedural multiverse is built in small phases (1–25 done, 26–33 planned; Juniper's interior V1–V4 come
+before 26). Each phase is a separate
 OpenSpec change in `openspec/changes/`, implemented, tested and archived on its own,
 so the main specs in `openspec/specs/` always describe the game as shipped.
 
@@ -47,6 +48,18 @@ Rules for every phase:
 | 32 | `p32-people-routines-and-animals` | 4 | settlements, life-generation | planned |
 | 33 | `p33-road-hops-and-integration` | 5 | story-and-worlds, signals-and-codex, generated-quests, quality-and-testing | planned |
 
+### Juniper's interior
+
+The van's interior is rebuilt as a home without end before phase 26 (see the
+[Juniper's interior](concepts/juniper-interior.md) concept). The same rules apply.
+
+| Phase | Change | Tasks | Specs touched | Status |
+|---|---|---|---|---|
+| V1 | `v1-cosy-core` | 6 | van-interior (new), van-windows, story-and-worlds, scripting-api | planned |
+| V2 | `v2-endless-house` | 4 | van-interior | planned |
+| V3 | `v3-souvenir-wings` | 3 | van-interior | planned |
+| V4 | `v4-garden-planet` | 4 | van-interior, scripting-api | planned |
+
 ## Milestones
 
 - **After phase 4**: the current game with van windows, flicker-free decals, text-only dialogue and ElevenLabs sound and music.
@@ -60,6 +73,8 @@ Rules for every phase:
   budget and the web travel frame check guard every push.
 
 - **After phase 25**: buildings at human scale next to the player.
+- **After V4**: Juniper is a cosy home with souvenir wings of the peoples visited, rooms without end and a garden the
+  size of a small world.
 - **After phase 29**: continuous travel across real-sized planets, every place part of a plan, towns affordable on every device.
 - **After phase 33**: living planets: dense villages, towns and cities with their people, things and animals; road hops, a map, signals and quests from real places.
 
